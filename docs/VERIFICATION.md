@@ -42,6 +42,7 @@ cockpit 의 절반은 **정해진 입력에 정해진 출력**이다(봉투 · �
 | `test/events.test.js` · `test/web-cockpit.test.js` · `test/web-tabs.test.js` | M3 | 사건 접기 · 조종석 판 · 탭 | A · B |
 | `test/http-session.test.js` | M3 | 세션 조작 다섯 · 권한 | B |
 | `test/http-files.test.js` | M3 | 경로 봉인 · 미리보기 · 읽기 전용 | A |
+| `test/check.test.js` | M4 | `check` 의 ✗ 줄 · `claudePath --version` | A |
 
 ### 2.1 모의 SDK 의 규격 (`test/fakes/fake-query.js`)
 
@@ -89,7 +90,7 @@ npm test 2>&1 | grep '^✖'                  # 비어야 한다
 | `smoke/m2-approval.mjs` | M2 | 서버를 임시 포트에 띄우고 HTTP 로: 김과제(member)가 봇에게 `curl --version` 을 네 번 시키고, 김피엘(admin)이 거부 · 허용 · 이번 세션 허용으로 답한 뒤 넷째 판에 다시 묻는지 본다 (meta M2 지시 4절 2항) | 판마다 `CARD tool_use_id= tool= title= displayName= description= suppressAlwaysAllowRule= defaultToNo= suggestions=` · `ANSWER <decision> <status>` · `ROUND <n> …` · 끝에 `REASKED_AFTER_SESSION_ALLOW <N>` · `BASH_RAN_AFTER_SESSION_ALLOW yes|no` · `LOCK_MESSAGES <N>` · `ANSWER_MESSAGES <✅ 수> <⛔ 수>` | 승인 중계 왕복 · 🔒 글 셋 · ✅ 둘 · ⛔ 하나 · 이번 세션 허용 뒤 재요청 0 |
 | `smoke/m2-compact.mjs` | M2 (M3 에서 serve + admin API 로) | 진짜 `serve` 를 자식으로 띄우고 admin API 로 켜기 → 글 → 압축 → 글 → 끄기 (실증 5 의 말 셋 · 대본 s3 자리) | `START_API` · `COMPACT_API <status> queued=` · `COMPACTED yes|no` · `COMPACT_BOUNDARY pre= trigger= {compact_metadata}` · `SYSTEM_MESSAGES <N>` · `HANDOFF 정상|못 썼다|없음` · `HANDOFF_AT scratch|prodev …|none` · `FIRST_TEXT_AFTER <앞 40자>` · `HOOKS […]` · `STOP_API` | 압축 · system 글 둘 · 인수인계서가 스크래치 봇 폴더에 · 압축 뒤 첫 답 · admin API 가 손 걸음을 대신한다 |
 | `smoke/m3-restart.mjs` | M3 | TASKS M3.6: `serve` 묶음째 SIGKILL → 그 사이 글 둘 → 다시 띄움 → 답 둘, 끝에 admin API 로 끄기 · 켜기 (대본 s5 · s11 자리) | `RESUMED session_id=<uuid>|NEW` · `REDELIVERED <N>` · `BOT_REPLIES_AFTER_RESTART <N>` · `STOP_API` · `START_API_AGAIN … same_session=yes|no` | 재기동 되살림 · 놓친 글 · 끄고 켜도 같은 세션 |
-| `smoke/m4-sessions.mjs` | M4 | 세션 셋 5분 | `RSS_MB` 줄 여섯 | 상주 메모리 |
+| `smoke/m4-sessions.mjs` | M4 | 진짜 `serve` 를 자식으로 띄우고 admin API 로 과제 셋을 켜 한 번씩 답하게 한 뒤, 0~5분 1분마다 serve 와 그 밑 프로세스 나무의 상주 메모리 (맥 · 리눅스 `ps` · 윈도우 `Win32_Process.WorkingSetSize`) | `PLATFORM` · `START_API <과제>` 셋 · `WARM <과제>` 셋 · `RSS_MB <분> <서버> <자식 합>` 여섯 · `CHILD_PROCS <분> <수>` 여섯 · `STATES` · `STOP_API` 셋 | 상주 메모리 (P-W4.d, 회사 PC 판이 근거) |
 
 스모크가 **못 보는 것**: 회사 계정 · 회사 PC · 윈도우 env 키(W1 이 잰다) · 실전 과제의 판단 품질(E 층).
 

@@ -114,3 +114,22 @@ W2 관문에 필요하다고 한 넷: `serve --config` 로 서버가 뜬다 · `
 - **N11 값 바닥.** 위 고침(켤 때 적힌 값 + 프로세스 누적)이 meta 의 값 계측 뜻과 맞는가. 맞지 않으면 되돌리고 "프로세스마다 누적" 을 as-built 에 걸림으로만 둔다.
 - **N12 prodev PR #18** 머지 전에는 W3 재생 스크래치의 `COCKPIT_PRODEV_DIR` 을 `../prodev-wt-cockpit`(가지 `cockpit-m3`)로 둘지. worktree 가 이제 #17 가지가 아니라 #18 가지다.
 - **N13 화면 확인.** 조종석 판 · 파일 판은 브라우저에서 눌러 보지 않았다. W3 채점표에 화면 칸이 있으면 사람이 한 번 눌러 볼 자리가 필요하다.
+
+## 2026-09-14 — M4 윈도우 · 설치 · 문서 (M3.M 통과 뒤)
+
+**M3.M 통과** (meta: cockpit 열 칸 전부 ○ · R5 8/9 · 승인 재측정 R2+R4 합 4). 답: N11 값 바닥 인정(ARCHITECTURE 5.3 에 한 줄 + 도우미 값 포함 여부) · N12 PR #18 검수 통과, 이 절 도중에 머지됨(origin/main 1e02367, 본 체크아웃 당겨짐) — 그 뒤 스크래치 · 시험은 기본 `../prodev` · N13 화면은 사람이 회사 PC 설치 때 눌러 본다(설치 문서 마지막 걸음), 브라우저 스모크는 넣지 않음.
+
+커밋: M4.1 6ac834c · 더함① ecd65bc · M4.2 3a32bdd · M4.3 c618c56 · 더함②③ f370c84 · 문서(이 절). `npm test` 158건 실패 0 건너뜀 0 (기본 `../prodev`, 직접 실행).
+
+- **M4.1** 윈도우 건너뜀은 심볼릭 링크를 그 기계에서 만들어 보고 가른다(`test/fakes/platform.js`). 통째로 건너뜀 둘(`과제 폴더 밖을 가리키는 심볼릭 링크 404` · win32 의 `check — claudePath 를 불러 판을 낸다`), 링크 칸만 빠짐 셋 — 이름은 as-built 4.1. `COCKPIT_TEST_NO_SYMLINK=1` 로 이 맥에서 그 길을 돌려 157 중 156 통과 · 1 건너뜀 · 실패 0. 스크래치 폴더 링크는 윈도우에서 junction. **윈도우 실측은 사람이 회사 PC 에서.**
+- **M4.2** `check` 가 `claudePath --version` 을 불러 `✓ claudePath <판> — <경로>`. `docs/INSTALL-WINDOWS.md` 번호 걸음 12 (`grep -c '^[0-9]\+\. '` = 12) · 걸음마다 확인 명령 · PowerShell 한 줄 · 마지막 걸음 브라우저 판 셋.
+- **M4.3** `smoke/m4-sessions.mjs` — 이 맥 haiku 판: `RSS_MB` 0~5분 서버 58.2~84.1MB · 자식 합 477.2~832.8MB(자식 셋) · 값 $0.0906 · exit 0.
+- **더함** ① 윈도우 env 키 여섯 시험 ② ARCHITECTURE 5.3 값 한 줄 — SDK 0.3.270 형 정의상 `total_cost_usd` 는 도우미(Task 서브에이전트) · 사이드체인 · 압축을 포함, 파이프라인 밖 호출(권한 분류기 등)은 뺀다(형 정의를 읽은 것, 실측 아님) ③ README 쓰는 법 맥 · 윈도우.
+- **M4.4** as-built 를 절 여섯(폴더 나무 · 표 둘 · API · 시험 묶음과 건수 · 설계와 다르게 된 자리 · 알고 두는 것)으로. `tool_use` 입력 요약 "200자 뒤 줄임표 한 자" 를 적음(meta M3.M 3절).
+- 공용 스모크 도우미를 고친 뒤 `m3-restart` 를 기본 `../prodev` 로 다시 돌림: 같은 세션 resume · 재배달 2 · 답 2 · 끄고 켜도 같은 세션 · exit 0.
+
+스스로 정한 것: 링크가 전부가 아닌 시험은 통째로 건너뛰지 않고 링크 칸만 뺀다 · `check` 는 claudePath 가 없으면(맥) `·` 한 줄 · `server.mjs` 가 윈도우에서 `taskkill /T /F`.
+
+새 질문 (meta 에):
+- **N14 프록시 env.** 화이트리스트에 `HTTPS_PROXY` · `HTTP_PROXY` · `NO_PROXY` 가 없다(M4 시험이 그것을 못 박았다). 회사망이 프록시를 거쳐야 Claude 에 닿으면 봇 세션이 못 뜬다. W1.3 결과로 `extraEnvKeys` 에 넣을지, 기본 목록에 넣을지.
+- **N15 `m4-sessions` 의 윈도우 갈래**(`powershell.exe Get-CimInstance` · `taskkill`)는 문법만 봤다. 회사 PC 판이 첫 실행이다.

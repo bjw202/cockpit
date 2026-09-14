@@ -194,6 +194,7 @@ meta 의 관문과의 짝: **M1 · M2 = W2(서버 뼈대)**, **M3 = W3(조종석
 
 ### M4.1 윈도우에서 시험
 - 끝 조건: 윈도우(PowerShell)에서 `npm test` 요약 `# fail 0`. 윈도우에서만 건너뛰는 시험은 이름을 `docs/as-built.md` 에 적는다(심볼릭 링크 시험 등). 줄 수를 세어 적는다
+- (M4 지시) 윈도우 실측은 사람이 회사 PC 에서 돌려 meta 에 준다. cockpit 은 건너뛸 조건을 `test/fakes/platform.js` 로 갈라 두고 이름을 as-built 4.1 에 적는다 — 제작 세션의 보고는 근거가 아니다
 
 ### M4.2 설치 명령과 문서
 - 산출: `docs/INSTALL-WINDOWS.md` · `bin/cockpit.js check` 가 윈도우에서 `claude --version` 을 `claudePath` 로 불러 판을 낸다
@@ -202,6 +203,11 @@ meta 의 관문과의 짝: **M1 · M2 = W2(서버 뼈대)**, **M3 = W3(조종석
 ### M4.3 자원 계측 스크립트
 - 산출: `smoke/m4-sessions.mjs` — 세션 셋을 켠 채 5분 동안 서버 · CLI 자식 프로세스의 상주 메모리를 1분마다 적는다. 내는 줄: `RSS_MB <분> <서버> <자식 합>`
 - 끝 조건(파일): 스크립트가 있다. 판정(P-W4.d)은 meta
+
+### M4 더함 셋 (meta 지시 `instructions/M4.md` 4절, 2026-09-14)
+- ① 끝 조건: `test/sdk-options.test.js` — `윈도우 키 여섯(USERPROFILE · APPDATA · LOCALAPPDATA · TEMP · SystemRoot · ComSpec)이 실리고 그 밖 키는 안 실린다`
+- ② 끝 조건(파일): `docs/ARCHITECTURE.md` 5.3 에 "재기동 뒤 값 = 정지 시점 값(바닥) + 새 프로세스 누적" 과 도우미 값 포함 여부 한 줄
+- ③ 끝 조건(파일): `README.md` "쓰는 법" 에 맥 · 윈도우(PowerShell) 명령이 나란히
 
 ### M4.4 as-built
 - 끝 조건: `docs/as-built.md` 에 절 여섯(폴더 나무 · 표 둘 · API · 시험 묶음과 건수 · 설계와 다르게 된 자리 · 알고 두는 것)이 있다
