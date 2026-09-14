@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cockpit</title>
+<link rel="stylesheet" href="style.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<section id="login" class="login" hidden>
+  <form id="login-form" class="login-box">
+    <h1>cockpit</h1>
+    <label>이름 <input name="username" autocomplete="username" required></label>
+    <label>비밀번호 <input name="password" type="password" autocomplete="current-password" required></label>
+    <button type="submit">들어가기</button>
+    <p id="login-error" class="error" role="alert"></p>
+  </form>
+</section>
+
+<section id="app" class="app" hidden>
+  <header class="topbar">
+    <strong class="brand">cockpit</strong>
+    <nav id="tabs" class="tabs" aria-label="과제"></nav>
+    <span id="me" class="me"></span>
+    <button id="logout" type="button" class="quiet">나가기</button>
+  </header>
+
+  <main class="layout">
+    <section class="chat" aria-label="채팅">
+      <div class="chat-head">
+        <div class="rooms" role="tablist" aria-label="방">
+          <button type="button" role="tab" data-room="main">본방</button>
+          <button type="button" role="tab" data-room="files">파일방</button>
+        </div>
+        <span id="room-name" class="room-name"></span>
+        <span id="bot-chip" class="chip" hidden></span>
+      </div>
+      <ol id="messages" class="messages" aria-live="polite"></ol>
+      <p id="partial" class="partial" hidden></p>
+      <form id="composer" class="composer">
+        <ul id="pending-files" class="pending-files"></ul>
+        <textarea id="body" name="body" rows="3" placeholder="글을 쓰세요 — Ctrl+Enter 로 보냅니다. 그림은 붙여넣어도 됩니다"></textarea>
+        <div class="composer-row">
+          <label class="file-pick">첨부 <input id="file-input" type="file" multiple></label>
+          <span id="send-error" class="error" role="alert"></span>
+          <button type="submit">보내기</button>
+        </div>
+      </form>
+    </section>
+
+    <aside class="side">
+      <section class="panel" aria-label="승인 카드">
+        <h2>승인 카드</h2>
+        <div id="cards" class="cards"><p class="empty">걸린 요청이 없습니다</p></div>
+      </section>
+      <section id="admin-panel" class="panel" aria-label="과제 열기" hidden>
+        <h2>과제 열기</h2>
+        <form id="open-project" class="open-project">
+          <label>과제 이름 <input name="name" required></label>
+          <label>봇 이름 <input name="bot_name" placeholder="비우면 prodev-과제-bot"></label>
+          <button type="submit">열기</button>
+          <p id="open-error" class="error" role="alert"></p>
+        </form>
+      </section>
+    </aside>
+  </main>
+</section>
+</body>
+</html>
