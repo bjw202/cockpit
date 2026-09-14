@@ -19,21 +19,29 @@ node smoke/m2-compact.mjs  <스크래치 폴더> [모델] [--no-origin]
 - 모델 기본은 `claude-haiku-4-5-20251001` (값을 줄이려고). 관문에서는 실전 모델을 준다.
 - 형제 prodev 자리는 `COCKPIT_PRODEV_DIR`, 없으면 `../prodev`. 윈도우는 `COCKPIT_CLAUDE_PATH` 에 `claude.exe` 절대 경로.
 
-## 스크래치 폴더에 생기는 것 (`smoke/lib.mjs` 의 `makeScratch`)
+## 스크래치 폴더에 생기는 것 (`smoke/scratch.mjs` 의 `makeScratch` — SDK 를 안 싣는다)
 
 ```
 <스크래치>/
   data/chat.db · data/cockpit.db
   uploads/
-  projects/smoke/            과제 폴더 (setup.js 의 하위 폴더들 · charter.md 에 PL: 김피엘 · house.md)
-  bots/prodev-smoke-bot/     봇 폴더 — 실증과 같은 방법
-    CLAUDE.md                prodev/CLAUDE.md 사본
-    .claude/settings.json    prodev/common/settings.template.json 을 스크래치 경로로 채운 사본
-    .claude/skills · agents  prodev/.claude/{skills,agents} 심볼릭 링크
+  projects/smoke/              과제 폴더 (setup.js 의 하위 폴더들 · charter.md 에 PL: 김피엘 · house.md)
+  prodev/                      prodev 뿌리 흉내 (meta W2r.3) — 봇이 ../../scripts/find.js 를 찾는 자리
+    scripts · common           실제 prodev 의 것으로 심볼릭 링크
+    CLAUDE.md · .claude/{skills,agents}   사본 · 링크
+    bots/prodev-smoke-bot/     봇 폴더 (cockpit 설정의 botsDir = <스크래치>/prodev/bots)
+      CLAUDE.md                prodev/CLAUDE.md 사본
+      .claude/settings.json        훅 · env · statusLine · autoCompact
+      .claude/settings.local.json  허용 · 거부 (permissions)
+      .claude/skills · agents  prodev/.claude/{skills,agents} 심볼릭 링크
   marker-hook.mjs · pretooluse-marker.json   표식 훅과 그 출력
 ```
 
-prodev PR(W2.9) 전이라 설정 사본에서 셋을 바꾼다: 도구 이름 `mcp__minidiscord-channel__*` → `mcp__cockpit__*` · `MINIDISCORD_URL` 뺌 · deny 에 `cockpit.db` 의 `Read` · `Edit` · `Write`. `MINIDISCORD_DB` 는 스크래치 `chat.db`. `PRODEV_BOT_DIR` 은 cockpit 이 봇 폴더(스크래치)로 준다 — 훅의 인수인계서가 실제 봇 폴더를 덮지 않는다.
+**설정이 두 파일인 까닭.** headless/SDK 세션은 프로젝트 `.claude/settings.json` 의 `permissions.allow` 를 읽지 않고, `.claude/settings.local.json` 의 규칙은 먹는다 (meta 가 W2 재생 중에 갈랐다). 그래서 permissions 절만 local 로 떼어 쓴다. prodev 에 `common/settings.local.template.json` 이 있으면(W2.9 뒤) 그것을 채운다.
+
+prodev PR(W2.9) 전의 템플릿이면 사본에서 바꾼다: 도구 이름 `mcp__minidiscord-channel__*` → `mcp__cockpit__*` · `MINIDISCORD_URL` 뺌. 어느 쪽이든 deny 에 `cockpit.db` 의 `Read` · `Edit` · `Write` 를 더한다. `MINIDISCORD_DB` 는 스크래치 `chat.db`. `PRODEV_BOT_DIR` 은 cockpit 이 봇 폴더(스크래치)로 준다 — 훅의 인수인계서가 실제 봇 폴더를 덮지 않는다.
+
+**돌린 뒤 볼 것.** `settings.local.json` 은 스크래치가 쓴 그대로여야 한다 — "이번 세션 허용" 이 봇 폴더에 영구 규칙을 남기지 않는다(meta N7). `m2-approval` 의 `LOCAL_SETTINGS_CHANGED no []` 줄이 그것을 낸다. (W2 판정 지시는 "파일이 없어야 한다" 였지만, 이제 스크래치가 허용 목록을 그 파일에 쓰므로 "바뀌지 않아야 한다" 로 본다.)
 
 ## 내는 줄
 

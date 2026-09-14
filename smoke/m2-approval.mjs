@@ -8,7 +8,7 @@
 // 내는 줄: ROUND · CARD · ANSWER · REASKED_AFTER_SESSION_ALLOW · BASH_RAN_AFTER_SESSION_ALLOW · LOCK_MESSAGES · ANSWER_MESSAGES · ASKED · COST_USD
 // 판정하지 않는다.
 
-import { makeScratch, DEFAULT_MODEL, events, resultCount } from './lib.mjs';
+import { makeScratch, localSettingsDrift, DEFAULT_MODEL, events, resultCount } from './lib.mjs';
 import { openRuntime } from '../src/runtime.js';
 import { sdkBinding } from '../src/session/sdk-query.js';
 import { createServer } from '../src/http/server.js';
@@ -83,6 +83,9 @@ try {
   }
 
   const sys = rt.chatDb.messagesAfter(main.id, 0).filter(m => m.author_type === 'system').map(m => m.body);
+  // 이번 세션 허용은 destination=session 이라 봇 폴더 설정 파일을 바꾸지 않아야 한다 (meta N7 · W2-refix 4절)
+  const drift = localSettingsDrift(d);
+  console.log(`LOCAL_SETTINGS_CHANGED ${drift.changed ? 'yes' : 'no'} ${JSON.stringify(drift.added)}`);
   console.log(`REASKED_AFTER_SESSION_ALLOW ${reasked}`);
   console.log(`BASH_RAN_AFTER_SESSION_ALLOW ${bashRanInLast ? 'yes' : 'no'}`);
   console.log(`LOCK_MESSAGES ${sys.filter(b => b.startsWith('🔒')).length}`);
