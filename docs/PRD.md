@@ -38,16 +38,16 @@
 |---|---|---|
 | F1 | 과제 하나 = 봇 세션 하나 = **살아 있는** `query()` 하나. 글이 올 때마다 새 세션을 띄우지 않는다 (R0) | 같은 과제에 글 셋을 넣으면 `agent_sessions.session_id` 가 하나다 |
 | F2 | 과제 하나 = 방 둘: 본방 `prodev-<과제>` · 파일방 `prodev-<과제>/files`. 이름의 첫 `/` 가 갈래다 | `GET /api/rooms` 에 두 이름이 있다 |
-| F3 | 사람 글을 저장할 때 봉투를 파싱해 `message_targets` 행을 넣는다. **본방에서 봉투 없는 글은 그 과제 봇에게 `to`** 로 넣는다 | `chat.js --json` 의 `targets` 칸이 `prodev-<과제>-bot:to` |
+| F3 | 사람 글을 저장할 때 봉투를 파싱해 `message_targets` 행을 넣는다. **본방에서 봉투 없는 글은 그 과제 봇에게 `to`** 로 넣는다. 봇 이름은 과제를 열 때 정한다(기본 `prodev-<과제>-bot`, 옛 대본은 `prodev-worktogether-비서` 꼴). 별칭은 없다 — 방의 봇이 아닌 이름은 400 | `chat.js --json` 의 `targets` 칸이 `<봇 이름>:to` |
 | F4 | 봇에게 가는 글은 채널 플러그인과 같은 꼴이다: `[<이름>] <본문>` + 첨부가 있으면 `(첨부 파일 경로: <절대경로>, …)` + `to` 이면 안내 줄 + meta 여섯 | 봉투 씌우기 단위 시험이 채널 플러그인의 문자열과 글자 그대로 같다 |
 | F5 | 도구 둘을 채널 플러그인과 같은 서명으로 준다: `reply(chat_id?, text, files?)` · `fetch_history(chat_id?, since_id?, since?, until?, speaker?, limit?)`. 전체 이름은 `mcp__cockpit__reply` · `mcp__cockpit__fetch_history` | 도구 서명 시험 · 진짜 SDK 스모크에서 봇이 `mcp__cockpit__reply` 를 부른다 |
 | F6 | 절단 상한 다섯이 채널 플러그인과 같다 (본문 4000B · 첨부 20 · 경로 512B · 이력 16000B · 이름 256B). 중화 뒤에 자르고, 이력은 새것부터 버린다 | 절단 시험 |
 | F7 | 봇의 `reply` 는 prodev 의 pre-reply 훅을 거친 뒤에만 방에 `author_type='bot'` 글로 남는다. 훅이 막으면 글이 안 남는다 | 스모크: 901자 `reply` → 방에 글 0 |
-| F8 | 큐는 세션이 `idle` 일 때만 푼다. admin 의 멈춤(`interrupt`) · `/compact` 는 큐를 거치지 않고 곧바로 간다. 승인 대기 중에도 큐는 기다린다 | 모의 SDK 시험: working 중에 들어온 글이 result 뒤에 간다 |
+| F8 | 큐는 세션이 `idle` 일 때만 푼다. 큐를 거치지 않고 곧바로 가는 것은 admin 의 멈춤(`interrupt`) 하나뿐이다. admin 의 `/compact` 도 `idle` 을 기다린다(급하면 멈춤 → 압축). 승인 대기 중에도 큐는 기다린다 (meta D0 Q12) | 모의 SDK 시험: working 중에 들어온 글과 `/compact` 가 result 뒤에 간다 |
 | F9 | 서버가 죽었다 살아나면 `agent_sessions.session_id` 로 `resume` 하고, `bot_inbox` 에서 `delivered_at IS NULL` 인 글을 id 순서대로 다시 넣는다 | 재기동 시험(모의) · 재기동 대본(진짜, meta) |
 | F10 | 허용 목록 밖 도구는 승인 카드로 온다. 카드는 admin 에게만 버튼이 있다. 요청 키는 `toolUseID`, 도우미 안의 요청은 `agentID` 도 적는다. **요청마다 첫 답이 이긴다.** N분(기본 10) 무응답이면 거부 | 승인 중계 시험 (도우미 둘 동시 · 두 admin 동시 답 · 시간 초과) |
 | F11 | 카드는 SDK 가 준 `title · displayName · description` 을 그대로 쓴다. "이번 세션 허용" 버튼은 `suppressAlwaysAllowRule` 이면 숨기고, `defaultToNo` 면 기본 선택을 거부에 둔다 | 카드 그리기 시험 |
-| F12 | 승인 요청과 답을 본방에 `author_type='system'` 글 한 줄씩(🔒)으로도 남긴다 | `chat.js search 🔒` 가 요청 · 답을 낸다 |
+| F12 | 승인 요청과 답을 본방에 `author_type='system'` 글 한 줄씩으로도 남긴다. 요청 줄만 🔒, 답 줄은 ✅(허용 · 이번 세션 허용) · ⛔(거부 · 시간 초과) — `weekly` 의 🔒 수 = 요청 수 (meta D0 Q7) | `chat.js search 🔒` 가 요청만 낸다 |
 | F13 | 로그인한 사람만 들어온다. 로컬 계정 · 비밀번호 해시 · `HttpOnly SameSite=Lax` 쿠키. 첫 admin 은 명령 한 줄로 만든다 | 계정 시험 · `node bin/cockpit.js init-admin` |
 | F14 | HTTP 길 셋은 minidiscord 와 같은 모양이다: `GET /api/rooms` · `POST /api/rooms/:id/messages`(multipart 만) · `GET /api/rooms/:id/messages?after=` — meta 의 `prodev/scripts/replay.js` 가 고치지 않고 돈다 | 계약 시험: 진짜 `replay.js` 를 cockpit 에 붙여 돌린다 |
 | F15 | 화면 셋: **채팅 판**(방 둘 · 첨부 · 봇 상태 · 압축 경계) · **조종석 판**(도구 · 도우미 · 훅 · 값 · 문맥 · 모델 · 승인 카드 · 세션 조작) · **파일 판**(과제 폴더 읽기 전용 트리 · 미리보기) | 화면 시험 (M2 · M3) |

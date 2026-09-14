@@ -67,7 +67,9 @@ meta 의 관문과의 짝: **M1 · M2 = W2(서버 뼈대)**, **M3 = W3(조종석
   - `working 중에 들어온 글은 result 뒤에 간다`
   - `idle 에서 밀린 글 셋은 사용자 메시지 하나에 id 순으로`
   - `waiting_approval 중에는 큐를 안 푼다`
-  - `interrupt 와 /compact 는 큐를 거치지 않는다`
+  - `interrupt 는 큐를 거치지 않는다`
+  - `/compact 는 idle 을 기다렸다가 밀린 글보다 먼저 들어간다`
+  - `채팅 글에는 origin channel/cockpit, /compact 에는 origin human`
   - `넷째 세션은 거절(maxSessions 3)`
   - `재기동: 새 manager 가 stopped 아닌 줄을 resume:session_id 로 켜고 delivered_at IS NULL 을 순서대로 넣는다`
   - `resume 실패면 새 세션으로 켜고 session_events 에 까닭`
@@ -119,12 +121,12 @@ meta 의 관문과의 짝: **M1 · M2 = W2(서버 뼈대)**, **M3 = W3(조종석
   - `approvalTimeoutMin 이 지나면 deny 와 behavior=timeout`
   - `allow_session 은 updatedPermissions=suggestions` · `suppressAlwaysAllowRule 이면 allow_session 400`
   - `signal abort 면 behavior=cancelled`
-  - `답마다 본방 system 글 🔒 한 줄` · `걸린 요청이 0 이 되면 state working`
+  - `답마다 본방 system 글 한 줄(허용 ✅ · 거부와 시간 초과 ⛔, 🔒 는 없다)` · `걸린 요청이 0 이 되면 state working`
 
 ### M2.5 채팅 판 (화면)
 - 산출: `web/index.html` · `app.js` · `chat.js` · `markdown.js`(minidiscord 사본, 출처 핀) · `style.css`
 - 끝 조건: `test/web-static.test.js` — `web/ 의 어느 파일에도 http:// · https:// 로 시작하는 외부 src/href 가 없다` · `모든 <script> 가 type=module` · `innerHTML 대입이 markdown.js 밖에 없다` (정적 검사)
-- 끝 조건(화면): `test/web-chat.test.js` — 화면 모듈의 순수 함수(글 → DOM 조각 모양 · 봉투 기본값 · 표식 강조 · 봇 상태 칩 글자)를 DOM 없이 시험한다: `본방 입력칸 기본값은 @TO(prodev-<과제>-bot) ` · `[카드] 첫 줄 강조` · `system 🔒 글 모양` · `상태 칩 넷(생각 중 · 도구 실행 중 · 승인 대기 · 꺼짐)`
+- 끝 조건(화면): `test/web-chat.test.js` — 화면 모듈의 순수 함수(글 → DOM 조각 모양 · 봉투 기본값 · 표식 강조 · 봇 상태 칩 글자)를 DOM 없이 시험한다: `본방 입력칸 기본값은 @TO(<그 과제 봇의 실제 이름>) ` · `[카드] 첫 줄 강조` · `system 🔒 글 모양` · `상태 칩 넷(생각 중 · 도구 실행 중 · 승인 대기 · 꺼짐)`
 
 ### M2.6 승인 카드 (화면, 글자만)
 - 끝 조건: `test/web-card.test.js` — `title 이 있으면 title, 없으면 displayName` · `suppressAlwaysAllowRule 이면 이번 세션 허용 단추가 없다` · `defaultToNo 면 초점이 거부` · `member 화면에는 단추가 없다` · `permission_resolved 를 받으면 카드를 거둔다`
@@ -150,7 +152,7 @@ meta 의 관문과의 짝: **M1 · M2 = W2(서버 뼈대)**, **M3 = W3(조종석
 
 ### M3.3 세션 조작
 - 산출: `POST /api/projects/:name/session/{start,stop,interrupt,compact,restart}` · `tasks/:taskId/stop`
-- 끝 조건: `test/http-session.test.js` — `다섯 길 모두 member 403` · `start 넷째는 409` · `interrupt 는 queryFn.interrupt 1회` · `compact 는 /compact 를 곧바로` · `stop 은 백그라운드 도우미가 있으면 목록을 내고 confirm=1 이 있어야 close` · `task stop 은 stopTask(id)`
+- 끝 조건: `test/http-session.test.js` — `다섯 길 모두 member 403` · `start 넷째는 409` · `interrupt 는 queryFn.interrupt 1회` · `compact 는 working 이면 걸어 두고 idle 에 넣는다` · `stop 은 백그라운드 도우미가 있으면 목록을 내고 confirm=1 이 있어야 close` · `task stop 은 stopTask(id)`
 
 ### M3.4 파일 판
 - 산출: `routes-files.js` · `web/files.js`

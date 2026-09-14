@@ -84,10 +84,10 @@ npm test 2>&1 | grep '^not ok'             # 비어야 한다
 | 스크립트 | 마일스톤 | 무엇을 하나 | 내는 줄 | 보는 것 |
 |---|---|---|---|---|
 | `smoke/m1-hello.mjs` | M1 | cockpit 세션 관리자 + 진짜 SDK 로 본방 `안녕` → 답 | `SESSION_ID` · `SYSTEM_PROMPT` · `BOT_REPLY message_id= room=` · `PRE_REPLY_MARKER yes|no` · `ASKED […]` | 하네스가 실리고 · 봇이 `mcp__cockpit__reply` 를 부르고 · pre-reply 표식이 생기고 · `reply` 가 콜백으로 안 오고(ASKED 에 없음) · `chat.js tail` 에 봇 글 |
-| `smoke/m1-envelope.mjs` | M1 | `@CC` 글 하나 뒤 `@TO` 글 하나, 파일방에 첨부 하나 | `REPLY_CHAT_ID <N>` · `REPLIED_TO_CC yes|no` · `READ_ATTACHMENT yes|no` | `<channel>` 글 꼴로 봇이 `chat_id` 를 되돌리고 · `cc` 에 답하지 않고 · 첨부 절대 경로를 `Read` 하나 (ADR-013 의 확인) |
+| `smoke/m1-envelope.mjs` | M1 | `@CC` 글 하나 뒤 `@TO` 글 하나, 파일방에 첨부 하나. `--no-origin` 이면 origin 스탬프 없이 | `ORIGIN channel|none` · `SESSION_START_HOOK yes|no` · `PRE_REPLY_MARKER yes|no` · `REPLY_CHAT_ID <N>` · `REPLIED_TO_CC yes|no` · `READ_ATTACHMENT yes|no` | `<channel>` 글 꼴로 봇이 `chat_id` 를 되돌리고 · `cc` 에 답하지 않고 · 첨부 절대 경로를 `Read` 하나 · origin 을 스탬프해도 훅 둘과 `reply` 가 도나 (ADR-013 의 확인) |
 | `smoke/m1-guard.mjs` | M1 | 봇에게 1200자 `reply` 를 시킨다 | `HOOK_BLOCKED yes|no` · `ROOM_MESSAGES_FROM_BOT <N>` | pre-reply 훅이 막으면 방에 봇 글 0 (F7) |
-| `smoke/m2-approval.mjs` | M2 | 봇에게 `curl --version` 을 시키고 스크립트가 admin 역할로 거부 한 번 · 다시 시켜 허용 한 번 | `CARD tool_use_id= tool=Bash` · `ANSWER deny 200` · `ANSWER allow 200` · `LOCK_MESSAGES <N>` | 승인 중계 왕복 · 🔒 글 넷 |
-| `smoke/m2-compact.mjs` | M2 | 글 → admin `/compact` → 글 (실증 5 의 말 셋) | `COMPACT_BOUNDARY pre= post=` · `SYSTEM_MESSAGES <N>` · `HANDOFF 정상|못 썼다` · `FIRST_TEXT_AFTER <앞 40자>` | 압축 · 훅 둘 · system 글 둘 · 인수인계서 |
+| `smoke/m2-approval.mjs` | M2 | 봇에게 `curl --version` 을 시키고 스크립트가 admin 역할로 거부 한 번 · 다시 시켜 허용 한 번 | `CARD tool_use_id= tool=Bash` · `ANSWER deny 200` · `ANSWER allow 200` · `LOCK_MESSAGES <N>` · `ANSWER_MESSAGES <✅ 수> <⛔ 수>` | 승인 중계 왕복 · 🔒 글 둘 · ✅ 하나 · ⛔ 하나 |
+| `smoke/m2-compact.mjs` | M2 | 글 → `idle` 에서 admin `/compact` → 글 (실증 5 의 말 셋) | `COMPACT_BOUNDARY pre= post=` · `SYSTEM_MESSAGES <N>` · `HANDOFF 정상|못 썼다` · `FIRST_TEXT_AFTER <앞 40자>` | 압축 · 훅 둘 · system 글 둘 · 인수인계서 |
 | `smoke/m3-restart.mjs` | M3 | TASKS M3.6 | `RESUMED` · `REDELIVERED` · `BOT_REPLIES_AFTER_RESTART` | 재기동 되살림 · 놓친 글 |
 | `smoke/m4-sessions.mjs` | M4 | 세션 셋 5분 | `RSS_MB` 줄 여섯 | 상주 메모리 |
 

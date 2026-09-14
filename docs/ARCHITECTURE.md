@@ -51,7 +51,7 @@
 |---|---|---|
 | `users` | `id · username · created_at` | 계정을 만들 때 한 줄. `username` 은 **charter 의 `PL:` 과 글자 그대로**(결재 대조). 비밀번호 · 역할은 여기 두지 않는다 |
 | `rooms` | `id · name · status · created_at · archived_at` | 과제를 열 때 둘: `prodev-<과제>` · `prodev-<과제>/files`. 과제 이름은 방 이름에서 첫 `/` 앞으로 푼다 (`places.js` 의 `roomParts` 와 같은 규칙) |
-| `bots` | `id · name · description · token · role · created_at` | 과제마다 `prodev-<과제>-bot` 한 줄. `token` 은 `UNIQUE NOT NULL` 이라 **봇마다 다른 uuid** 를 넣는다 (쓰이지 않는다). `role` 은 `orchestrator` |
+| `bots` | `id · name · description · token · role · created_at` | 과제마다 한 줄. 이름은 과제를 열 때 준다(기본 `prodev-<과제>-bot`, 옛 대본은 `prodev-worktogether-비서` 꼴이라 그 이름으로 연다). 봉투 · 화면 기본값 · `targets` 칸이 모두 이 이름을 쓴다 — 아래 `prodev-<과제>-bot` 은 이 값의 자리 표시다. `token` 은 `UNIQUE NOT NULL` 이라 **봇마다 다른 uuid** 를 넣는다 (쓰이지 않는다). `role` 은 `orchestrator` |
 | `messages` | `id · room_id · author_type(user/bot/system) · author_user_id · author_bot_id · body · created_at` | 사람 글 · 봇 `reply` · system 글(승인 · 압축). `body` 는 봉투 문자열을 그대로 둔다 (`pre-reply.js` 가 벗긴다) |
 | `attachments` | `id · message_id · filename · stored_path · size · mime` | 저장명 `<uuid>-<원래 이름>`. **`stored_path` 는 `path.resolve(dirname(chat.db), '..', stored_path)` 가 실제 파일이 되는 상대 경로**다 — `chat.js show`(`chat.js:193`)가 그렇게 푼다. 곧 `path.relative(dirname(dirname(chat.db)), 절대경로)` 로 적는다 |
 | `message_targets` | `message_id · bot_id · delivery(to/cc)` | 글을 넣는 같은 트랜잭션에서 봉투 파싱(4.3)의 결과를 넣는다 |
@@ -103,6 +103,21 @@ POST /api/rooms/:id/messages (multipart)
   ⑤ 도구 결과 content: [{ type:'text', text:'sent' }]
 ```
 
+**도구 둘의 서명 — 채널 플러그인(`channel-server.ts:136-167`)과 글자 그대로:**
+
+```
+mcp__cockpit__reply(chat_id?: string, text: string, files?: string[])
+  필수는 text 하나. chat_id 는 받은 글의 chat_id(방 번호). files 는 내 PC 의 절대 경로.
+  결과 content: [{ type:'text', text:'sent' }]
+
+mcp__cockpit__fetch_history(chat_id?: string, since_id?: number, since?: string, until?: string, speaker?: string, limit?: number)
+  필수 없음. since · until 은 ISO 시각, speaker 는 작성자 이름, limit 기본 100 · 상한 500.
+  결과 content: [{ type:'text', text: <JSON 한 건> }]
+  JSON 꼴: { "cursor": <실린 것 중 최대 id 또는 null>, "messages": [ { "id", "at", "author", "body" }, … ] }
+```
+
+`fetch_history` 의 규칙 (`minidiscord/channel/src/index.ts:85-111` 과 같다): `author` · `body` 는 중화 뒤 절단(이름 256B · 본문 4000B), `id` · `at`(= `created_at`) 은 그대로. JSON 전체가 16000B 를 넘으면 **새것부터** 버린다. 빈 이력도 같은 꼴(`cursor: null`). 한 자리만 다르다: `since_id` · `since` · `until` · `speaker` 를 `limit` 보다 **먼저** 건다(OD-9 를 물려받지 않는다). `since_id` 가 있으면 그 뒤의 오래된 것부터 `limit` 개, 없으면 최근 `limit` 개를 id 오름차순으로 낸다.
+
 봇 글의 봉투(`@TO(…)`)는 첫 판에서 파싱만 하고 **봇에게 되돌려 배달하지 않는다** — 봇이 하나라 받을 봇이 자기 자신뿐이다.
 
 ### 4.3 봉투 파싱 규칙
@@ -144,7 +159,8 @@ POST /api/rooms/:id/messages (multipart)
 - 세션 상태가 **`idle` 일 때만** 푼다. `working` · `waiting_approval` · `starting` 이면 기다린다. 턴 도중에 넣으면 SDK 가 그 턴에 접어 넣어 봇이 두 일을 한 턴에 섞는다 (DESIGN 4.2).
 - 풀 때는 그 봇의 `delivered_at IS NULL` 행을 **id 순서대로 모두**(상한 20) 꺼내 사용자 메시지 **하나**에 4.4 의 덩이를 차례로 담는다. 넣은 즉시 `delivered_at` 을 적고 상태를 `working` 으로.
 - `cc` 만 밀려 있어도 푼다 — 채널 판에서도 `cc` 는 세션에 들어갔다.
-- **예외 둘은 큐를 거치지 않는다**: admin 의 멈춤은 `query.interrupt()` 를 곧바로, admin 의 압축은 `/compact` 사용자 메시지를 곧바로 넣는다.
+- **큐를 거치지 않는 것은 멈춤 하나뿐이다**: admin 의 멈춤은 `query.interrupt()` 를 곧바로 부른다. admin 의 압축은 `/compact` 를 걸어 두었다가 **다음 `idle` 에** 밀린 글보다 먼저 넣는다 (meta D0 Q12 — 턴 중 압축은 미실증). 급하면 멈춤 → 압축.
+- 사용자 메시지에는 `origin` 을 스탬프한다: 채팅 글은 `{ kind:'channel', server:'cockpit' }`, admin 의 `/compact` 는 `{ kind:'human' }` (ADR-013).
 - 재기동 뒤: `resume` 이 `idle` 에 닿으면 남은 행을 같은 규칙으로 푼다. `delivered_at` 을 적은 뒤 턴이 끝나기 전에 서버가 죽은 글은 **다시 넣지 않는다** — 봇이 켜질 때 `chat.js since` 로 따라잡는다 (prodev ADR-010 · 021).
 
 ## 5. 세션 생명주기
@@ -183,7 +199,7 @@ stateDiagram-v2
 | 큐 | 4.5 |
 | 진행 | 5.3 의 메시지를 접어 `session_events` 에 적고 SSE 로 흘린다 |
 | 승인 | 6절 |
-| 압축 | 자동은 SDK 가 한다(봇 설정 `autoCompactWindow`). 수동은 admin. `system/status` 가 압축 시작을 알리면 본방에 "문맥을 정리 중입니다. 곧 이어서 합니다." system 글, `compact_boundary` 가 오면 "정리가 끝났습니다. 이어서 하려면 말을 걸어 주세요." system 글과 채팅 판 경계 표시 |
+| 압축 | 자동은 SDK 가 한다(봇 설정 `autoCompactWindow`). 수동은 admin 이 걸고 다음 `idle` 에 들어간다. `system/status` 가 압축 시작을 알리면 본방에 "문맥을 정리 중입니다. 곧 이어서 합니다." system 글, `compact_boundary` 가 오면 "정리가 끝났습니다. 이어서 하려면 말을 걸어 주세요." system 글과 채팅 판 경계 표시 |
 | 멈춤 (admin) | `interrupt()`. 걸린 승인 요청은 `cancelled` |
 | 끄기 (admin) | 백그라운드 도우미가 있으면 `backgroundTasks()` 목록을 먼저 보이고, 확인 뒤 `close()`. state `stopped` |
 | 도우미 멈춤 (admin) | `stopTask(taskId)` |
@@ -251,7 +267,8 @@ canUseTool(toolName, input, { toolUseID, agentID, title, displayName, descriptio
        allow_session  { behavior:'allow', updatedInput: input, updatedPermissions: suggestions }
                       — suppressAlwaysAllowRule 이면 받지 않는다(400)
        deny · timeout { behavior:'deny', message: '<누가> 거부: <이유>' | '승인 시간 초과 (N분)' }
-  ⑦ 본방에 system 글: 🔒 <누가> 허용|이번 세션 허용|거부|시간 초과 거부 · <tool>
+  ⑦ 본방에 system 글: ✅ <누가> 허용|이번 세션 허용 · <tool>  또는  ⛔ <누가> 거부|시간 초과 거부|거둬 감 · <tool>
+     (🔒 는 요청 줄에만 — weekly 의 🔒 수 = 요청 수, meta D0 Q7)
   ⑧ SSE permission_resolved — 다른 탭의 카드를 거둔다. 걸린 요청이 0 이면 state → working
 ```
 

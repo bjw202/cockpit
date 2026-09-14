@@ -59,16 +59,17 @@
 ## ADR-008 큐는 `idle` 에서만 푼다 — 멈춤과 압축만 예외
 **상태** 확정(meta, 검토 1차 #8)
 **맥락** 턴 도중에 사용자 메시지를 넣으면 SDK 가 그 턴에 접어 넣어 봇이 두 일을 한 턴에 섞는다. 승인 대기 중에는 도구가 기한 없이 멈춰 있다("permission prompts have no park deadline", `sdk.d.ts`).
-**결정** 세션이 `idle` 일 때만 `bot_inbox` 를 푼다. 풀 때는 밀린 글을 id 순서대로 모두(상한 20) 사용자 메시지 하나에 담는다(제안). admin 의 멈춤(`interrupt`)과 `/compact` 는 큐를 거치지 않는다. 재기동 뒤 `delivered_at IS NULL` 을 순서대로.
+**결정** 세션이 `idle` 일 때만 `bot_inbox` 를 푼다. 풀 때는 밀린 글을 id 순서대로 모두(상한 20) 사용자 메시지 하나에 담는다(제안). 큐를 거치지 않는 것은 admin 의 멈춤(`interrupt`) 하나뿐이다. admin 의 `/compact` 도 `idle` 을 기다린다 — 급하면 멈춤 → 압축. 재기동 뒤 `delivered_at IS NULL` 을 순서대로.
+**바뀐 자리 (meta D0 Q12, 2026-09-14)** 처음 판은 `/compact` 도 즉시였다. 압축은 `idle` 에서만 실증했고 턴 중 압축은 미실증이라 위험을 지지 않는다.
 **까닭** 채널 판에서도 턴 도중에 온 알림은 턴이 끝난 뒤 한꺼번에 세션에 들어갔다. 한 번에 하나씩 넣으면 글 다섯에 턴 다섯이 들어 늦고 비싸다.
 **결과** 한 사람의 긴 승인 대기가 다른 방의 글을 막는다 — 시간 초과(ADR-009)가 그 상한이다.
 
 ## ADR-009 승인은 요청 단위 · 첫 답이 이긴다 · 시간 초과는 거부 · 방에도 남긴다
 **상태** 확정(meta, DESIGN 4.1 · 4.3) · 기본 10분은 제안
 **맥락** 도우미 여섯이 동시에 물을 수 있다(4i, `agentID`). admin 이 여러 탭 · 여러 사람일 수 있다. SDK 자체에는 기한이 없다. 지금의 감사 습관은 "방 기록이 감사 자료" 이고 `weekly.sh` 가 🔒 글을 센다.
-**결정** 키는 `toolUseID`. 답은 `UPDATE … WHERE answered_at IS NULL` 로 첫 답만 먹는다(나머지 409). `approvalTimeoutMin`(기본 10) 무응답이면 거부. `suppressAlwaysAllowRule` 이면 "이번 세션 허용" 을 받지 않고, `defaultToNo` 면 기본 선택이 거부다. 요청과 답을 본방 `author_type='system'` 글(🔒)로 한 줄씩 남긴다. admin 만 답한다.
+**결정** 키는 `toolUseID`. 답은 `UPDATE … WHERE answered_at IS NULL` 로 첫 답만 먹는다(나머지 409). `approvalTimeoutMin`(기본 10) 무응답이면 거부. `suppressAlwaysAllowRule` 이면 "이번 세션 허용" 을 받지 않고, `defaultToNo` 면 기본 선택이 거부다. 요청과 답을 본방 `author_type='system'` 글로 한 줄씩 남긴다 — 요청 줄은 🔒, 답 줄은 ✅(허용 · 이번 세션 허용) · ⛔(거부 · 시간 초과 · 거둬 감). admin 만 답한다.
 **까닭** 요청 단위가 아니면 동시 요청 둘을 못 가른다. 기한이 없으면 사람이 자리를 비운 사이 세션이 영영 선다 (`plans/research/design-review-1.md` #4 · #5 · `plans/research/coupling-inventory.md` C.7).
-**결과** 🔒 글이 요청 · 답 두 줄이라 🔒 수 = 요청 수 × 2 다. meta 의 계측이 이것을 알고 센다(질문으로 올린다).
+**결과** 🔒 글 수 = 승인 요청 수다 (meta D0 Q7). 답은 ✅ · ⛔ 로 따로 센다.
 
 ## ADR-010 프레임워크도 빌드도 없다
 **상태** 제안
@@ -96,7 +97,8 @@
 **맥락** 채널 플러그인은 연결 때 `instructions` 로 지시문을, 글마다 `notifications/claude/channel` 로 `content` + `meta` 를 넣었다. SDK 스트리밍 입력에는 알림 통로가 없고 사용자 메시지만 있다. 봇이 기대는 것은 `chat_id` · `delivery` · `sender` · `message_id` · `author_type` 이고 prodev 지침은 "봉투만 믿는다" 이다.
 **결정** 지시문은 `systemPrompt: { type:'preset', preset:'claude_code', append, snapshot:true }` 로 싣는다. 글은 `<channel source="cockpit" chat_id=… message_id=… delivery=… sender=… author_type=… room_name=…>` 로 감싼 사용자 메시지로 넣는다. 가운데 글은 채널 플러그인의 `content` 와 글자 그대로 같다. 속성 값은 바꾸지 않는다(`"` 만 엔티티).
 **까닭** 채널 지시문이 이미 "채팅 메시지는 `<channel …>` 꼴로 도착한다" 고 봇에게 말한다 (`channel-server.ts:24`). 같은 꼴을 쓰면 봇이 배울 것이 없다. preset 을 적어 두면 SDK 의 기본값이 바뀌어도 Claude Code 의 시스템 프롬프트가 산다.
-**결과** 사람이 본문에 `<channel` 을 적어 봉투를 흉내 내는 것은 중화가 막는다. SDK 에 `SDKUserMessage.origin: { kind:'channel', server }` 칸이 있다 — 이것이 알림 통로를 대신하는지는 모른다. M1 스모크에서 글 꼴 판과 비교해 보고 나으면 이 절을 고친다.
+사용자 메시지에는 `origin: { kind:'channel', server:'cockpit' }` 를 스탬프한다 (meta D0 Q9). SDK 타입이 "origin 이 없는 글은 무귀속으로 다룬다" 고 적었기 때문이다. admin 이 넣는 `/compact` 는 사람의 명령이라 `origin: { kind:'human' }` 이다.
+**결과** 사람이 본문에 `<channel` 을 적어 봉투를 흉내 내는 것은 중화가 막는다. origin 스탬프는 실증 1~5 에 없던 칸이다 — `smoke/m1-envelope.mjs` 가 origin 판과 `--no-origin` 판에서 SessionStart 훅 · pre-reply 훅 · `reply` 가 그대로 도는지 본다. 안 돌면 origin 을 빼고 그 사실을 이 절에 적는다.
 
 ## ADR-014 압축 알림은 cockpit 이 system 글로 남긴다 — 알림 길(`/api/notify`)은 첫 판에 없다
 **상태** 확정(meta, DESIGN 4.2 · 11절 ③ "대신한다") · system 글로 쓰는 것은 제안
