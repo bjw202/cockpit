@@ -2,6 +2,7 @@
 // 글자를 넣는 곳은 textContent 와 markdown.js 뿐이다 (innerHTML 없음 — test/web-static.test.js).
 
 import { defaultComposerText, messageView, renderMessage, roomKind, statusChip, statusOfState } from './chat.js';
+import { applyPermissionEvent, cardView, renderCard } from './card.js';
 
 const $ = sel => document.querySelector(sel);
 
@@ -16,6 +17,7 @@ const state = {
   files: [],                // 보낼 첨부
   lastDefault: '',
   stream: null,
+  cards: [],                // 걸린 승인 요청 (GET /api/permissions 의 requests 모양)
 };
 
 class ApiError extends Error {
@@ -261,6 +263,8 @@ const streamHandlers = {
     if (d.project === state.current) renderPartial();
   },
   project_opened: () => loadProjects(),
+  permission_request: d => { state.cards = applyPermissionEvent(state.cards, 'permission_request', d); renderCards(); },
+  permission_resolved: d => { state.cards = applyPermissionEvent(state.cards, 'permission_resolved', d); renderCards(); },
 };
 
 function stopStream() {
@@ -285,8 +289,45 @@ function startStream() {
   });
 }
 
-// 로그인 뒤에 더 붙이는 자리 (승인 카드 — M2.6)
-function afterEnter() {}
+// ── 승인 카드 ─────────────────────────────────────────────
+// 카드는 전원이 보고 단추는 admin 에게만 (web/card.js). 답이 오면 어느 탭에서 답했든 permission_resolved 로 거둔다
+function renderCards() {
+  const box = $('#cards');
+  if (!state.cards.length) {
+    const empty = document.createElement('p');
+    empty.className = 'empty';
+    empty.textContent = '걸린 요청이 없습니다';
+    box.replaceChildren(empty);
+    return;
+  }
+  box.replaceChildren(...state.cards.map(req => renderCard(cardView(req, { role: state.me?.role }), document, answerCard)));
+}
+
+async function answerCard(view, decision, el) {
+  const buttons = [...el.querySelectorAll('button')];
+  for (const b of buttons) b.disabled = true;
+  try {
+    await api(`/api/permissions/${encodeURIComponent(view.id)}`, { method: 'POST', json: { decision } });
+    state.cards = applyPermissionEvent(state.cards, 'permission_resolved', { tool_use_id: view.id });
+    renderCards();
+  } catch (e) {
+    el.querySelector('.error').textContent = e.message;
+    if (e.status === 409) {   // 다른 admin 이 먼저 답했다 — 까닭을 잠깐 보이고 거둔다
+      state.cards = applyPermissionEvent(state.cards, 'permission_resolved', { tool_use_id: view.id });
+      setTimeout(renderCards, 1500);
+    } else {
+      for (const b of buttons) b.disabled = false;
+    }
+  }
+}
+
+// 로그인 뒤 — 새로고침 전에 걸려 있던 카드를 되그린다
+async function afterEnter() {
+  try {
+    state.cards = (await api('/api/permissions?pending=1')).requests;
+    renderCards();
+  } catch { /* 401 이면 showLogin 이 이미 그렸다 */ }
+}
 
 // ── 시작 ─────────────────────────────────────────────────
 function wire() {
