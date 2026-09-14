@@ -3,7 +3,9 @@
 한 결정에 한 절. 서식: 상태 · 맥락 · 결정 · 까닭(근거 경로) · 결과. 뒤집으면 지우지 않고 상태를 바꾸고 새 절을 더한다.
 근거 경로의 `plans/` 는 `../../meta/prodev-review/plans/2026-09-14-web-cockpit/` 이다.
 
-상태 표기: **확정(사람)** 은 사람이 정한 것, **확정(meta)** 은 meta 설계 검토가 정한 것, **제안** 은 cockpit 제작 세션이 정해 meta 관문을 기다리는 것.
+상태 표기: **확정(사람)** 은 사람이 정한 것, **확정(meta)** 은 meta 설계 검토가 정한 것, **제안** 은 cockpit 제작 세션이 정해 meta 관문을 기다리는 것. **대체됨 → ADR-0xx** 는 뒤 절이 그 결정을 뒤집었다는 뜻이고, 옛 글은 그대로 둔다.
+
+**v2 회차 (2026-09-14 저녁, 사람 결정).** 근거는 `../../meta/prodev-review/plans/2026-09-14-cockpit-후속/AS-IS-TO-BE-v2.md`(요구 R9~R14)와 같은 폴더 `DIRECTION-v2.md` 다. 새 결정은 ADR-015~020 이다. v1 에서 뒤집히는 것 가운데 **cockpit ADR 절로 적혀 있던 것은 ADR-005 · 010 의 일부뿐**이다. 나머지 — "과제 하나 = 방 둘" · "본방 봉투 없는 글은 `to`" · "화면 셋" — 은 ADR 절이 아니라 `PRD.md` F2 · F3 · F15 와 `ARCHITECTURE.md` 4.3 · 7절에 적혀 있었고, 그 자리에 "대체됨" 을 붙였다. prodev 쪽 ADR-022(방 둘) · ADR-038 ⑤(조종석이 방 둘을 만든다)는 prodev PR 이 새 ADR 로 대체한다 (`ARCHITECTURE.md` 11절).
 
 ---
 
@@ -41,6 +43,7 @@
 **결정** 길 셋의 경로 · 받는 꼴 · 내는 모양 · 상태 코드를 그대로 둔다. 인증 쿠키 이름도 `md_session` 으로 둔다. 재생 계정의 토큰은 `node bin/cockpit.js session-token <이름>` 이 발급한다(서버 PC 에서만 되는 명령).
 **까닭** 재생 도구를 고치면 관문의 "같은 대본 · 같은 판정" 이 흔들린다. 쿠키 이름 하나를 바꾸면 도구가 401 로 죽는다 (`prodev/scripts/replay.js:18-25` · `:85`).
 **결과** cockpit 의 새 길(`/api/projects` · `/api/permissions` · `/api/stream` …)은 이 셋과 섞지 않는다. 계약 시험이 진짜 `replay.js` 를 cockpit 에 붙여 돈다.
+**일부 대체됨 → ADR-016 · ADR-017 (v2, 2026-09-14)** 길 셋의 모양 · 쿠키 이름은 그대로다. 바뀌는 것은 "새 길은 이 셋과 섞지 않는다" 한 문장이다: v2 는 minidiscord 화면을 옮기므로 그 화면이 부르는 minidiscord 모양의 길 둘(`POST /api/rooms` · `POST /api/rooms/:id/archive`)을 cockpit 이 더한다.
 
 ## ADR-006 권한은 `default` 모드, `allowedTools` 에는 MCP 도구 둘만
 **상태** 확정(meta, 실증 4 · 4b · 4g · 4j/4l)
@@ -79,6 +82,7 @@
 **결정** 서버는 `node:http` · `node:sqlite` · `node:crypto` 만. multipart 는 Node 에 든 `Request.formData()` 로 읽는다. 웹은 저장소의 ES 모듈 · CSS 를 그대로 서빙한다. 런타임 npm 의존성은 SDK 와 `zod` 둘이다. 마크다운 표시는 minidiscord `web/markdown.js` 사본.
 **까닭** 의존성이 적을수록 회사 PC 의 `npm ci` 가 덜 깨진다. 빌드가 없으면 저장소에 있는 것이 곧 도는 것이라 "산출물 커밋" 이 저절로 지켜진다. 화면 셋은 프레임워크 없이 짤 크기다.
 **결과** 라우팅 · 쿠키 · SSE 를 손으로 짠다(각 수십 줄). 화면이 커지면 다시 연다.
+**일부 대체됨 → ADR-016 (v2, 2026-09-14)** "프레임워크 · 빌드 · CDN 없음" 과 서버 쪽 결정은 그대로다. "화면 셋은 cockpit 이 프레임워크 없이 짠다" 는 뒤집힌다 — 화면은 minidiscord `web/`(역시 빌드 없는 순수 ES 모듈)을 옮기고, cockpit 이 짜는 것은 오른쪽 접이식 판과 잇는 함수뿐이다.
 
 ## ADR-011 비밀번호 해시는 `node:crypto` 의 scrypt
 **상태** 제안
@@ -108,3 +112,49 @@
 **결정** cockpit 이 본방에 같은 문장 둘을 `author_type='system'` 글로 남긴다. 훅의 알림은 URL 이 없으면 건너뛴다(이미 fail-open) — prodev PR 이 `MINIDISCORD_URL` 을 봇 설정에서 뺀다.
 **까닭** 사람 계정 토큰을 봇 폴더 `.env` 에 둘 까닭이 없어진다. 문장이 같아 사람이 느끼는 것이 같다.
 **결과** 옛 알림은 `author_type='user'`(알림 계정)였고 이제 `system` 이다. 확정 조건 ①(`user` 글이어야 확정)과는 겹치지 않는다 — 알림 글은 확정 어휘로 시작하지 않는다.
+
+---
+
+# v2 회차 — 속은 cockpit, 겉은 minidiscord (2026-09-14 저녁)
+
+## ADR-015 방 하나 = 과제 하나 = 전용 봇 하나 — files 방은 없다
+**상태** 확정(사람, R10 · 2026-09-14). 옛 방 이관 방법(아래 "결과")은 제안
+**맥락** v1 은 과제마다 방 둘(본방 `prodev-<과제>` · 파일방 `prodev-<과제>/files`)을 열었다(PRD F2 · prodev ADR-022). 사람이 조종석을 처음 눌러 보고 "과제원이 디스코드처럼 자유롭게 자료를 올리고 받는 것이 훨씬 효율적이다" 라며 files 방을 뺐다 (`DIRECTION-v2.md` 1절 3 · 4).
+**결정** 과제 하나에 방 하나 `prodev-<과제>` 와 봇 하나 `prodev-<과제>-bot`(옛 대본용 이름은 그대로 받는다)을 둔다. 첨부도 그 방에 올린다. 방 이름 규칙(`prodev-` 접두어 · 이름의 첫 `/` 가 갈래)은 그대로 두되, v2 가 새로 만드는 방에는 갈래가 없다. 봇에게 허락된 방은 제 과제의 본방 하나이고, 옛 files 방(이관된 보관 방)은 **읽기만** 된다.
+**까닭** 방이 둘이면 이야기와 파일을 따로 읽어 합쳐야 해서 "위 파일 봐 줘" 가 두 단계가 된다(후속 README 3.3 빈 곳 2). 방 이름 규칙을 그대로 두면 `chat.js` · `find.js` · `places.js` 의 이름 풀이가 안 깨진다 (결합 재고 C.8 의 "방 이름 규칙").
+**결과** `chat-db.js openProject` 가 방을 하나만 만든다. `GET /api/projects` 의 `rooms` 는 `{ main, legacy_files }` 가 된다(`legacy_files` 는 이관된 옛 방, 없으면 `null`). **옛 files 방 이관**: 지우지도 합치지도 않고 **보관(`status='archived'`)** 한다 — 글 번호 · `room_id` 를 옮기면 카드의 `source_msgs` · `confirmed_at` 과 `chat.js show` 가 가리키는 자리가 깨지기 때문이다. 명령 `node bin/cockpit.js migrate-v2`(기본은 보이기만, `--apply` 로 적용)가 한다. 뒤집는 것: PRD F2 · prodev ADR-022 · ADR-038 ⑤. prodev 하네스 11곳이 따라 바뀐다 (ARCHITECTURE 11절).
+
+## ADR-016 화면은 minidiscord `web/` 을 옮긴다 — 디자인 토큰 값은 바꾸지 않는다
+**상태** 확정(사람, R9 "디자인을 잘 살려라" · 물음 ① (가)). 고치는 함수의 목록 · 출처 핀 방식은 제안
+**맥락** v1 은 cockpit 이 채팅 · 조종석 · 파일 판을 새로 짰다(M2.5 · M3). 사람의 첫 소감이 "UI 가 별로다" 였다. minidiscord 화면은 방 목록 사이드바 · 아바타 메시지 · 작성기 한 덩어리 · 계정 바 · 본문 마크다운 · `@TO` `@CC` 칩 · `@` 자동완성 · 붙여넣기 · 끌어놓기 · 썸네일 · UTC 표기 · 히스토리 끝까지 · SSE 백필을 이미 가졌고, 부르는 길 15 가운데 여섯이 cockpit 에 같은 모양으로 있다 (`DIRECTION-v2.md` 2.2 · 물음 ①).
+**결정** minidiscord `web/` 의 **다섯 파일** — `index.html` · `app.js` · `rich.js` · `style.css` · `design-tokens.css` — 을 cockpit `web/` 으로 옮긴다(`markdown.js` 는 M2.5 에 이미 옮겼다). 파일마다 머리에 출처 저장소 커밋과 원본 sha256 을 적는다(v1 의 `markdown.js` 규칙). **`design-tokens.css` 는 한 글자도 안 바꾼다** (토큰 34 의 이름 · 값). `rich.js` 도 안 바꾼다. 화면 구조는 그대로 두고 **더하는 것은 둘뿐이다**: 방 화면 오른쪽 접이식 조종석 판(ADR-019)과 작성기의 `@TO(봇)` 미리 채움(ADR-018). 서버와 맞지 않는 자리(로그인 비밀번호 · 방별 SSE → `/api/stream` · 봇 배정 화면)는 `app.js` · `index.html` 의 정해진 함수만 고치고, 그 목록을 ARCHITECTURE 7절에 적는다. 새로 쓰는 CSS 는 `style.css` 끝 한 덩이이고 **토큰 변수만** 쓴다.
+**까닭** 사람이 디자인 계승을 요구했다. 저장소를 minidiscord 서버로 옮기는 길(물음 ① 나)은 세션 관리자 · 승인 중계 · 사건 · resume(시험 158 · 스모크 다섯 · 관문 넷)을 TS 로 다시 쓰는 일이다. 반대로 화면을 옮기면 서버 계약(ADR-001~014)이 그대로 산다. 토큰 파일을 사본으로 두고 sha256 을 핀하면 "디자인을 살렸나" 를 기계가 셀 수 있다.
+**결과** 뒤집는 것: PRD F15 의 "화면 셋" · ADR-010 의 화면 부분. cockpit v1 화면 파일 가운데 `web/chat.js` · `web/tabs.js` 는 지우고(방 목록 사이드바가 과제 탭을 대신한다), `web/card.js` · `web/cockpit.js` · `web/files.js` 의 순수 함수는 접이식 판이 다시 쓴다. 옮긴 `app.js` 는 minidiscord 에서 jsdom 시험으로 덮였지만 cockpit 은 런타임 의존성을 늘리지 않으므로(N4) 잇는 자리를 순수 함수 파일 `web/glue.js` 로 빼 DOM 없이 시험한다. `[카드]` · `[발송]` 첫 줄 강조 · 채팅 판 압축 경계 줄 · 살아 있는 글자(`partial`)의 채팅 표시는 minidiscord 화면에 없어 v2 채팅에서 빠진다 (압축 system 글 두 줄은 그대로 보인다).
+
+## ADR-017 방 만들기가 봇을 만든다 — `POST /api/rooms` 가 prodev `setup.js` 를 부르고, 실패하면 되돌린다
+**상태** 확정(사람, R10 "방을 만들면 prodev 기반으로 봇이 만들어진다"). `setup.js` 를 자식 프로세스로 부르는 것 · 되돌림 순서는 제안
+**맥락** v1 에서 `POST /api/projects {name}` 은 봇 한 줄 · 방 둘 · 세션 한 줄만 만들고, 봇 폴더(과제 폴더 · `.claude/settings.json` · `settings.local.json`)는 사람이 prodev `setup.js --project` 를 따로 쳤다(INSTALL 7번 · prodev ADR-038). minidiscord 화면의 "새 방" 단추는 `POST /api/rooms {name}` 을 부른다.
+**결정** `POST /api/rooms {name}`(admin 만)을 "방 만들기 = 과제 열기" 로 둔다. `name` 은 **과제 이름**이고 방 이름은 `prodev-<name>` 이다. 한 요청이 차례로: ① 이름 · 중복 검사(방 · 봇 · `agent_sessions` · 봇 폴더) ② `node <prodevDir>/scripts/setup.js --project <과제> --cockpit <설정 파일>` 을 자식 프로세스로(상한 60초) — 과제 폴더 · 봇 폴더 · 설정 두 장 ③ `chat.db` 한 트랜잭션(봇 · 방) ④ `cockpit.db` 에 `agent_sessions`(state `stopped`) ⑤ SSE `room_created`. **② 이후가 실패하면 그 요청이 새로 만든 것만 되돌린다**: ④ 실패 → ③ 의 행 지움, ③ · ④ 실패 → ② 가 새로 만든 봇 폴더 · 과제 폴더(요청 전에 없던 것만) 지움. 요청 전에 있던 과제 폴더는 건드리지 않는다. `POST /api/projects` 와 CLI `open-project` 도 같은 처리기를 탄다(스모크 · 시험은 `--no-setup` 또는 주입한 가짜 setup). 설정에 `prodevDir` 를 더하고, `botsDir` 가 `<prodevDir>/bots` 가 아니면 기동하지 않는다.
+**까닭** `setup.js` 를 부르면 봇 설정의 진실(허용 22 · deny 10 · 훅 배선)이 prodev 한 곳에 남는다(prodev ADR-038 "진실이 prodev 밖으로 나가면 판별 시험이 재는 자리가 사라진다"). 같은 일을 cockpit 이 다시 짜면 두 곳에 적은 값이 언젠가 갈린다. 되돌림이 없으면 반쯤 만든 봇 폴더가 남아 같은 이름으로 다시 만들 때 409 로 막힌다. `setup.js` 는 `bots/prodev-<과제>-bot` 을 **자기 저장소 안에** 만들므로(`setup.js:156 · 316`) `botsDir` 와 맞지 않으면 세션이 엉뚱한 폴더로 뜬다 — 기동 때 막는다.
+**결과** 방 만들기 요청이 수 초 걸린다(`git init` 포함) — 화면은 단추를 잠그고 기다린다. setup 의 표준 출력 마지막 20줄을 실패 응답(`502 { error, setup_tail }`)에 싣는다. 봇 이름을 따로 주는 칸(`bot_name`)은 admin JSON 에만 남는다 — `setup.js` 는 `prodev-<과제>-bot` 밖의 이름을 못 만들어서, 옛 대본 이름(`prodev-worktogether-비서`)은 `--no-setup` 과 이미 있는 봇 폴더로만 연다. 방 보관 `POST /api/rooms/:id/archive`(admin)는 세션을 끄고(`stop?confirm=1` 과 같다) 방을 `archived` 로 둔다. 뒤집는 것: prodev ADR-038 ⑤ "사람이 setup 을 따로 친다".
+
+## ADR-018 봇에게 가는 글은 `@TO(봇)` · `@CC(봇)` 이 있는 글뿐 — 작성기가 `@TO(봇)` 을 미리 채운다
+**상태** 확정(사람, R11 · 물음 ② "@TO 만", 후속 README 3.2 안 A)
+**맥락** v1 은 본방에서 봉투 없는 글도 봇에게 `to` 로 보냈다(PRD F3 · ARCHITECTURE 4.3, 코드 주석 "사람 결정"). 방이 하나가 되면 사람끼리 말할 자리가 없어진다. minidiscord 는 `@` 가 적힌 봇에게만 보냈다(`minidiscord/server/src/targets.ts:16-27`).
+**결정** 모든 방에서 봉투 없는 글은 `message_targets` · `bot_inbox` 행을 남기지 않는다(봇에게 안 간다). `@TO` · `@CC` 규칙 · 모르는 봇 이름 400 은 그대로다. 작성기는 방을 열 때와 글을 보낸 뒤 입력칸을 `@TO(<그 방 봇의 실제 이름>) ` 으로 채운다. 사람이 지우면 사람끼리의 글이다. 입력칸이 비었거나 봉투가 없으면 작성기 안내 글자(placeholder)가 "봇에게 가지 않습니다 — 부르려면 @" 로 바뀐다.
+**까닭** 사람이 "디스코드처럼 자유롭게" 라 했다. minidiscord 규칙과 같으면 옮긴 자동완성 · 칩 화면이 뜻 그대로 맞는다. 미리 채우면 혼자 쓸 때의 "무조건 봇에게" 가 한 번의 지우기로만 깨진다. cockpit 이 봇 세션에 싣는 지시문(`wrap.js INSTRUCTIONS`, 채널 플러그인 문장 그대로)이 이미 "멘션 없는 메시지는 이 세션에 전달되지 않습니다 … fetch_history 로 놓친 대화를 먼저 확인하세요" 라 말한다 — v2 에서 그 문장이 비로소 사실이 된다.
+**결과** 뒤집는 것: PRD F3 의 "본방 봉투 없는 글은 `to`" · ARCHITECTURE 4.3 의 그 줄. 사람이 실수로 봉투를 지우면 봇이 조용하다 — 안내 글자와 따라잡기(ADR-020)가 그 값이다. 옛 대본 다섯은 `@TO` 를 다 적었으나(D0 기록: 57건 · 15건) 봉투 없는 글이 섞였는지는 meta 가 v2 대본으로 다시 잰다.
+
+## ADR-019 조종석 판 · 승인 카드 · 파일 판은 방 화면 오른쪽의 접이식 판 하나 — member 는 접힘, admin 은 펼침이 기본
+**상태** 확정(사람, R12 · 물음 ④). 판 안의 순서 · 접힘 기억 방식은 제안
+**맥락** v1 은 과제 탭 아래 판 셋(채팅 · 조종석 · 파일)을 바꿔 가며 보였다(PRD F15). minidiscord 화면에는 조종석이 없다. 후속 README 3.5-2: 과제원에게 도구 · 도우미 · 값이 늘 보이면 "Claude 세션처럼 안 느껴지게" 와 부딪힌다.
+**결정** `#main-view` 의 `#chat` 오른쪽에 `<aside id="cockpit-panel">` 하나를 둔다. 너비는 토큰 `--md-panel-width`, 배경은 `--md-bg-panel`. 위에서부터 접이 셋: **승인 카드**(걸린 요청 · 버튼은 admin 만) · **조종석**(머리 · 이번 턴 도구 · 도우미 · 훅 · 세션 조작 단추는 admin 만) · **파일**(과제 폴더 읽기 전용 트리 · 미리보기). 판은 지금 연 방의 과제를 따른다. 방 머리(`#room-header`)의 단추 하나가 판 전체를 접고 편다. 기본값은 `GET /api/auth/me` 의 `role` 로 정한다 — member 는 접힘, admin 은 펼침. 사람이 바꾼 접힘은 그 브라우저의 `localStorage` 에만 기억한다(서버에 안 적는다). 판이 접혀 있어도 승인 요청이 새로 걸리면 접힌 단추에 걸린 수를 붙인다(admin 화면). 승인 요청 · 답은 지금처럼 채팅에 🔒 · ✅ · ⛔ system 글로도 남는다(ADR-009 그대로).
+**까닭** 채팅이 화면의 주인이라는 minidiscord 구조를 안 깨고 조종석을 한 자리에 모은다. 역할로 기본값을 가르면 PL 은 감독에 필요한 것을 곧바로 보고, 과제원에게는 기계가 드러나지 않는다. 판 셋의 순수 함수(`card.js` · `cockpit.js` · `files.js`, 시험 17)를 다시 쓴다.
+**결과** 뒤집는 것: PRD F15 "판 셋" · ARCHITECTURE 7절 "과제 탭 + 판 셋". 과제 탭은 사라지고 방 목록 사이드바가 그 자리다. 좁은 화면에서 판이 채팅을 가린다 — 모바일 최적화는 첫 판 범위 밖(PRD 5절) 그대로. minidiscord `rich.js` 의 채팅 줄 승인 단추(`yes <id>` 글을 보내는 방식)는 cockpit 🔒 줄의 꼴과 안 맞아 **그려지지 않는다** — 옮긴 파일을 고치지 않고, 그 사실을 시험 하나로 못 박는다.
+
+## ADR-020 봇은 부른 글의 첨부만 읽는다 — 나머지는 따라잡기로, `fetch_history` 결과에 첨부 경로를 싣는다
+**상태** 확정(사람, R11 · 물음 ③ "부른 것만 + 따라잡기"). `attachments` 칸의 꼴 · 상한은 제안
+**맥락** 방이 하나가 되고 `@` 없는 글이 봇에게 안 가면(ADR-018), 과제원이 사람끼리 올린 파일을 봇이 모른다. 사람이 그린 장면은 "위 파일 봐 줘" 에 봇이 대화와 파일을 끌어와 이어 가는 것이다. v1 `fetch_history` 결과는 `id · at · author · body` 뿐이라 파일을 알려면 `chat.js tail` 의 📎 → `chat.js show <id>` 두 단계였다(후속 README 3.3 빈 곳 1).
+**결정** 세 가지다. ① **봉투(ADR-013)는 그대로다** — 봇에게 가는 글(`to` · `cc`)은 지금처럼 `(첨부 파일 경로: …)` 안내를 싣는다. 읽는 때는 하네스 규칙이다: `to` 글의 첨부는 읽는다(한 턴에 들이기는 한 건), `cc` 글의 첨부는 경로만 알고 읽지 않는다, 봉투 없는 글의 첨부는 봇에게 안 간다. ② `fetch_history` 의 **입력 서명은 그대로**(채널 플러그인과 같다, ADR-013 · PRD F5)이고, **결과 JSON 의 글에 `attachments` 칸을 더한다**: `{ "id", "at", "author", "body", "attachments": [ { "filename", "path" } ] }` — 첨부가 있는 글에만 칸이 있다. `path` 는 봉투와 같은 절대 경로(`stored_path` 를 푼 것)이고, 이름 · 경로는 중화 뒤 절단(이름 256B · 경로 512B), 글 하나에 20개까지(넘으면 `⟪잘림: N개 생략⟫` 한 원소). 16000B 상한은 칸을 더한 JSON 전체에 걸고, 넘치면 지금처럼 새것부터 버린다. ③ **"위 파일 봐 줘" 를 받는 절차**(읽기 시작점 · 파일이 여럿일 때 한 건씩)는 prodev orchestrator 스킬이 정한다 — cockpit 은 재료만 준다.
+**까닭** 올라오는 족족 읽으면 문맥과 값이 새고 "한 턴에 들이기는 한 건" 지침과 부딪힌다(물음 ③ meta 추천). 결과에 경로를 실으면 따라잡기가 한 번의 도구 호출로 끝난다. 입력 서명을 안 바꾸면 스킬 본문 · 봇 습관 · 채널 판과의 글자 일치가 산다. 칸을 첨부 있는 글에만 두면 글만 있는 이력은 v1 과 바이트까지 같다.
+**결과** 뒤집는 것: prodev orchestrator "본방 + 첨부 → 'files 방에 올려 달라', 읽지 않는다" (prodev PR). `fetch_history` 가 옛 files 방(보관)을 `chat_id` 로 받으면 읽기를 허락한다(ADR-015). weekly · retro 의 "카드 없는 첨부" 계측은 본방 첨부 기준으로 옮긴다(R14 — meta · prodev 몫).
