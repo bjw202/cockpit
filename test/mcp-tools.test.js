@@ -130,3 +130,87 @@ test('도구 서명: reply 는 text 만 필수 · fetch_history 는 필수 없�
   assert.equal(hist.required ?? undefined, undefined);
   assert.equal(hist.properties.since_id.type, 'number');
 });
+
+// ── (v2) fetch_history 첨부 칸 · 옛 방 읽기 (TASKS M5.2 · ADR-020) ──────────────
+const upload = (s, name, text = 'x') => {
+  fs.mkdirSync(s.uploadsDir, { recursive: true });
+  const abs = path.join(s.uploadsDir, `${name}`);
+  fs.writeFileSync(abs, text);
+  return { filename: name.replace(/^[0-9a-f]+-/, ''), absPath: abs, size: Buffer.byteLength(text) };
+};
+
+test('fetch_history: 첨부 있는 글에만 attachments[{filename,path}]', async () => {
+  const s = setup();
+  const u = s.chatDb.ensureUser('김과제');
+  const plain = s.chatDb.insertUserMessage({ roomId: s.main.id, userId: u.id, body: '사람끼리', bot: s.bot }).message;
+  const withFiles = s.chatDb.insertUserMessage({ roomId: s.main.id, userId: u.id, body: '파일 둘', bot: s.bot,
+    files: [upload(s, 'a1-성적서.csv', 'lot,yield\n'), upload(s, 'b2-사진.png', 'png')] }).message;
+  const doc = parse(await s.tools.fetchHistory({ chat_id: String(s.main.id) }));
+  assert.deepEqual(doc.messages.map(m => Object.keys(m)), [['id', 'at', 'author', 'body'], ['id', 'at', 'author', 'body', 'attachments']]);
+  assert.equal(doc.messages[0].id, plain.id);
+  const atts = doc.messages[1].attachments;
+  assert.equal(doc.messages[1].id, withFiles.id);
+  assert.deepEqual(atts.map(a => Object.keys(a)), [['filename', 'path'], ['filename', 'path']]);
+  assert.deepEqual(atts.map(a => a.filename), ['성적서.csv', '사진.png']);
+});
+
+test('attachments 의 path 는 실제 파일의 절대 경로다', async () => {
+  const s = setup();
+  const u = s.chatDb.ensureUser('김과제');
+  const f = upload(s, 'c3-메모.txt', '샤워헤드 교체일\n');
+  s.chatDb.insertUserMessage({ roomId: s.main.id, userId: u.id, body: '메모', bot: s.bot, files: [f] });
+  const [att] = parse(await s.tools.fetchHistory({ chat_id: String(s.main.id) })).messages[0].attachments;
+  assert.ok(path.isAbsolute(att.path));
+  assert.equal(att.path, f.absPath);
+  assert.equal(fs.readFileSync(att.path, 'utf8'), '샤워헤드 교체일\n');
+});
+
+test('첨부 없는 이력은 v1 과 바이트까지 같다', async () => {
+  const s = setup();
+  const u = s.chatDb.ensureUser('김과제');
+  const a = s.chatDb.insertUserMessage({ roomId: s.main.id, userId: u.id, body: '안녕', bot: s.bot }).message;
+  const b = s.chatDb.insertBotMessage({ roomId: s.main.id, botId: s.bot.id, body: '네' });
+  const text = (await s.tools.fetchHistory({ chat_id: String(s.main.id) })).content[0].text;
+  // v1 의 꼴을 손으로 적는다 — 칸 넷, 순서 id · at · author · body
+  assert.equal(text, `{"cursor":${b.id},"messages":[{"id":${a.id},"at":"${a.created_at}","author":"김과제","body":"안녕"},{"id":${b.id},"at":"${b.created_at}","author":"prodev-시험-bot","body":"네"}]}`);
+});
+
+test('첨부 21 → 20 + 잘림 표시 한 원소', async () => {
+  const s = setup();
+  const u = s.chatDb.ensureUser('김과제');
+  const files = Array.from({ length: 21 }, (_, i) => upload(s, `f${i}-${i + 1}.csv`, `${i}`));
+  s.chatDb.insertUserMessage({ roomId: s.main.id, userId: u.id, body: '많다', bot: s.bot, files });
+  const [m] = parse(await s.tools.fetchHistory({ chat_id: String(s.main.id) })).messages;
+  assert.equal(m.attachments.length, 21);
+  assert.deepEqual(m.attachments.slice(0, 20).map(x => x.filename), Array.from({ length: 20 }, (_, i) => `${i + 1}.csv`));
+  assert.deepEqual(m.attachments[20], { filename: '⟪잘림: 1개 생략⟫', path: '' });
+});
+
+test('attachments 를 더해 16000B 를 넘으면 새것부터 버린다', async () => {
+  const s = setup();
+  const u = s.chatDb.ensureUser('김과제');
+  const ids = [];
+  for (let i = 0; i < 4; i++) {
+    const files = Array.from({ length: 20 }, (_, j) => upload(s, `${'e'.repeat(8)}${i}${j}-${'긴이름'.repeat(20)}${i}-${j}.csv`, 'x'));
+    ids.push(s.chatDb.insertUserMessage({ roomId: s.main.id, userId: u.id, body: `글${i}`, bot: s.bot, files }).message.id);
+  }
+  const r = await s.tools.fetchHistory({ chat_id: String(s.main.id) });
+  const bytes = Buffer.byteLength(r.content[0].text, 'utf8');
+  assert.ok(bytes <= 16000, `${bytes}B`);
+  const doc = parse(r);
+  const kept = doc.messages.map(m => m.id);
+  assert.ok(kept.length > 0 && kept.length < 4, `남은 글 ${kept.length}`);
+  assert.deepEqual(kept, ids.slice(0, kept.length), '앞(오래된 것)이 남는다');
+  assert.ok(doc.messages.every(m => m.attachments.length === 20), '첨부 칸만 떼지 않고 글을 통째로 뺀다');
+});
+
+test('보관된 옛 files 방은 fetch_history 가 읽고 reply 는 오류 결과', async () => {
+  const s = setup();
+  const old = s.chatDb.insertBotMessage({ roomId: s.legacy.id, botId: s.bot.id, body: '옛 방에서 읽은 성적서' });
+  const doc = parse(await s.tools.fetchHistory({ chat_id: String(s.legacy.id) }));
+  assert.deepEqual(doc.messages.map(m => m.id), [old.id]);
+  const r = await s.tools.reply({ chat_id: String(s.legacy.id), text: '옛 방에 쓰기' });
+  assert.equal(r.isError, true);
+  assert.match(r.content[0].text, /읽기만/);
+  assert.equal(botMessages(s.chatDb, s.legacy.id).length, 1, '옛 방에 새 글이 안 생긴다');
+});

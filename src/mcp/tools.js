@@ -4,11 +4,14 @@
 //   reply(chat_id?: string, text: string, files?: string[])
 //   fetch_history(chat_id?: string, since_id?: number, since?: string, until?: string, speaker?: string, limit?: number)
 // 이름과 매개변수 이름이 계약이다 — prodev 의 pre-reply 훅 matcher 와 tool_input.chat_id · text 가 여기에 묶여 있다.
+// (v2) 입력 서명은 그대로 두고, fetch_history 결과의 글에 attachments 칸을 더한다 — 첨부가 있는 글에만 (ADR-020)
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { MAX_BODY_BYTES, MAX_HISTORY_BYTES, MAX_NAME_BYTES, truncateToBudget } from '../envelope/truncate.js';
+import {
+  MAX_ATTACHMENTS, MAX_BODY_BYTES, MAX_HISTORY_BYTES, MAX_NAME_BYTES, MAX_PATH_BYTES, SIGIL_CLOSE, TRUNC_MARKER_HEAD, truncateToBudget,
+} from '../envelope/truncate.js';
 import { neutralizeEnvelope } from '../envelope/wrap.js';
 import { mimeOf } from '../db/chat-db.js';
 
@@ -52,7 +55,19 @@ export function toZodShape(params, z) {
 const ok = text => ({ content: [{ type: 'text', text }] });
 const fail = text => ({ content: [{ type: 'text', text }], isError: true });
 
-// bot: { id, name } · rooms: { main, files } (이 과제의 방 둘) · getLastToRoom: () => 방 번호 | null
+// (v2) 이력 원소의 첨부 칸 — 봉투의 첨부 경로와 같은 값(stored_path 를 푼 절대 경로). 이름 256B · 경로 512B · 글마다 20개,
+// 넘으면 스물한째 자리에 "⟪잘림: N개 생략⟫" 한 원소 (ARCHITECTURE 4.2 · ADR-020)
+export function historyAttachments(atts) {
+  const out = atts.slice(0, MAX_ATTACHMENTS).map(a => ({
+    filename: truncateToBudget(neutralizeEnvelope(a.filename), MAX_NAME_BYTES),
+    path: truncateToBudget(neutralizeEnvelope(a.path), MAX_PATH_BYTES),
+  }));
+  const dropped = atts.length - MAX_ATTACHMENTS;
+  if (dropped > 0) out.push({ filename: `${TRUNC_MARKER_HEAD}${dropped}개 생략${SIGIL_CLOSE}`, path: '' });
+  return out;
+}
+
+// bot: { id, name } · rooms: { main, legacy_files } (이 과제의 방 + 이관된 옛 files 방) · getLastToRoom: () => 방 번호 | null
 export function createCockpitTools({ chatDb, bot, rooms, projectsDir, uploadsDir, getLastToRoom = () => null, onBotMessage = () => {} }) {
   // (v2) 이 봇의 방: 본방 하나 + 이관된 옛 files 방(읽기만) — ARCHITECTURE 4.2 ② · ADR-015
   const mine = new Map([rooms.main, rooms.legacy_files].filter(Boolean).map(r => [r.id, r]));
@@ -103,20 +118,26 @@ export function createCockpitTools({ chatDb, bot, rooms, projectsDir, uploadsDir
     return ok('sent');
   }
 
-  // 결과는 JSON 한 건: { cursor, messages:[{ id, at, author, body }] } (minidiscord channel/src/index.ts:85-111)
+  // 결과는 JSON 한 건: { cursor, messages:[{ id, at, author, body, attachments? }] } (minidiscord channel/src/index.ts:85-111 + v2 첨부 칸)
   async function fetchHistory(args = {}) {
     const roomId = roomOf(args.chat_id);
-    const bad = checkRoom(roomId);
+    const bad = checkRoom(roomId, { write: false });
     if (bad) return fail(bad);
     const rows = chatDb.history({ roomId, sinceId: args.since_id, since: args.since, until: args.until, speaker: args.speaker, limit: args.limit });
-    const kept = rows.map(m => ({
-      id: m.id,
-      at: m.created_at,
-      author: truncateToBudget(neutralizeEnvelope(m.author_name), MAX_NAME_BYTES),
-      body: truncateToBudget(neutralizeEnvelope(m.body), MAX_BODY_BYTES),
-    }));
+    const kept = rows.map(m => {
+      const item = {
+        id: m.id,
+        at: m.created_at,
+        author: truncateToBudget(neutralizeEnvelope(m.author_name), MAX_NAME_BYTES),
+        body: truncateToBudget(neutralizeEnvelope(m.body), MAX_BODY_BYTES),
+      };
+      const atts = chatDb.attachmentsOf(m.id);
+      if (atts.length) item.attachments = historyAttachments(atts);   // 첨부 없는 글에는 칸을 두지 않는다 — 글만 있는 이력은 v1 과 바이트까지 같다
+      return item;
+    });
     const doc = list => JSON.stringify({ cursor: list.length ? Math.max(...list.map(m => m.id)) : null, messages: list });
-    // 넘치면 새것부터 버린다. 오래된 것부터 버리면 cursor 가 버린 글을 "지나간 것" 으로 선언해 영구히 사라진다
+    // 넘치면 새것부터 버린다. 오래된 것부터 버리면 cursor 가 버린 글을 "지나간 것" 으로 선언해 영구히 사라진다.
+    // 첨부 칸만 떼지 않고 글을 통째로 뺀다 (ARCHITECTURE 4.2)
     while (kept.length > 0 && Buffer.byteLength(doc(kept), 'utf8') > MAX_HISTORY_BYTES) {
       let newest = 0;
       for (let i = 1; i < kept.length; i++) if (kept[i].id > kept[newest].id) newest = i;
