@@ -15,6 +15,7 @@ import { SseHub, connectHub } from './sse.js';
 import { registerAuthRoutes } from './routes-auth.js';
 import { registerRoomRoutes } from './routes-rooms.js';
 import { registerMessageRoutes } from './routes-messages.js';
+import { registerPermissionRoutes } from './routes-permissions.js';
 
 export const DEFAULT_WEB_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'web');
 
@@ -75,6 +76,7 @@ export function createApp(baseCtx) {
   registerAuthRoutes(route, ctx);
   registerRoomRoutes(route, ctx);
   registerMessageRoutes(route, ctx);
+  registerPermissionRoutes(route, ctx);
 
   const webDir = ctx.webDir ?? DEFAULT_WEB_DIR;
   const secure = !!ctx.config?.tls;

@@ -143,6 +143,9 @@ export class CockpitDb {
     return Number(r.changes) === 1;
   }
   permission(toolUseId) { return this.db.prepare('SELECT * FROM permission_requests WHERE tool_use_id = ?').get(toolUseId); }
+  recentPermissions(limit = 100) {
+    return this.db.prepare('SELECT * FROM permission_requests ORDER BY asked_at DESC LIMIT ?').all(limit);
+  }
   pendingPermissions(project) {
     const rows = project == null
       ? this.db.prepare('SELECT * FROM permission_requests WHERE answered_at IS NULL ORDER BY asked_at').all()

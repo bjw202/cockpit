@@ -5,6 +5,7 @@ import { ChatDb } from './db/chat-db.js';
 import { CockpitDb } from './db/cockpit-db.js';
 import { SessionManager } from './session/manager.js';
 import { CHANNEL_ORIGIN } from './envelope/wrap.js';
+import { PermissionRelay } from './permissions/relay.js';
 
 export const chatDbFile = config => path.join(config.dataDir, 'chat.db');
 export const cockpitDbFile = config => path.join(config.dataDir, 'cockpit.db');
@@ -13,9 +14,11 @@ export const cockpitDbFile = config => path.join(config.dataDir, 'cockpit.db');
 export function openRuntime(config, { binding = {}, permissionHandler, model, origin = CHANNEL_ORIGIN, processEnv = process.env } = {}) {
   const chatDb = new ChatDb(chatDbFile(config));
   const cockpitDb = new CockpitDb(cockpitDbFile(config));
+  // 승인은 기본이 중계다 (ARCHITECTURE 6절). CLI chat · M1 스모크는 자기 처리기를 준다
+  const relay = new PermissionRelay({ chatDb, cockpitDb, config });
   const manager = new SessionManager({
     chatDb, cockpitDb, config, queryFn: binding.queryFn, makeMcpServer: binding.makeMcpServer,
-    ...(permissionHandler ? { permissionHandler } : {}), model, origin, processEnv,
+    permissionHandler: permissionHandler ?? relay.handler, model, origin, processEnv,
   });
   // keepState: 서버가 꺼질 때 — 세션을 닫되 적힌 상태를 그대로 두어 다음 기동이 resume 한다 (ARCHITECTURE 5.1)
   const close = async ({ keepState = false } = {}) => {
@@ -25,7 +28,7 @@ export function openRuntime(config, { binding = {}, permissionHandler, model, or
     chatDb.close();
     cockpitDb.close();
   };
-  return { chatDb, cockpitDb, manager, close };
+  return { chatDb, cockpitDb, manager, relay, close };
 }
 
 // 그 과제의 방에 afterId 뒤로 봇 글이 올 때까지. 세션이 error 가 되거나 시간이 넘으면 null

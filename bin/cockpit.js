@@ -206,6 +206,8 @@ async function serve(opt) {
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
 
+  const stale = rt.relay.cancelStale();
+  if (stale) console.log(`앞 프로세스에서 답을 못 받은 승인 요청 ${stale} 건을 거둬 감으로 닫았다`);
   for (const r of await rt.manager.bootResume()) {
     console.log(r.error ? `✗ resume ${r.project} — ${r.error}` : `resume ${r.project} → ${r.state}`);
   }
