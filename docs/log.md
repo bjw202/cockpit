@@ -244,3 +244,41 @@ W2 관문에 필요하다고 한 넷: `serve --config` 로 서버가 뜬다 · `
 **세션 끝 상태 (2026-09-15, M5)**
 - cockpit 작업 트리: M5.11 docs 커밋 뒤 깨끗. prodev worktree `../prodev-wt-cockpit-v2` 는 가지 `cockpit-v2`(PR #19 열림, 머지 전). `../prodev-wt-cockpit`(cockpit-m3)은 쓰지 않음.
 - 다음 세션이 읽을 파일: meta 의 M5.M 판정 · 다음 지시 → 이 절 → `docs/as-built.md`(4.3 대체된 시험 짝 · 4.4 minidiscord 기준 짝 · 5절) → `docs/TASKS.md` M5 → `smoke/README.md` m5-room.
+
+## 2026-09-15 — M6 실전 준비 · N16 캐시 · N17 도구 호출 한 줄 · 설치 문서 v2 · prodev PR #20 (M5.M 통과 뒤)
+
+**M5.M 통과** (meta: cockpit 열두 칸 ○ · 옛 대본 다섯 v2 합 36/42 새 기준선 · R8 8/8 · 승인 합 8 · PR #19 검수 통과 → 머지됨 a64e1f3). 지시 `instructions/M6.md`(작업 중 3.1 절이 더해졌다 — N17 을 도구별 사람 말 한 줄로). 답: **Q3** 사람이 이 맥 `~/cockpit-try-v2` 에서 눌러 봤다(기록, 관문 칸 아님) — 결함 둘 N16 · N17. **Q4** 대본 v2 봇 이름을 `prodev-<과제>-bot` 으로, `POST /api/rooms` 길로 재생했다 — `--no-setup` 옛 길은 더 안 쓴다.
+
+**커밋** (태스크마다 하나, 커밋마다 `npm test` 초록):
+- 2016584 M6.1 N17 격자 — `.tool` 을 `minmax(0,1fr) auto` · 요약 제 줄 (208)
+- d277b2b M6.2 N16 정적 파일 `etag` · `last-modified` · `304` (208)
+- 8a79247 M6.3 N17 3.1 — `glue.toolSummary` · `toolLabel` · `details` 한 줄 · 줄임표 · 펼침 (215)
+- caed8d2 M6.4 INSTALL-WINDOWS v2 (번호 걸음 12 · 명령 안 백틱 이어쓰기 0)
+- 4fc50b2 M6.5 README 쓰는 법 v2
+- 이 절 · as-built 를 넣은 docs 커밋 (M6.6)
+- prodev **PR #20** (`cockpit-v2b`, origin/main a64e1f3 기준, worktree `../prodev-wt-cockpit-v2`) — 1c57bc1 intake 가 카드 번호를 밝힌 **같은 글에서** 확정을 청한다 · 266c455 journal 이 방 하나 판에서도 "방마다 마지막 글" · "카드 없는 첨부" 절을 남긴다. prodev `npm test` 146 · `test:server` 18 (작업 에이전트가 직접 실행). 머지는 사람.
+
+**`npm test`** 215건 · 실패 0 · 건너뜀 0 (직접 실행). 새 시험 둘(N16 · N17 정적)은 서버 · CSS 만 옛 판으로 되돌리면 빨갛게 떨어지는 것을 먼저 봤다.
+
+**N16 확인** 임시 `serve` 에 `curl -I /app.js`: `HTTP/1.1 200` · `etag: W/"ed42-1a0a06b0c93"` · `last-modified: Mon, 14 Sep 2026 14:56:05 GMT` · `cache-control: no-cache` · 같은 etag 로 `If-None-Match` → `304`.
+
+**스모크 둘** (이 맥 · haiku · 스크래치 · prodev = a64e1f3 을 스크래치에 `git archive` 로 푼 자리, 판정 아님): `m5-room` exit 0 · `PLAIN_MESSAGES 2 TARGET_ROWS 0` · `BOT_TURNS_AFTER_PLAIN 0` · `FETCH_HISTORY_HAS_ATTACHMENTS yes` · `READ_ATTACHMENT yes` · $0.0414. `m3-restart` exit 0 · `RESUMED` 같은 uuid · `REDELIVERED 2` · `START_API_AGAIN … same_session=yes` · $0.0402. 실제 `prodev/bots` 목록 전후 같음. 전문 요지는 as-built 4.2.
+
+**막힌 것 · 알아낸 것.**
+- **N17 원인은 `grid-column` 이 안 먹은 게 아니었다.** 옛 `.tool-input` 에는 `grid-column` 이 없었고, 격자 `auto auto 1fr` 에서 띄어쓸 자리 없는 긴 이름(`mcp__cockpit__fetch_history`)이 `auto` 칸을 제 폭만큼 먹어 `1fr` 칸의 요약이 몇 글자 폭으로 눌렸다(`overflow-wrap:anywhere` 라 한 글자까지). 짧은 `Bash` 줄은 멀쩡 — 사람이 본 "어떤 카드만" 과 같다. 헤드리스 Chrome 280px 에 옛 · 새 CSS 로 그려 봤다.
+- **N16 은 재현하지 않았다.** v1 도 `no-cache` 는 보냈다(M2.2 부터) — 재검증 기준이 없었을 뿐이다. `etag` 로 막히리라 보지만 사람이 판을 한 번 더 올려 봐야 확정이다.
+- 본 체크아웃 `../prodev` 는 아직 1e02367(PR #19 전)이다. 읽기만 하므로 당기지 않았고, 스모크는 머지된 판을 스크래치에 풀어 돌렸다.
+- 첫 시험에서 `w.raw` 의 둘째 인자가 머리 그대로인 것을 몰라 한 번 빨갛다.
+
+**스스로 정한 것 (as-built 5절에 까닭).** 파일 이름 판 번호 대신 `etag` · `toolSummary` 셋째 인자(과제 이름) · Bash 경로 끝 **세** 마디(지시 문장은 "두 마디", 예는 세 마디 — 예를 따름) · `chat_id` 없으면 `마지막 방` · `Task` = `Agent`.
+
+**prodev ③ 조사 (고치지 않음).** `design/v2/ARCHITECTURE.md` 를 가리키는 지침 글은 `.claude/skills/intake/SKILL.md:88` 하나 — 저장소 기준 경로라 과제 폴더에서 도는 봇에게는 안 열리고(추정), 지금 판은 v3 인데 v2 를 가리킨다. 나머지는 코드 주석(`common/hooks/session-start.js:5` · `pre-reply.js:7` · `scripts/index.js:7,149` · `find.js:6,24` · `chat.js:17` · `setup.js:204` 등)이 이름만 적는다. `CLAUDE.md` · `.claude/agents` 에는 없다. 조건 ④ 의 실제 모양(`pre-reply.js:116-121`): 확정 글 번호가 카드 `source_msgs` 최대보다 뒤 **그리고** 같은 방에서 확정 바로 앞 봇 글 하나에 카드 번호.
+
+**새 질문 (meta 에).**
+- **Q5 N16 확인 자리.** 재현을 못 했다. 사람이 `~/cockpit-try-v2` 에 M6 판을 올리고 강력 새로고침 없이 로그인되는지 한 번 볼지.
+- **Q6 intake 의 v2 경로.** ③ 에서 `SKILL.md:88` 이 `design/v2/ARCHITECTURE.md` 를 저장소 기준으로 가리킨다 — 봇이 `find` 로 찾아 나서는 원인 후보. 고칠지 · 어느 판을 가리킬지 정해 달라.
+- **Q7 본 체크아웃 당기기.** `../prodev` 가 1e02367 이다. 실전 전에 사람이 `git pull` 할 자리를 INSTALL 에 넣을지(회사 PC 는 새 클론이라 해당 없을 수 있다).
+
+**세션 끝 상태 (2026-09-15, M6)**
+- cockpit 작업 트리: M6.6 docs 커밋 뒤 깨끗. prodev worktree `../prodev-wt-cockpit-v2` 는 가지 `cockpit-v2b`(PR #20 열림, 머지 전).
+- 다음 세션이 읽을 파일: meta 의 M6 판정 → 이 절 → `docs/as-built.md` 4.2 M6 판 · 5절 M6 줄 · 6절 → `docs/INSTALL-WINDOWS.md`.

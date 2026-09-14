@@ -122,9 +122,9 @@ M3.1 판 그대로 (v2 에서 안 바뀜): `tool_use` · `tool_result` · `hook`
 
 ## 4. 시험 묶음과 건수
 
-### 4.1 `npm test` — 206건 · 실패 0 · 건너뜀 0 (2026-09-15, 이 맥 · Node 24.12.0 · 형제 `../prodev` = 1e02367, 제작 세션이 파일마다 따로 돌려 셌다)
+### 4.1 `npm test` — 215건 · 실패 0 · 건너뜀 0 (2026-09-15 M6, 이 맥 · Node 24.12.0 · 형제 `../prodev` = 1e02367, 제작 세션이 직접 돌렸다)
 
-`COCKPIT_PRODEV_DIR=../prodev-wt-cockpit-v2`(prodev PR #19 가지)로도 206 · 0 · 0.
+M5 판은 206건(`COCKPIT_PRODEV_DIR=../prodev-wt-cockpit-v2` 로도 206 · 0 · 0). M6 에서 아홉을 더했다: N17 정적 시험 하나(web-static) · N16 재검증 하나(http-rooms) · `toolSummary` 일곱(web-glue).
 
 | 파일 | 건수 | 층 |
 |---|---:|---|
@@ -137,7 +137,7 @@ M3.1 판 그대로 (v2 에서 안 바뀜): `tool_use` · `tool_result` · `hook`
 | `test/events.test.js` | 5 | B + HTTP |
 | `test/http-files.test.js` | 6 | A |
 | `test/http-projects.test.js` | 3 | A — (v2) 방 하나 · 가짜 setup |
-| `test/http-rooms.test.js` | 11 | A |
+| `test/http-rooms.test.js` | 12 | A — (M6) N16 재검증 |
 | `test/http-session.test.js` | 7 | B |
 | `test/mcp-tools.test.js` | 16 | A — (v2) 첨부 칸 여섯 |
 | `test/migrate.test.js` | 4 | A (+ CLI 자식 · serve 자식) — (v2) M5.0 |
@@ -151,8 +151,8 @@ M3.1 판 그대로 (v2 에서 안 바뀜): `tool_use` · `tool_result` · `hook`
 | `test/sse.test.js` | 4 | A |
 | `test/web-card.test.js` | 5 | A (판이 쓰는 순수 함수) |
 | `test/web-cockpit.test.js` | 7 | A (판이 쓰는 순수 함수) |
-| `test/web-glue.test.js` | 10 | A — (v2) M5.6 여덟 · M5.7 둘 |
-| `test/web-static.test.js` | 14 | A (정적 검사 · 원본 지문) — (v2) M5.5 · M5.6 · M5.7 |
+| `test/web-glue.test.js` | 17 | A — (v2) M5.6 여덟 · M5.7 둘 · (M6) toolSummary 일곱 |
+| `test/web-static.test.js` | 15 | A (정적 검사 · 원본 지문) — (v2) M5.5 · M5.6 · M5.7 · (M6) N17 |
 | `test/contract/chat-js.test.js` | 4 | C — (v2) 봉투 없는 글 targets |
 | `test/contract/replay-js.test.js` | 5 | C — (v2) 방 하나 판 |
 | `test/contract/setup-js.test.js` | 2 | C — (v2) prodev 복사본에서 진짜 setup.js |
@@ -163,6 +163,15 @@ TASKS M5 끝 조건의 시험 이름은 모두 글자 그대로 있다. TASKS �
 **윈도우에서 건너뛸 수 있는 시험 (M4.1)** — 조건은 M4 판 그대로다: `과제 폴더 밖을 가리키는 심볼릭 링크 404`(통째) · win32 의 `check — claudePath 를 불러 판을 낸다`(통째) · `reply files: …` · `정적 파일 경로 탈출(../) 404` · `폴더 한 층 목록 — …`(링크 칸만) · `smoke-scratch` · `test/contract/*` (형제가 없으면 통째 — v2 의 `setup-js` 도 같다). **(v2) 새 시험의 윈도우 조건**: `rooms-create` 의 CLI 자식은 셸 없이 `process.execPath` 로 부른다 · `migrate` 의 serve 자식을 `SIGKILL` 로 끄는데 윈도우에서 신호 이름은 무시되고 프로세스가 끝난다 · `makeRoomScratch` 는 `fs.cpSync(dereference)` 라 링크를 만들지 않는다. 윈도우 실측은 없다.
 
 ### 4.2 스모크 — 제작 세션이 개발 중 돌린 것 (판정 아님)
+
+**M6 판** (2026-09-15, 이 맥 · haiku · 스크래치 · `COCKPIT_PRODEV_DIR` = prodev `origin/main` a64e1f3(PR #19 머지 뒤)를 스크래치에 `git archive` 로 푼 자리 — 본 체크아웃 `../prodev` 는 아직 1e02367):
+
+| 스크립트 | 요지 |
+|---|---|
+| `m5-room` | `ROOM_CREATE_API 201 room=prodev-smoke bot=prodev-smoke-bot setup_ms=65` · `ROOMS_FOR_PROJECT 1` · `BOT_DIR_SETTINGS_LOCAL yes` · `START_API 200 idle` · **`PLAIN_MESSAGES 2 TARGET_ROWS 0 INBOX_ROWS 0`** · **`BOT_TURNS_AFTER_PLAIN 0`** · `DELIVERED_AFTER_PLAIN 0` · **`FETCH_HISTORY_CALLED yes`** · **`FETCH_HISTORY_HAS_ATTACHMENTS yes`** · **`READ_ATTACHMENT yes`** · `BOT_REPLY message_id=4 "파일 첫 줄은 \"lot,yield\" 입니다. …"` · `ARCHIVE_API 200 state=stopped` · $0.0414 · `ASKED []` · exit 0 |
+| `m3-restart` | `START_API 200 idle` · `KILLED signal=SIGKILL` · `INSERTED 3 4 pending=2` · `SERVE_BOOT ["resume smoke → working"]` · `RESUMED session_id=<같은 uuid>` · `REDELIVERED 2` · `BOT_REPLIES_AFTER_RESTART 2 ["첫째 받음","둘째 받음"]` · `STOP_API 200 stopped` · `START_API_AGAIN 200 idle same_session=yes` · `CONTEXT_PCT 14` · $0.0402 · `ASKED []` · exit 0 |
+
+값 합 약 $0.08. 돌리기 전 · 뒤 실제 `prodev/bots` 목록이 같다(`diff` 로 직접 대조). N16 확인: 임시 `serve` 에 `curl -I /app.js` → `200` · `etag: W/"ed42-1a0a06b0c93"` · `last-modified` · `cache-control: no-cache`, 같은 etag 로 `If-None-Match` → `304`.
 
 **M5 판** (2026-09-15, 이 맥 · haiku · 스크래치 · 기본 `../prodev` = 1e02367 — PR #19 전 하네스):
 
@@ -239,10 +248,14 @@ M1~M4 판의 줄은 그대로 유효하다(`git show 59f3523:docs/as-built.md` 5
 | **(M5.7)** 판은 minidiscord `api()` 대신 자기 `call()`(상태 코드 · 본문) · 판의 승인 카드는 **지금 연 방의 과제 것만**(방을 안 열었으면 전체), 접힌 단추의 수는 전체 · 파일 목록은 파일 접이가 열릴 때만 받는다 | 409 `TASKS_RUNNING` 확인 · 방 화면에 딴 과제 카드가 섞이지 않게 · 판을 펼 때 요청을 줄인다 |
 | **(M5.9)** `m5-room` 은 prodev 를 **복사한** 자리(`makeRoomScratch`)에서 돈다 · `FETCH_HISTORY_HAS_ATTACHMENTS` 는 봇이 준 입력 그대로 처리기를 다시 돌려 본 값 · `m1-envelope` 의 `FILES_ROOM_ID` → `ROOM_ID` | 링크 자리에서 setup.js 를 부르면 실제 prodev/bots 에 봇 폴더가 생긴다 · 사건의 결과 요약이 200자에서 잘린다 |
 | **(M5.10, prodev)** 확정 조건 ② 를 바꾸자 fixture E-0006 이 **④ 에서** 막히게 됐다 — 사례 이름을 사실대로 고치고 조건 ② 시험 둘(fixture DB 사본)을 더했다 · 끝 조건 grep 을 맞추려고 `CLAUDE.md` 이력 줄을 "방을 둘로 줄임 (ADR-039 로 하나가 됨)" 으로 | PR #19 본문에 적었다 |
+| **(M6 N16)** 정적 파일은 `cache-control: no-cache` 에 `etag`(`W/"<크기 16진>-<mtime ms 16진>"`) · `last-modified` 를 싣고, `If-None-Match` 가 같으면 `304` · 파일 이름에 판 번호는 안 붙였다 | 옮긴 파일 다섯의 원본 지문(`app.js` import · `index.html` 경로)을 건드리지 않는다. `no-cache` 는 M2.2 부터 있었지만 재검증 기준이 없었다 — v1 → v2 에서 옛 `app.js` 가 쓰인 정확한 경로는 브라우저로 재현하지 않았다(6절) |
+| **(M6 N17)** 옛 격자 `auto auto 1fr` → `minmax(0, 1fr) auto` + 격자 자식 `min-width:0` · 요약은 `details.tool-more` 가 `grid-column: 1 / -1` 로 제 줄을 차지하고 그 `summary.tool-input` 이 `nowrap` · `ellipsis`, 누르면 `pre.tool-raw`(서버 입력 요약 200자, `pre-wrap`) · `title` 에 전문 | **원인**: `grid-column` 이 안 먹은 것이 아니라 옛 `.tool-input` 에 `grid-column` 이 없었다. 띄어쓸 자리가 없는 긴 이름(`mcp__cockpit__fetch_history`)이 `auto` 칸을 max-content 로 먹고, `1fr` 칸의 요약(`overflow-wrap:anywhere` 라 min-content 가 한 글자)이 몇 글자 폭까지 눌렸다 — 짧은 이름(`Bash`) 줄은 멀쩡했다. 헤드리스 Chrome 280px 판에 옛 CSS(d41b0da) · 새 CSS 로 같은 줄 셋을 그려 확인했다 |
+| **(M6 N17)** `glue.toolSummary(name, input, project?)` 의 셋째 인자 · Bash 경로는 **끝 세 마디**(폴더 둘 · 파일) · `chat_id` 가 없으면 `마지막 방` · `Task` 는 `Agent` 와 같게 · 잘린 JSON(200자 + `…`)은 앞부분에서 칸을 찾는다 | 지시의 "과제 폴더 기준 상대 경로" 에 과제 이름이 있어야 한다 · 지시는 "마지막 두 마디" 라 적고 예는 `design/v2/ARCHITECTURE.md`(세 마디) — 예를 따랐다 · 서버 `summarize` 가 입력을 200자에서 자른다 |
 
 ## 6. 알고 두는 것
 
-- **화면은 브라우저에서 눌러 보지 않았다.** v2 는 화면이 바뀐 회차다. 기계가 본 것은 정적 검사 · 순수 함수 · 원본 지문 · `node --check` 까지다 — 방 만들기 단추 · 방 전환 · 자동완성 · 붙여넣기 · 판 접기가 cockpit 서버에 붙어 실제로 도는지는 사람이 눌러 봐야 안다 (log Q3).
+- **화면은 사람이 이 맥에서 한 번 눌러 봤다** (M5.M Q3, `~/cockpit-try-v2`: 로그인 · 방 만들기 · 켜기 · 봇 부르기 · 도구 호출 표시) — 관문 칸이 아니라 기록이다. 거기서 나온 결함 둘이 N16 · N17 이다. 자동완성 · 붙여넣기 · 사람끼리 글 · 따라잡기는 INSTALL-WINDOWS 12번에서 사람이 본다. **M6 의 N17 새 줄(details · 줄임표)은 헤드리스 Chrome 정적 그림으로만 봤고 cockpit 서버에 붙은 화면에서는 안 눌렀다.**
+- **N16 은 재현하지 않았다.** v1 도 `no-cache` 를 보냈는데 옛 `app.js` 가 쓰였다 — `etag` 재검증으로 막히리라 보지만, 사람이 판을 한 번 더 올려 강력 새로고침 없이 되는지 봐야 확정이다.
 - **member 화면에는 보관 아이콘이 없다.** minidiscord AC-WEBUI-004(보관 컨트롤은 키보드로 닿는다)는 admin 화면에서만 성립한다.
 - **`m5-room` 은 PR #19 전 하네스로 돌렸다.** 봇이 `fetch_history` 로 따라잡은 것은 cockpit 지시문("부르면 fetch_history 로 놓친 대화를 먼저 확인") 덕일 수 있다 — orchestrator 의 새 "따라잡는 길" 절은 아직 안 실렸다. PR 뒤 판은 meta 의 R8 이 잰다.
 - **방 만들기의 setup 은 이 맥에서 68ms**(`git init` 포함, 대역 판 39ms). 회사 PC · 윈도우의 60초 상한은 모른다.
