@@ -34,7 +34,7 @@ test('같은 과제에 글 셋 → queryFn 호출 1회', async () => {
   const mgr = manager(w, q); const { main } = open(mgr, w);
   await mgr.start('시험');
   for (const t of ['하나', '둘', '셋']) {
-    mgr.postUserMessage({ roomId: main.id, username: '김과제', body: t });
+    mgr.postUserMessage({ roomId: main.id, username: '김과제', body: `@TO(prodev-시험-bot) ${t}` });
     await waitFor(() => mgr.state('시험') === 'idle' && mgr.cockpitDb.pendingInbox(1).length === 0);
   }
   assert.equal(q.calls.length, 1);
@@ -47,10 +47,10 @@ test('working 중에 들어온 글도 곧바로 queryFn 입력으로 간다', as
   const q = makeFakeQueryFn({ turns: [[{ wait: hold.promise }, { result: true }]] });
   const mgr = manager(w, q); const { main } = open(mgr, w);
   await mgr.start('시험');
-  const a = mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '첫 글' });
+  const a = mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) 첫 글' });
   await waitFor(() => q.calls[0].received.length === 1);
   assert.equal(mgr.state('시험'), 'working');
-  const b = mgr.postUserMessage({ roomId: main.id, username: '박과제', body: '둘째 글' });
+  const b = mgr.postUserMessage({ roomId: main.id, username: '박과제', body: '@TO(prodev-시험-bot) 둘째 글' });
   await waitFor(() => q.calls[0].received.length === 2, { what: '턴 도중 배달' });   // 턴이 끝나기 전에 (W2r.1)
   assert.equal(mgr.state('시험'), 'working');
   assert.equal(mgr.cockpitDb.pendingInbox(1).length, 0, '큐에 걸려 있지 않다');
@@ -74,7 +74,7 @@ test('result 뒤에 이어 온 봇 메시지는 state 를 working 으로 되돌�
   ]] });
   const mgr = manager(w, q); const { main } = open(mgr, w);
   await mgr.start('시험');
-  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '첫 글' });
+  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) 첫 글' });
   await waitFor(() => mgr.cockpitDb.eventsAfter('시험').some(e => e.type === 'result') && mgr.state('시험') === 'idle', { what: '첫 result' });
   gap.resolve();
   await waitFor(() => mgr.state('시험') === 'working', { what: '이어 온 assistant 로 working' });
@@ -96,17 +96,17 @@ test('봇 세션 env 의 PRODEV_BOT_DIR 은 그 과제의 봇 폴더', async () 
 
 test('idle 에서 밀린 글 셋은 사용자 메시지 하나에 id 순으로', async () => {
   const w = world(); const q = makeFakeQueryFn();
-  const mgr = manager(w, q); const { main, files } = open(mgr, w);
+  const mgr = manager(w, q); const { main } = open(mgr, w);
   const ids = [
-    mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '본방 글' }).id,
-    mgr.postUserMessage({ roomId: files.id, username: '김과제', body: '@CC(prodev-시험-bot) 참고' }).id,
-    mgr.postUserMessage({ roomId: files.id, username: '박과제', body: '@TO(prodev-시험-bot) 봐 주세요' }).id,
+    mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) 본방 글' }).id,
+    mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '@CC(prodev-시험-bot) 참고' }).id,
+    mgr.postUserMessage({ roomId: main.id, username: '박과제', body: '@TO(prodev-시험-bot) 봐 주세요' }).id,
   ];
   await mgr.start('시험');
   await waitFor(() => q.calls[0].received.length === 1);
   const um = q.calls[0].received[0];
   assert.deepEqual(messageIdsIn(um), ids);
-  assert.match(text(um), /delivery="cc" sender="김과제" author_type="user" room_name="prodev-시험\/files">\n\[김과제\] @CC/);
+  assert.match(text(um), /delivery="cc" sender="김과제" author_type="user" room_name="prodev-시험">\n\[김과제\] @CC/);
   assert.equal(mgr.cockpitDb.pendingInbox(1).length, 0);
   await mgr.stop('시험');
 });
@@ -118,9 +118,9 @@ test('waiting_approval 중에도 배달', async () => {
   const mgr = manager(w, q, { permissionHandler: async a => { asked.push(a.toolName); return answer.promise; } });
   const { main } = open(mgr, w);
   await mgr.start('시험');
-  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: 'curl 돌려 줘' });
+  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) curl 돌려 줘' });
   await waitFor(() => mgr.state('시험') === 'waiting_approval');
-  const later = mgr.postUserMessage({ roomId: main.id, username: '박과제', body: '그 사이 다른 글' });
+  const later = mgr.postUserMessage({ roomId: main.id, username: '박과제', body: '@TO(prodev-시험-bot) 그 사이 다른 글' });
   await waitFor(() => q.calls[0].received.length === 2, { what: '승인 대기 중 배달' });
   assert.deepEqual(messageIdsIn(q.calls[0].received[1]), [later.id]);
   assert.equal(mgr.state('시험'), 'waiting_approval', '배달이 승인 대기 상태를 덮지 않는다');
@@ -136,7 +136,7 @@ test('interrupt 는 큐를 거치지 않는다', async () => {
   const q = makeFakeQueryFn({ turns: [[{ wait: hold.promise }, { result: true }]] });
   const mgr = manager(w, q); const { main } = open(mgr, w);
   await mgr.start('시험');
-  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '긴 일' });
+  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) 긴 일' });
   await waitFor(() => mgr.state('시험') === 'working');
   await mgr.interrupt('시험');
   assert.equal(q.calls[0].interrupts, 1);
@@ -151,10 +151,10 @@ test('/compact 는 idle 을 기다렸다가 밀린 글보다 먼저 들어간다
   const q = makeFakeQueryFn({ turns: [[{ wait: hold.promise }, { result: true }], [{ result: true }], [{ wait: holdCompact.promise }, { result: true }]] });
   const mgr = manager(w, q); const { main } = open(mgr, w);
   await mgr.start('시험');
-  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '일' });
+  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) 일' });
   await waitFor(() => mgr.state('시험') === 'working');
   mgr.compact('시험');
-  const during = mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '일하는 중에 온 글' });
+  const during = mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) 일하는 중에 온 글' });
   await waitFor(() => q.calls[0].received.length === 2, { what: '글은 곧바로' });
   assert.deepEqual(messageIdsIn(q.calls[0].received[1]), [during.id]);
   await new Promise(r => setTimeout(r, 20));
@@ -163,7 +163,7 @@ test('/compact 는 idle 을 기다렸다가 밀린 글보다 먼저 들어간다
   hold.resolve();
   await waitFor(() => q.calls[0].received.length === 3, { what: 'idle 에서 /compact' });
   assert.equal(text(q.calls[0].received[2]), '/compact');
-  const after = mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '압축 중에 온 글' });
+  const after = mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) 압축 중에 온 글' });
   await new Promise(r => setTimeout(r, 20));
   assert.equal(q.calls[0].received.length, 3, '압축 턴 동안은 글을 붙잡는다');
   assert.equal(mgr.cockpitDb.pendingInbox(1).length, 1);
@@ -180,7 +180,7 @@ test('채팅 글에는 origin channel/cockpit, /compact 에는 origin human', as
   await mgr.start('시험');
   mgr.compact('시험');
   await waitFor(() => q.calls[0].received.length === 1);
-  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '안녕' });
+  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) 안녕' });
   await waitFor(() => q.calls[0].received.length === 2);
   assert.deepEqual(q.calls[0].received[0].origin, { kind: 'human' });
   assert.deepEqual(q.calls[0].received[1].origin, { kind: 'channel', server: 'cockpit' });
@@ -189,7 +189,7 @@ test('채팅 글에는 origin channel/cockpit, /compact 에는 origin human', as
   const w2 = world(); const q2 = makeFakeQueryFn();
   const bare = manager(w2, q2, { origin: null }); const r2 = open(bare, w2);
   await bare.start('시험');
-  bare.postUserMessage({ roomId: r2.main.id, username: '김과제', body: '안녕' });
+  bare.postUserMessage({ roomId: r2.main.id, username: '김과제', body: '@TO(prodev-시험-bot) 안녕' });
   await waitFor(() => q2.calls[0].received.length === 1);
   assert.equal('origin' in q2.calls[0].received[0], false);
   await bare.stop('시험');
@@ -209,19 +209,19 @@ test('넷째 세션은 거절(maxSessions 3)', async () => {
 test('재기동: 새 manager 가 stopped 아닌 줄을 resume:session_id 로 켜고 delivered_at IS NULL 을 순서대로 넣는다', async () => {
   const w = world(); const hold = deferred();
   const qa = makeFakeQueryFn({ turns: [[{ result: true }], [{ wait: hold.promise }]] });
-  const a = manager(w, qa); const { main, files } = open(a, w);
+  const a = manager(w, qa); const { main } = open(a, w);
   open(a, w, '꺼진과제');
   await a.start('시험');
-  a.postUserMessage({ roomId: main.id, username: '김과제', body: '첫 글' });
+  a.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) 첫 글' });
   await waitFor(() => a.state('시험') === 'idle' && qa.calls[0].received.length === 1);
-  a.postUserMessage({ roomId: main.id, username: '김과제', body: '둘째 — 턴 도중 서버가 죽는다' });
+  a.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) 둘째 — 턴 도중 서버가 죽는다' });
   await waitFor(() => qa.calls[0].received.length === 2);
   // 여기서 서버가 죽었다 — 상태는 working 그대로 남는다 (stop 을 안 부른다)
   await a.release('시험');
   assert.equal(a.cockpitDb.agentSession('시험').state, 'working');
   // 서버가 없는 사이 들어온 글 — 큐에만 쌓인다 (W2r.1 뒤로는 살아 있는 세션이면 곧바로 배달되므로 죽은 뒤에 넣는다)
-  const m3 = a.postUserMessage({ roomId: files.id, username: '박과제', body: '@TO(prodev-시험-bot) 셋째' });
-  const m4 = a.postUserMessage({ roomId: main.id, username: '김과제', body: '넷째' });
+  const m3 = a.postUserMessage({ roomId: main.id, username: '박과제', body: '@TO(prodev-시험-bot) 셋째' });
+  const m4 = a.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) 넷째' });
   assert.equal(a.cockpitDb.agentSession('시험').session_id, 'sess-1');
 
   const qb = makeFakeQueryFn();
@@ -241,7 +241,7 @@ test('resume 실패면 새 세션으로 켜고 session_events 에 까닭', async
   const a = manager(w, qa); open(a, w);
   await a.start('시험');
   const { main } = a.projectInfo('시험').rooms;
-  a.postUserMessage({ roomId: main.id, username: '김과제', body: '글' });
+  a.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) 글' });
   await waitFor(() => a.state('시험') === 'idle' && qa.calls[0].received.length === 1);
 
   const qb = makeFakeQueryFn({ resumable: false });
@@ -287,7 +287,7 @@ test('stream_event 는 session_events 에 안 적는다', async () => {
   const partials = [];
   mgr.on('partial', p => partials.push(p));
   await mgr.start('시험');
-  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '안녕' });
+  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) 안녕' });
   await waitFor(() => mgr.cockpitDb.eventsAfter('시험').some(e => e.type === 'result'));
   const events = mgr.cockpitDb.eventsAfter('시험');
   assert.equal(partials.length, 1);
@@ -308,7 +308,7 @@ test('result 셋(0.1 · 0.25 · 0.4) 뒤 cost_usd 는 0.4', async () => {
   await mgr.start('시험');
   const results = () => mgr.cockpitDb.eventsAfter('시험').filter(e => e.type === 'result');
   for (const [i, body] of ['하나', '둘', '셋'].entries()) {
-    mgr.postUserMessage({ roomId: main.id, username: '김과제', body });
+    mgr.postUserMessage({ roomId: main.id, username: '김과제', body: `@TO(prodev-시험-bot) ${body}` });
     await waitFor(() => results().length === i + 1 && mgr.state('시험') === 'idle', { what: `result ${i + 1}` });
   }
   assert.ok(Math.abs(mgr.cockpitDb.agentSession('시험').cost_usd - 0.4) < 1e-9, `덮어쓴다: ${mgr.cockpitDb.agentSession('시험').cost_usd}`);
@@ -323,7 +323,7 @@ test('CLI 프로세스가 바뀌어도 cost_usd 는 앞 프로세스 값 위에 
   const a = manager(w, qa); const { main } = open(a, w);
   await a.start('시험');
   for (const [i, body] of ['하나', '둘'].entries()) {
-    a.postUserMessage({ roomId: main.id, username: '김과제', body });
+    a.postUserMessage({ roomId: main.id, username: '김과제', body: `@TO(prodev-시험-bot) ${body}` });
     await waitFor(() => a.cockpitDb.eventsAfter('시험').filter(e => e.type === 'result').length === i + 1 && a.state('시험') === 'idle');
   }
   assert.ok(Math.abs(a.cockpitDb.agentSession('시험').cost_usd - 0.05) < 1e-9, '한 프로세스 안에서는 마지막 누적값');
@@ -332,7 +332,7 @@ test('CLI 프로세스가 바뀌어도 cost_usd 는 앞 프로세스 값 위에 
   const qb = makeFakeQueryFn({ turns: [[{ result: true, cost: 0.01 }]] });
   const b = manager(w, qb);
   await b.bootResume();
-  b.postUserMessage({ roomId: main.id, username: '김과제', body: '재기동 뒤' });
+  b.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) 재기동 뒤' });
   await waitFor(() => b.cockpitDb.eventsAfter('시험').filter(e => e.type === 'result').length === 3 && b.state('시험') === 'idle');
   assert.ok(Math.abs(b.cockpitDb.agentSession('시험').cost_usd - 0.06) < 1e-9, `0.05 + 0.01: ${b.cockpitDb.agentSession('시험').cost_usd}`);
   assert.equal(b.cockpitDb.eventsAfter('시험').filter(e => e.type === 'result').at(-1).data.total_cost_usd, 0.01, 'result 행에는 SDK 값 그대로');
@@ -344,7 +344,36 @@ test('CLI 가 죽으면 state error 와 까닭', async () => {
   const q = makeFakeQueryFn({ turns: [[{ throw: 'spawn claude ENOENT' }]] });
   const mgr = manager(w, q); const { main } = open(mgr, w);
   await mgr.start('시험');
-  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '안녕' });
+  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) 안녕' });
   await waitFor(() => mgr.state('시험') === 'error');
   assert.match(mgr.cockpitDb.eventsAfter('시험').find(e => e.type === 'error').data.error, /ENOENT/);
+});
+
+// (v2) 봉투 없는 글은 사람끼리의 글이다 — 큐에 안 들고 세션을 깨우지 않는다 (ADR-018 · ARCHITECTURE 4.5 끝 줄)
+test('봉투 없는 글 셋 뒤 queryFn 입력 0 · 상태 그대로', async () => {
+  const w = world(); const q = makeFakeQueryFn();
+  const mgr = manager(w, q); const { main } = open(mgr, w);
+  await mgr.start('시험');
+  assert.equal(mgr.state('시험'), 'idle');
+  for (const body of ['사람끼리 하나', '사람끼리 둘', '사람끼리 셋']) mgr.postUserMessage({ roomId: main.id, username: '김과제', body });
+  await new Promise(r => setTimeout(r, 30));
+  assert.equal(q.calls[0].received.length, 0);
+  assert.equal(mgr.state('시험'), 'idle');
+  assert.equal(Number(mgr.cockpitDb.db.prepare('SELECT COUNT(*) c FROM bot_inbox').get().c), 0);
+  assert.equal(mgr.cockpitDb.eventsAfter('시험').filter(e => e.type === 'delivered').length, 0);
+  assert.equal(mgr.chatDb.messagesAfter(main.id, 0).length, 3, '글은 방에 남는다');
+  await mgr.stop('시험');
+});
+
+test('봉투 없는 글 뒤 @TO 글 하나는 곧바로 한 덩이로 간다', async () => {
+  const w = world(); const q = makeFakeQueryFn();
+  const mgr = manager(w, q); const { main } = open(mgr, w);
+  await mgr.start('시험');
+  mgr.postUserMessage({ roomId: main.id, username: '박과제', body: '파일 올렸어요' });
+  const to = mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) 위 파일 봐 주세요' });
+  await waitFor(() => q.calls[0].received.length === 1, { what: '@TO 글 배달' });
+  assert.deepEqual(messageIdsIn(q.calls[0].received[0]), [to.id]);
+  await waitFor(() => mgr.state('시험') === 'idle');
+  assert.equal(q.calls[0].received.length, 1, '봉투 없는 글은 뒤따라 들어가지 않는다');
+  await mgr.stop('시험');
 });

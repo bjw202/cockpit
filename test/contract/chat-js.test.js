@@ -1,5 +1,6 @@
 // 계약 시험 — 형제 저장소 prodev 의 진짜 scripts/chat.js 를 cockpit 이 만든 chat.db 에 붙인다.
 // 형제는 읽기만 한다. 없으면 건너뛴다 (건너뜀은 통과로 세지 않는다 — VERIFICATION 2.3).
+// (v2) 방 하나 — 봉투 없는 글은 targets 가 비고, 첨부는 같은 방의 @TO 글에 (ADR-015 · 018)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -18,13 +19,13 @@ function build() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-chatjs-'));
   const db = new ChatDb(path.join(dir, 'data', 'chat.db'));
   // 옛 대본과 같은 꼴의 봇 이름 (meta D0 Q6)
-  const { bot, main, files } = db.openProject('worktogether', 'prodev-worktogether-비서');
+  const { bot, main } = db.openProject('worktogether', 'prodev-worktogether-비서');
   const user = db.ensureUser('김과제');
   const abs = path.join(dir, 'uploads', '3f2a-성적서.csv');
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   fs.writeFileSync(abs, 'lot,yield\nA,91\n');
   const a = db.insertUserMessage({ roomId: main.id, userId: user.id, body: '샤워헤드 수율 어땠지', bot }).message;
-  const b = db.insertUserMessage({ roomId: files.id, userId: user.id, body: '@TO(prodev-worktogether-비서) 샤워헤드 성적서', bot,
+  const b = db.insertUserMessage({ roomId: main.id, userId: user.id, body: '@TO(prodev-worktogether-비서) 샤워헤드 성적서', bot,
     files: [{ filename: '성적서.csv', absPath: abs, size: 16 }] }).message;
   db.insertBotMessage({ roomId: main.id, botId: bot.id, body: '샤워헤드 교체 후 91% 입니다' });
   return { db, a, b, abs };
@@ -45,11 +46,16 @@ test('chat.js --json 아홉 칸 이름이 같다', { skip }, () => {
 });
 
 test('targets 칸이 <봇 이름>:to', { skip }, () => {
-  const { db, a, b } = build();
+  const { db, b } = build();
   const rows = JSON.parse(run(db, ['search', '샤워헤드', '--json']));
-  assert.equal(rows.find(r => r.id === a.id).targets, 'prodev-worktogether-비서:to');   // 본방 봉투 없음 → to
-  assert.equal(rows.find(r => r.id === b.id).targets, 'prodev-worktogether-비서:to');
+  assert.equal(rows.find(r => r.id === b.id).targets, 'prodev-worktogether-비서:to');   // @TO 글
   assert.equal(rows.find(r => r.author_type === 'bot').targets, null);
+});
+
+test('봉투 없는 글의 targets 칸이 비었다', { skip }, () => {
+  const { db, a } = build();
+  const rows = JSON.parse(run(db, ['search', '샤워헤드', '--json']));
+  assert.equal(rows.find(r => r.id === a.id).targets, null, '사람끼리의 글은 봇에게 안 간다 (ADR-018)');
 });
 
 test('show 의 첨부 path 가 실제 파일', { skip }, () => {
@@ -58,5 +64,5 @@ test('show 의 첨부 path 가 실제 파일', { skip }, () => {
   assert.equal(shown.attachments.length, 1);
   assert.equal(shown.attachments[0].path, abs);
   assert.ok(fs.existsSync(shown.attachments[0].path));
-  assert.equal(shown.room, 'prodev-worktogether/files');
+  assert.equal(shown.room, 'prodev-worktogether');
 });

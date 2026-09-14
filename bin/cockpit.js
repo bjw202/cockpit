@@ -5,7 +5,8 @@
 //       설정 검사. 어긋난 키마다 ✗ 한 줄, 하나라도 있으면 exit 1
 //   node bin/cockpit.js open-project <과제> [--bot-dir <봇 폴더>] [--bot-name <이름>] [--config <파일>]
 //       chat.db 에 봇 한 줄 · 방 둘, cockpit.db 에 세션 한 줄. 봇 이름 기본은 prodev-<과제>-bot, 봇 폴더 기본은 <botsDir>/prodev-<과제>-bot
-//   node bin/cockpit.js chat <과제> "<글>" [--room main|files] [--as <이름>] [--timeout <초>] [--model <모델>] [--config <파일>]
+//   node bin/cockpit.js chat <과제> "<글>" [--as <이름>] [--timeout <초>] [--model <모델>] [--config <파일>]
+//       (v2) 방은 과제마다 하나다. 봇에게 가려면 글에 @TO(<봇>) 를 적는다 — 봉투 없는 글은 사람끼리다 (ADR-018)
 //       진짜 SDK 로 세션을 켜고(있으면 resume) 글 하나를 넣고 봇 답 하나를 기다려 찍는다. 승인 요청은 전부 거부한다 (M1)
 //   node bin/cockpit.js init-admin <이름> [--config <파일>]
 //       첫 admin. 비밀번호는 표준입력에서 (터미널이면 화면에 안 보이게 두 번, 파이프면 첫 줄). admin 이 있으면 거절
@@ -101,17 +102,17 @@ async function openProject(opt, [project]) {
   if (bad) { console.error(`✗ ${bad}`); return 1; }
   const rt = openRuntime(config);
   try {
-    const { bot, main, files } = rt.manager.openProject({
+    const { bot, main } = rt.manager.openProject({
       project, botDir: typeof opt['bot-dir'] === 'string' ? path.resolve(opt['bot-dir']) : defaultBotDir(config, project), ...(botName ? { botName } : {}),
     });
-    console.log(`과제 ${project} · 봇 ${bot.name} (id ${bot.id}) · 본방 ${main.name} (id ${main.id}) · 파일방 ${files.name} (id ${files.id})`);
+    console.log(`과제 ${project} · 봇 ${bot.name} (id ${bot.id}) · 방 ${main.name} (id ${main.id})`);
     return 0;
   } finally { await rt.close(); }
 }
 
 async function chat(opt, [project, body]) {
   if (!project || !body) {
-    console.error('쓰는 법: chat <과제> "<글>" [--room main|files] [--as <이름>] [--timeout <초>] [--model <모델>]');
+    console.error('쓰는 법: chat <과제> "<글>" [--as <이름>] [--timeout <초>] [--model <모델>]   (봇에게 가려면 글에 @TO(<봇>) 를 적는다)');
     return 1;
   }
   const config = loadOrDie(opt);

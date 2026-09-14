@@ -54,18 +54,22 @@ const fail = text => ({ content: [{ type: 'text', text }], isError: true });
 
 // bot: { id, name } · rooms: { main, files } (이 과제의 방 둘) · getLastToRoom: () => 방 번호 | null
 export function createCockpitTools({ chatDb, bot, rooms, projectsDir, uploadsDir, getLastToRoom = () => null, onBotMessage = () => {} }) {
-  const mine = new Map([rooms.main, rooms.files].filter(Boolean).map(r => [r.id, r]));
+  // (v2) 이 봇의 방: 본방 하나 + 이관된 옛 files 방(읽기만) — ARCHITECTURE 4.2 ② · ADR-015
+  const mine = new Map([rooms.main, rooms.legacy_files].filter(Boolean).map(r => [r.id, r]));
 
   // 방 번호 세 겹 (minidiscord channel/src/index.ts:25-33): chat_id → 마지막 to 방 → 없음
   const roomOf = chatId => {
     const n = chatId === undefined || chatId === null || chatId === '' ? NaN : Number(chatId);
     return Number.isInteger(n) ? n : getLastToRoom();
   };
-  const checkRoom = roomId => {
+  // write: reply 는 제 본방(active)에만 쓴다. 읽기(fetch_history)는 옛 files 방도 된다
+  const checkRoom = (roomId, { write = true } = {}) => {
     if (roomId == null) return 'chat_id 가 없고 마지막 to 방도 없다 — 받은 메시지의 chat_id 를 넘겨라';
     if (!mine.has(roomId)) return `방 ${roomId} 은 이 봇의 방이 아니다`;
     const room = chatDb.roomById(roomId);
-    if (!room || room.status !== 'active') return `방 ${roomId} 은 보관됐거나 없다`;
+    if (!room) return `방 ${roomId} 은 없다`;
+    if (write && roomId !== rooms.main?.id) return `방 ${roomId} 은 옛 files 방이다 — 읽기만 된다`;
+    if (write && room.status !== 'active') return `방 ${roomId} 은 보관됐거나 없다`;
     return null;
   };
 

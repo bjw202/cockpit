@@ -27,7 +27,8 @@ test('admin 만 연다(member 403)', async t => {
   assert.deepEqual((await w.json('김과제', '/api/projects')).body, { projects: [] }, '목록은 member 도 본다');
 });
 
-test('봇 한 줄 · 방 둘(prodev-<과제> · prodev-<과제>/files) · agent_sessions 한 줄', async t => {
+// (v2) 옛 이름 `봇 한 줄 · 방 둘(prodev-<과제> · prodev-<과제>/files) · agent_sessions 한 줄` 을 대체한다 (ADR-015)
+test('봇 한 줄 · 방 하나(prodev-<과제>) · agent_sessions 한 줄', async t => {
   const w = await world(t);
   const r = await open(w, '김피엘', { name: '수율' });
   assert.equal(r.status, 201);
@@ -35,18 +36,18 @@ test('봇 한 줄 · 방 둘(prodev-<과제> · prodev-<과제>/files) · agent_
   assert.deepEqual(r.body, {
     name: '수율',
     bot: { id: 1, name: 'prodev-수율-bot' },
-    rooms: { main: { id: 1, name: 'prodev-수율' }, files: { id: 2, name: 'prodev-수율/files' } },
+    rooms: { main: { id: 1, name: 'prodev-수율' }, legacy_files: null },
     session: { state: 'stopped', session_id: null, cost_usd: 0, last_result_at: null, model: null, context_pct: null },
     bot_dir: botDir, bot_dir_exists: false,
   });
-  assert.deepEqual(counts(w), { bots: 1, rooms: 2, sessions: 1 });
+  assert.deepEqual(counts(w), { bots: 1, rooms: 1, sessions: 1 });
   const bot = w.chatDb.db.prepare('SELECT name, role, token FROM bots').get();
   assert.equal(bot.role, 'orchestrator');
   assert.match(bot.token, /^[0-9a-f-]{36}$/);
   const row = w.cockpitDb.agentSession('수율');
   assert.equal(row.state, 'stopped');
   assert.equal(row.bot_dir, botDir);
-  assert.deepEqual((await w.json('김과제', '/api/rooms')).body.active.map(x => x.name), ['prodev-수율/files', 'prodev-수율']);
+  assert.deepEqual((await w.json('김과제', '/api/rooms')).body.active.map(x => x.name), ['prodev-수율']);
 
   // 옛 대본의 봇 이름 꼴로도 연다
   const old = await open(w, '김피엘', { name: 'worktogether', bot_name: 'prodev-worktogether-비서' });
@@ -58,11 +59,15 @@ test('봇 한 줄 · 방 둘(prodev-<과제> · prodev-<과제>/files) · agent_
   assert.deepEqual(list.body.projects.map(p => p.name), ['worktogether', '수율']);
   assert.ok(list.body.projects.every(p => !('bot_dir' in p)), 'member 에게는 서버 경로를 안 싣는다');
 
-  // 새 과제의 본방에 봉투 없이 쓰면 그 봇의 큐에 to 로 간다
-  const fd = new FormData();
-  fd.append('body', '안녕하세요');
-  const sent = await w.json('김과제', `/api/rooms/${old.body.rooms.main.id}/messages`, { method: 'POST', body: fd });
-  assert.equal(sent.status, 200);
+  // (v2) 새 과제의 방에 봉투 없이 쓰면 사람끼리의 글이라 큐에 안 간다 · @TO 를 적으면 그 봇의 큐에 to (ADR-018)
+  const say = async body => {
+    const fd = new FormData();
+    fd.append('body', body);
+    return w.json('김과제', `/api/rooms/${old.body.rooms.main.id}/messages`, { method: 'POST', body: fd });
+  };
+  assert.equal((await say('안녕하세요')).status, 200);
+  assert.deepEqual(w.cockpitDb.pendingInbox(old.body.bot.id), []);
+  assert.equal((await say('@TO(prodev-worktogether-비서) 안녕하세요')).status, 200);
   assert.deepEqual(w.cockpitDb.pendingInbox(old.body.bot.id).map(x => x.delivery), ['to']);
 });
 

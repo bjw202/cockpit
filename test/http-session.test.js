@@ -13,7 +13,7 @@ async function world(t, opts) {
 }
 const S = (name, op, qs = '') => `/api/projects/${encodeURIComponent(name)}/session/${op}${qs}`;
 const post = (w, as, p) => w.json(as, p, { method: 'POST' });
-const say = (w, project, body) => w.manager.postUserMessage({ roomId: w.chatDb.projectRooms(project).main.id, username: '김과제', body });
+const say = (w, project, body) => w.manager.postUserMessage({ roomId: w.chatDb.projectRooms(project).main.id, username: '김과제', body: `@TO(prodev-${project}-bot) ${body}` });   // (v2) 봇에게 가는 글은 @TO 뿐 (ADR-018)
 const text = um => um.message.content[0].text;
 
 test('다섯 길 모두 member 403', async t => {

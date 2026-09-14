@@ -5,28 +5,33 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { z } from 'zod';
-import { ChatDb } from '../src/db/chat-db.js';
+import { ChatDb, filesRoomName } from '../src/db/chat-db.js';
 import { createCockpitTools, TOOL_DEFS, toZodShape } from '../src/mcp/tools.js';
 
+// (v2) 과제 하나 = 방 하나. 옛 files 방은 v1 판에서 이관돼 보관된 방으로 흉내 낸다 (ADR-015)
 function setup({ lastTo = null } = {}) {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-tools-')));
   const chatDb = new ChatDb(path.join(dir, 'data', 'chat.db'));
-  const { bot, main, files } = chatDb.openProject('시험', 'prodev-시험-bot');
+  const { bot, main } = chatDb.openProject('시험', 'prodev-시험-bot');
+  const legacyRow = chatDb.createRoom(filesRoomName('시험'));
+  chatDb.db.prepare("UPDATE rooms SET status='archived', archived_at=datetime('now') WHERE id = ?").run(legacyRow.id);
+  const legacy = chatDb.roomById(legacyRow.id);
   const other = chatDb.openProject('남의과제', 'prodev-남의과제-bot');
   const projectsDir = path.join(dir, 'projects');
   const uploadsDir = path.join(dir, 'uploads');
   fs.mkdirSync(path.join(projectsDir, '시험', 'tmp'), { recursive: true });
   const posted = [];
-  const tools = createCockpitTools({ chatDb, bot, rooms: { main, files }, projectsDir, uploadsDir, getLastToRoom: () => lastTo, onBotMessage: m => posted.push(m) });
-  return { dir, chatDb, bot, main, files, other, projectsDir, uploadsDir, tools, posted };
+  const rooms = { main, legacy_files: legacy };
+  const tools = createCockpitTools({ chatDb, bot, rooms, projectsDir, uploadsDir, getLastToRoom: () => lastTo, onBotMessage: m => posted.push(m) });
+  return { dir, chatDb, bot, main, legacy, rooms, other, projectsDir, uploadsDir, tools, posted };
 }
 const botMessages = (chatDb, roomId) => chatDb.messagesAfter(roomId, 0).filter(m => m.author_type === 'bot');
 const parse = r => JSON.parse(r.content[0].text);
 
 test('reply: chat_id 가 방 번호면 그 방에 author_type=bot 글', async () => {
-  const { chatDb, bot, files, tools, posted } = setup();
-  await tools.reply({ chat_id: String(files.id), text: '읽었습니다' });
-  const msgs = botMessages(chatDb, files.id);
+  const { chatDb, bot, main, tools, posted } = setup();
+  await tools.reply({ chat_id: String(main.id), text: '읽었습니다' });
+  const msgs = botMessages(chatDb, main.id);
   assert.equal(msgs.length, 1);
   assert.equal(msgs[0].author_bot_id, bot.id);
   assert.equal(msgs[0].body, '읽었습니다');
@@ -35,7 +40,7 @@ test('reply: chat_id 가 방 번호면 그 방에 author_type=bot 글', async ()
 
 test('chat_id 없으면 마지막 to 방', async () => {
   const s = setup();
-  const t = createCockpitTools({ chatDb: s.chatDb, bot: s.bot, rooms: { main: s.main, files: s.files }, projectsDir: s.projectsDir, uploadsDir: s.uploadsDir, getLastToRoom: () => s.main.id });
+  const t = createCockpitTools({ chatDb: s.chatDb, bot: s.bot, rooms: s.rooms, projectsDir: s.projectsDir, uploadsDir: s.uploadsDir, getLastToRoom: () => s.main.id });
   await t.reply({ text: '여기' });
   assert.equal(botMessages(s.chatDb, s.main.id).length, 1);
 });
@@ -88,8 +93,8 @@ test('fetch_history 결과는 {cursor, messages[{id,at,author,body}]} JSON 한 �
 });
 
 test('빈 이력도 같은 모양(cursor null)', async () => {
-  const { files, tools } = setup();
-  assert.deepEqual(parse(await tools.fetchHistory({ chat_id: String(files.id) })), { cursor: null, messages: [] });
+  const { main, tools } = setup();
+  assert.deepEqual(parse(await tools.fetchHistory({ chat_id: String(main.id) })), { cursor: null, messages: [] });
 });
 
 test('16000B 를 넘으면 새것부터 버린다', async () => {

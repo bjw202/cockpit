@@ -17,7 +17,7 @@ async function world(t, config) {
   const opened = w.open();
   await w.manager.start('시험');
   const fd = new FormData();
-  fd.append('body', '일을 시작해 주세요');
+  fd.append('body', '@TO(prodev-시험-bot) 일을 시작해 주세요');
   await w.json('김과제', `/api/rooms/${opened.main.id}/messages`, { method: 'POST', body: fd });
   await waitFor(() => w.manager.state('시험') === 'working', { what: 'working' });
   const q = w.queryFn.calls[0];
@@ -62,14 +62,14 @@ test('요청 → permission_requests 한 줄(tool_use_id 키, agent_id)', async 
 });
 
 test('본방 system 글 🔒 요청 한 줄', async t => {
-  const { w, ask, answer, systemLines, files } = await world(t);
+  const { w, ask, answer, systemLines } = await world(t);
   const pending = ask('toolu_A', { agentID: 'agent-0123456789', title: 'Claude wants to run curl --version' });
   await waitFor(() => systemLines().length === 1, { what: '🔒 줄' });
   assert.deepEqual(systemLines(), ['🔒 Bash 요청 · Claude wants to run curl --version · 도우미 agent-01']);
   const bare = ask('toolu_B', { displayName: 'Run command' });
   await waitFor(() => systemLines().length === 2, { what: '둘째 🔒 줄' });
   assert.equal(systemLines()[1], '🔒 Bash 요청 · Run command', 'title 이 없으면 displayName, 본 요청은 도우미 칸이 없다');
-  assert.equal(w.chatDb.messagesAfter(files.id, 0).length, 0, '파일방에는 안 쓴다');
+  assert.equal(Number(w.chatDb.db.prepare("SELECT COUNT(*) c FROM rooms").get().c), 1, "(v2) 과제 방은 하나뿐이다 — 🔒 줄도 그 방에");
   await answer('김피엘', 'toolu_A', { decision: 'allow' });
   await answer('김피엘', 'toolu_B', { decision: 'allow' });
   await Promise.all([pending, bare]);

@@ -34,14 +34,14 @@ export function botNameProblem(name) {
 export const defaultBotDir = (config, project) => path.join(config.botsDir, `prodev-${project}-bot`);
 
 export function projectView(ctx, row, { admin = false } = {}) {
-  const { main, files } = ctx.chatDb.projectRooms(row.project);
+  const { main, legacy_files: legacy } = ctx.chatDb.projectRooms(row.project);
   const pick = r => (r ? { id: r.id, name: r.name } : null);
   const bot = ctx.chatDb.botById(row.bot_id);
   const { model, context_pct } = ctx.manager.sessionInfo(row.project);
   return {
     name: row.project,
     bot: bot ? { id: bot.id, name: bot.name } : null,
-    rooms: { main: pick(main), files: pick(files) },
+    rooms: { main: pick(main), legacy_files: pick(legacy) },   // (v2) 방 하나 + 이관된 옛 files 방 (ADR-015)
     session: {
       state: ctx.manager.state(row.project) ?? row.state, session_id: row.session_id, cost_usd: row.cost_usd,
       last_result_at: row.last_result_at, model, context_pct,   // session_events 의 마지막 init(model) · context(percentage) — M3.1

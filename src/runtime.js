@@ -33,10 +33,10 @@ export function openRuntime(config, { binding = {}, permissionHandler, model, or
 
 // 그 과제의 방에 afterId 뒤로 봇 글이 올 때까지. 세션이 error 가 되거나 시간이 넘으면 null
 export async function waitForBotMessage(manager, project, afterId, { timeoutMs = 300000, pollMs = 500 } = {}) {
-  const { main, files } = manager.chatDb.projectRooms(project);
+  const { main, legacy_files: legacy } = manager.chatDb.projectRooms(project);
   const end = Date.now() + timeoutMs;
   while (Date.now() < end) {
-    for (const room of [main, files]) {
+    for (const room of [main, legacy].filter(Boolean)) {
       const hit = manager.chatDb.messagesAfter(room.id, afterId).find(m => m.author_type === 'bot');
       if (hit) return hit;
     }

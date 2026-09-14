@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ChatDb } from '../src/db/chat-db.js';
+import { ChatDb, filesRoomName } from '../src/db/chat-db.js';
 
 // minidiscord server/src/db.ts (핀 6633f7b) 의 여섯 표 — 열 이름과 순서를 손으로 옮겨 적었다
 const PINNED = {
@@ -18,9 +18,9 @@ const PINNED = {
 function fresh() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-chatdb-'));
   const db = new ChatDb(path.join(dir, 'data', 'chat.db'));
-  const { bot, main, files } = db.openProject('시험', 'prodev-시험-bot');
+  const { bot, main } = db.openProject('시험', 'prodev-시험-bot');
   const user = db.ensureUser('김과제');
-  return { dir, db, bot, main, files, user };
+  return { dir, db, bot, main, user };
 }
 const targetsOf = (db, messageId) =>
   db.db.prepare('SELECT bot_id, delivery FROM message_targets WHERE message_id = ? ORDER BY rowid').all(messageId).map(r => ({ ...r }));
@@ -47,16 +47,42 @@ test('봇마다 token 이 다른 uuid 다', () => {
   for (const t of tokens) assert.match(t, /^[0-9a-f-]{36}$/);
 });
 
-test('본방 봉투 없는 글은 to 한 줄', () => {
+// (v2) 옛 이름 `본방 봉투 없는 글은 to 한 줄` · `파일방 봉투 없는 글은 행 없음` 둘을 대체한다 (ADR-018)
+test('봉투 없는 글은 행 없음(어느 방이든)', () => {
   const { db, bot, main, user } = fresh();
-  const { message } = db.insertUserMessage({ roomId: main.id, userId: user.id, body: '안녕', bot });
-  assert.deepEqual(targetsOf(db, message.id), [{ bot_id: bot.id, delivery: 'to' }]);
+  const legacy = db.createRoom(filesRoomName('시험'));   // v1 판에서 옮겨 온 옛 files 방
+  const a = db.insertUserMessage({ roomId: main.id, userId: user.id, body: '안녕', bot });
+  const b = db.insertUserMessage({ roomId: legacy.id, userId: user.id, body: '그냥 올림', bot });
+  assert.deepEqual(a.targets, []);
+  assert.deepEqual(b.targets, []);
+  assert.deepEqual(targetsOf(db, a.message.id), []);
+  assert.deepEqual(targetsOf(db, b.message.id), []);
+});
+
+test('과제를 열면 방 하나(prodev-<과제>) · / 든 방 0', () => {
+  const { db, main } = fresh();
+  db.openProject('둘째', 'prodev-둘째-bot');
+  const names = db.db.prepare('SELECT name FROM rooms ORDER BY id').all().map(r => r.name);
+  assert.deepEqual(names, ['prodev-시험', 'prodev-둘째']);
+  assert.equal(names.filter(n => n.includes('/')).length, 0);
+  assert.equal(main.name, 'prodev-시험');
+});
+
+test('projectRooms 는 main 과 legacy_files(없으면 null)', () => {
+  const { db, main } = fresh();
+  assert.deepEqual(db.projectRooms('시험'), { main, legacy_files: null });
+  const legacy = db.createRoom(filesRoomName('시험'));
+  db.db.prepare("UPDATE rooms SET status='archived', archived_at=datetime('now') WHERE id = ?").run(legacy.id);
+  const rooms = db.projectRooms('시험');
+  assert.equal(rooms.main.id, main.id);
+  assert.equal(rooms.legacy_files.id, legacy.id);
+  assert.equal(rooms.legacy_files.status, 'archived', '보관 여부와 무관하게 가리킨다');
 });
 
 test('@TO 는 to · @CC 는 cc', () => {
-  const { db, bot, files, user } = fresh();
-  const a = db.insertUserMessage({ roomId: files.id, userId: user.id, body: '@TO(prodev-시험-bot) 봐 주세요', bot }).message;
-  const b = db.insertUserMessage({ roomId: files.id, userId: user.id, body: '@CC(prodev-시험-bot) 참고', bot }).message;
+  const { db, bot, main, user } = fresh();
+  const a = db.insertUserMessage({ roomId: main.id, userId: user.id, body: '@TO(prodev-시험-bot) 봐 주세요', bot }).message;
+  const b = db.insertUserMessage({ roomId: main.id, userId: user.id, body: '@CC(prodev-시험-bot) 참고', bot }).message;
   assert.deepEqual(targetsOf(db, a.id), [{ bot_id: bot.id, delivery: 'to' }]);
   assert.deepEqual(targetsOf(db, b.id), [{ bot_id: bot.id, delivery: 'cc' }]);
 });
@@ -65,12 +91,6 @@ test('같은 봇 TO+CC 는 두 줄', () => {
   const { db, bot, main, user } = fresh();
   const m = db.insertUserMessage({ roomId: main.id, userId: user.id, body: '@TO(prodev-시험-bot) @CC(prodev-시험-bot) 둘', bot }).message;
   assert.deepEqual(targetsOf(db, m.id), [{ bot_id: bot.id, delivery: 'to' }, { bot_id: bot.id, delivery: 'cc' }]);
-});
-
-test('파일방 봉투 없는 글은 행 없음', () => {
-  const { db, bot, files, user } = fresh();
-  const m = db.insertUserMessage({ roomId: files.id, userId: user.id, body: '그냥 올림', bot }).message;
-  assert.deepEqual(targetsOf(db, m.id), []);
 });
 
 test('모르는 봇 이름은 거절하고 행을 안 남긴다', () => {
@@ -82,11 +102,11 @@ test('모르는 봇 이름은 거절하고 행을 안 남긴다', () => {
 });
 
 test('stored_path 를 dirname(chat.db)/.. 기준으로 풀면 실제 파일이다', () => {
-  const { dir, db, bot, files, user } = fresh();
+  const { dir, db, bot, main, user } = fresh();
   const abs = path.join(dir, 'uploads', 'a1b2-성적서.csv');
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   fs.writeFileSync(abs, 'x,y\n1,2\n');
-  const { message } = db.insertUserMessage({ roomId: files.id, userId: user.id, body: '@TO(prodev-시험-bot) 자료', bot,
+  const { message } = db.insertUserMessage({ roomId: main.id, userId: user.id, body: '@TO(prodev-시험-bot) 자료', bot,
     files: [{ filename: '성적서.csv', absPath: abs, size: 8 }] });
   const row = db.db.prepare('SELECT stored_path, mime FROM attachments WHERE message_id = ?').get(message.id);
   assert.equal(path.isAbsolute(row.stored_path), false);

@@ -50,7 +50,7 @@ test('ARCHITECTURE 5.3 표의 메시지마다 type 이 맞다', async () => {
     { result: true, cost: 0.03 },
   ]]);
   await mgr.start('시험');
-  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '찾아 줘' });
+  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) 찾아 줘' });
   await waitFor(() => mgr.cockpitDb.eventsAfter('시험').some(e => e.type === 'context'), { what: 'result 뒤 context' });
   const events = mgr.cockpitDb.eventsAfter('시험');
   assert.deepEqual(turnTypes(events), [
@@ -81,7 +81,7 @@ test('tool_use 입력 요약은 200자', async () => {
   const long = { command: `echo ${'가'.repeat(500)}`, file_path: `/p/${'긴이름'.repeat(100)}.csv` };
   const { mgr, main } = managerWorld([[assistantToolUse('toolu_9', 'Read', long, 'toolu_parent'), toolResult('toolu_9', 'x'.repeat(900), true, 'toolu_parent'), { result: true }]]);
   await mgr.start('시험');
-  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '읽어 줘' });
+  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) 읽어 줘' });
   await waitFor(() => mgr.cockpitDb.eventsAfter('시험').some(e => e.type === 'result'));
   const events = mgr.cockpitDb.eventsAfter('시험');
   const use = events.find(e => e.type === 'tool_use').data;
@@ -101,7 +101,7 @@ test('stream_event 0행', async () => {
   const partials = [];
   mgr.on('partial', p => partials.push(p));
   await mgr.start('시험');
-  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '말해 줘' });
+  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-시험-bot) 말해 줘' });
   await waitFor(() => mgr.cockpitDb.eventsAfter('시험').some(e => e.type === 'result'));
   assert.equal(partials.length, 30, '살아 있는 화면에는 흘린다');
   const n = mgr.cockpitDb.db.prepare("SELECT COUNT(*) AS n FROM session_events WHERE type LIKE '%stream%' OR json LIKE '%content_block_delta%'").get().n;
@@ -115,7 +115,7 @@ test('result 마다 cost_usd 누적', async () => {
   await mgr.start('시험');
   const results = () => mgr.cockpitDb.eventsAfter('시험').filter(e => e.type === 'result');
   for (const [i, body] of ['하나', '둘', '셋'].entries()) {
-    mgr.postUserMessage({ roomId: main.id, username: '김과제', body });
+    mgr.postUserMessage({ roomId: main.id, username: '김과제', body: `@TO(prodev-시험-bot) ${body}` });
     await waitFor(() => results().length === i + 1 && mgr.state('시험') === 'idle');
     assert.ok(Math.abs(mgr.cockpitDb.agentSession('시험').cost_usd - [0.05, 0.12, 0.2][i]) < 1e-9, `result ${i + 1} 뒤`);
   }
@@ -130,7 +130,7 @@ test('after=N 이면 N 뒤만', async t => {
   w.open('수율');
   await w.manager.start('수율');
   const { main } = w.chatDb.projectRooms('수율');
-  w.manager.postUserMessage({ roomId: main.id, username: '김과제', body: 'ls' });
+  w.manager.postUserMessage({ roomId: main.id, username: '김과제', body: '@TO(prodev-수율-bot) ls' });
   await waitFor(() => w.cockpitDb.eventsAfter('수율').some(e => e.type === 'context'));
 
   const all = await w.json('김과제', `/api/projects/${encodeURIComponent('수율')}/events`);

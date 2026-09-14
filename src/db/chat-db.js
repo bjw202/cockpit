@@ -141,17 +141,18 @@ export class ChatDb {
     const rows = this.db.prepare('SELECT id, name, status, created_at, archived_at FROM rooms ORDER BY id DESC').all();
     return { active: rows.filter(r => r.status === 'active'), archived: rows.filter(r => r.status === 'archived') };
   }
+  // (v2) 방 하나 + 이관된 옛 files 방(있으면). legacy_files 는 보관 여부와 무관하게 그 방을 가리킨다 (ARCHITECTURE 4.7)
   projectRooms(project) {
-    return { main: this.roomByName(mainRoomName(project)), files: this.roomByName(filesRoomName(project)) };
+    return { main: this.roomByName(mainRoomName(project)), legacy_files: this.roomByName(filesRoomName(project)) ?? null };
   }
 
-  // 과제 열기: 봇 한 줄 · 방 둘. 이미 있으면 ChatError(EXISTS).
+  // 과제 열기: 봇 한 줄 · 방 하나 (v2 · ADR-015). 이미 있으면 ChatError(EXISTS).
   openProject(project, botName) {
     return this.tx(() => {
       if (this.roomByName(mainRoomName(project))) throw new ChatError('EXISTS', `과제가 이미 있다: ${project}`, 409);
       if (this.botByName(botName)) throw new ChatError('EXISTS', `봇이 이미 있다: ${botName}`, 409);
       const bot = this.createBot(botName, `prodev ${project} bot`);
-      return { bot, main: this.createRoom(mainRoomName(project)), files: this.createRoom(filesRoomName(project)) };
+      return { bot, main: this.createRoom(mainRoomName(project)) };
     });
   }
 
@@ -159,10 +160,8 @@ export class ChatDb {
   // bot: 이 방의 봇 { id, name }. 방마다 봇은 하나다.
   resolveTargets(room, bot, body) {
     const mentions = parseMentions(body);
-    if (mentions.length === 0) {
-      // 본방에서 봉투 없는 글은 to (사람 결정). 파일방은 minidiscord 처럼 아무에게도 안 간다.
-      return { targets: roomParts(room.name).branch === null ? [{ botId: bot.id, name: bot.name, delivery: 'to' }] : [], unknown: [] };
-    }
+    // (v2) 봉투 없는 글은 어느 방에서도 아무에게도 안 간다 — 사람끼리의 글 (ADR-018 · minidiscord targets.ts 와 같다)
+    if (mentions.length === 0) return { targets: [], unknown: [] };
     const targets = []; const unknown = [];
     for (const m of mentions) {
       if (m.bot === bot.name) targets.push({ botId: bot.id, name: bot.name, delivery: m.delivery });

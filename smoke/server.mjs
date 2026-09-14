@@ -46,7 +46,7 @@ export async function prepareServer(d) {
     const projects = {};
     for (const b of d.bots ?? [d]) {
       const o = rt.manager.openProject({ project: b.project, botDir: b.botDir, botName: b.botName });
-      projects[b.project] = { rooms: { main: o.main, files: o.files }, bot: o.bot };
+      projects[b.project] = { rooms: { main: o.main }, bot: o.bot };   // (v2) 방 하나
     }
     const tokens = {};
     for (const [username, role] of [[ADMIN, 'admin'], [MEMBER, 'member']]) {
@@ -152,9 +152,9 @@ export function autoApprove(api, decision = 'allow') {
   return { asked, stop: () => { stopped = true; } };
 }
 
-// 방 둘에서 afterId 뒤의 봇 글
+// 과제 방(v2 · 방 하나)에서 afterId 뒤의 봇 글
 export async function botMessagesAfter(api, rooms, afterId) {
   const out = [];
-  for (const room of [rooms.main, rooms.files]) out.push(...(await api.messages(room.id, afterId)).filter(m => m.author_type === 'bot'));
+  for (const room of [rooms.main].filter(Boolean)) out.push(...(await api.messages(room.id, afterId)).filter(m => m.author_type === 'bot'));
   return out.sort((a, b) => a.id - b.id);
 }

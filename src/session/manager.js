@@ -60,8 +60,8 @@ export class SessionManager extends EventEmitter {
   projectOfRoom(roomId) {
     const id = Number(roomId);
     for (const row of this.cockpitDb.agentSessions()) {
-      const { main, files } = this.chatDb.projectRooms(row.project);
-      if (main?.id === id || files?.id === id) return row.project;
+      const { main, legacy_files: legacy } = this.chatDb.projectRooms(row.project);
+      if (main?.id === id || legacy?.id === id) return row.project;
     }
     return null;
   }

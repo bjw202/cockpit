@@ -50,13 +50,14 @@ test('JSON 본문 POST 는 406', async t => {
 });
 
 test('GET /api/rooms 는 {active, archived}', async t => {
-  const { w, main, files } = await world(t);
+  const { w, main } = await world(t);
+  const second = w.open("둘째").main;   // (v2) 과제 하나 = 방 하나 — 순서를 보려고 과제를 하나 더 연다
   const old = w.chatDb.createRoom('prodev-옛과제');
   w.chatDb.db.prepare("UPDATE rooms SET status = 'archived', archived_at = datetime('now') WHERE id = ?").run(old.id);
   const r = await w.json('김과제', '/api/rooms');
   assert.equal(r.status, 200);
   assert.deepEqual(Object.keys(r.body), ['active', 'archived']);
-  assert.deepEqual(r.body.active.map(x => x.name), [files.name, main.name], 'id 내림차순 (minidiscord 와 같다)');
+  assert.deepEqual(r.body.active.map(x => x.name), [second.name, main.name], 'id 내림차순 (minidiscord 와 같다)');
   assert.deepEqual(r.body.archived.map(x => x.name), ['prodev-옛과제']);
   for (const room of [...r.body.active, ...r.body.archived]) {
     assert.deepEqual(Object.keys(room), ['id', 'name', 'status', 'created_at', 'archived_at']);
@@ -64,14 +65,14 @@ test('GET /api/rooms 는 {active, archived}', async t => {
 });
 
 test('POST 는 {ok, message:{id,…,author_name,attachments[{id,filename}]}}', async t => {
-  const { w, bot, files } = await world(t);
-  const r = await post(w, '김과제', files.id, form(`@TO(${bot.name}) 성적서입니다`, [['성적서 9월.csv', 'lot,yield\nA,91\n']]));
+  const { w, bot, main } = await world(t);
+  const r = await post(w, '김과제', main.id, form(`@TO(${bot.name}) 성적서입니다`, [['성적서 9월.csv', 'lot,yield\nA,91\n']]));
   assert.equal(r.status, 200);
   assert.deepEqual(Object.keys(r.body), ['ok', 'message']);
   assert.equal(r.body.ok, true);
   const m = r.body.message;
   assert.deepEqual(Object.keys(m), ['id', 'room_id', 'author_type', 'author_user_id', 'author_bot_id', 'body', 'created_at', 'author_name', 'attachments']);
-  assert.equal(m.room_id, files.id);
+  assert.equal(m.room_id, main.id);
   assert.equal(m.author_type, 'user');
   assert.equal(m.author_bot_id, null);
   assert.equal(m.author_name, '김과제');
@@ -130,9 +131,9 @@ test('보관 방 409 · 없는 방 404 · 빈 글 400', async t => {
 });
 
 test('응답 어디에도 stored_path 가 없다', async t => {
-  const { w, files, bot } = await world(t);
-  const sent = await post(w, '김과제', files.id, form(`@TO(${bot.name}) 자료`, [['yield.csv', 'a,b\n']]));
-  const list = await w.json('김과제', `/api/rooms/${files.id}/messages?after=0`);
+  const { w, main, bot } = await world(t);
+  const sent = await post(w, '김과제', main.id, form(`@TO(${bot.name}) 자료`, [['yield.csv', 'a,b\n']]));
+  const list = await w.json('김과제', `/api/rooms/${main.id}/messages?after=0`);
   const rooms = await w.json('김과제', '/api/rooms');
   for (const r of [sent, list, rooms]) {
     assert.equal(r.status, 200);
@@ -143,8 +144,8 @@ test('응답 어디에도 stored_path 가 없다', async t => {
 });
 
 test('첨부 받기는 filename* 헤더', async t => {
-  const { w, files, bot } = await world(t);
-  const sent = await post(w, '김과제', files.id, form(`@TO(${bot.name}) 자료`, [['성적서 9월.csv', 'lot,yield\nA,91\n']]));
+  const { w, main, bot } = await world(t);
+  const sent = await post(w, '김과제', main.id, form(`@TO(${bot.name}) 자료`, [['성적서 9월.csv', 'lot,yield\nA,91\n']]));
   const id = sent.body.message.attachments[0].id;
 
   const r = await w.fetch('김피엘', `/api/attachments/${id}`);
