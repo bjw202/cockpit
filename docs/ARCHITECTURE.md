@@ -222,6 +222,8 @@ stateDiagram-v2
 
 값은 클라이언트 추정치다(청구액이 아니다). 화면에 그렇게 적는다.
 
+**값의 뜻 (M3.6 발견 · meta N11 인정).** `result.total_cost_usd` 는 한 CLI 프로세스 안의 누적이다 — **재기동 뒤 값 = 정지 시점 값(바닥) + 새 프로세스 누적** (`agent_sessions.cost_usd`, `result` 사건 행에는 SDK 값 그대로). 도우미 값: SDK 형 정의(`@anthropic-ai/claude-agent-sdk` 0.3.270 `SDKResultSuccess.total_cost_usd` · `modelUsage` 주석)대로면 이 값은 `modelUsage` 와 같은 범위라 **도우미(Task 서브에이전트) · 사이드체인 · 압축 호출을 싣고**, 파이프라인 밖 호출(권한 분류기 · 토큰 수 탐침)은 빠지며, 충돌 · 기동 오류 result 는 0 일 수 있다. 표준단가 계측(meta $7.99)과 조종석 값($5.46)의 차이는 이 형 정의로는 도우미 누락으로 설명되지 않는다 — 남는 후보는 단가표 차이 · 파이프라인 밖 호출 · 0 으로 온 result 다. 형 정의를 읽은 것이고 실측으로 가르지는 않았다.
+
 ### 5.4 `query()` 옵션 — 한 자리에서만 만든다 (`src/session/options.js`, SDK 에 넘기는 것은 `sdk-query.js`)
 
 | 옵션 | 값 | 근거 |
