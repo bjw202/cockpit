@@ -35,3 +35,32 @@
 3. 화면은 프레임워크 · 빌드 · CDN 없이. minidiscord `web/markdown.js` 사본은 머리에 출처 핀.
 
 **M2 끝 보고 꼴**: 커밋 · `npm test` 요약 · 스모크 · 문서 변경 · 질문 + 서버 띄우는 명령 한 줄과 설정 예시.
+
+## 2026-09-14 — M2 웹 · 계정 · 채팅 판 · 승인 카드 (M2.M = W2 관문 전)
+
+새 세션이 M2.md 를 읽고 이어받았다. 태스크마다 커밋했다: M2.1 a32d53d · M2.2 3bae270 · M2.3 1973929 · M2.4 fbdb821 · M2.7 7415076 · 스모크와 M1 잔여 a3a8a9e · M2.5 a534882 · M2.6 cf7e310. `npm test` 118건 실패 0 건너뜀 0. TASKS M2 절의 끝 조건 시험 이름 38개를 통과 줄과 스크립트로 맞대 못 찾은 것 0.
+
+W2 관문에 필요하다고 한 넷: `serve --config` 로 서버가 뜬다 · `session-token` 이 `md_session` 값을 낸다 · 길 셋이 minidiscord 모양이다 · `open-project` 가 방 둘을 만든다. 진짜 `prodev/scripts/replay.js` 를 cockpit 서버에 붙인 계약 시험(`test/contract/replay-js.test.js`) 다섯이 초록이다. 진짜 CLI 로 스크래치 설정에서 `check → open-project → init-admin · add-user → session-token → serve` 를 돌리고 curl 로 길을 찔러 봤다 (as-built 4절).
+
+막힌 것 · 고친 것:
+- 스크래치 serve 에 curl `-F 'body=@TO(…)'` 로 올린 글이 빈 응답이었다 — curl 이 `@` 를 파일 올리기로 읽은 것이다. `--form-string` 으로 다시 찔러 200 을 봤다. 서버 쪽 고칠 것은 없었다.
+- 시험의 날 경로 요청이 한글 경로(`/없는.js`)에서 Node 클라이언트 오류를 냈다. 경로를 인코딩했다.
+- M1 의 `rt.close()` 가 세션을 `stopped` 로 적어, 서버를 껐다 켜면 resume 대상이 없었다. `manager.release` 를 두어 상태를 그대로 두고 닫는다.
+- 카드 DOM 의 오류 줄이 빈 글이라 안 만들어졌다. 따로 만들었다.
+- `m1-guard` 를 1000자 직접 판으로 바꿔 haiku 로 돌렸더니 봇이 947자 reply 를 시도했고 훅이 막았다 (`ATTEMPTED_OVER_900 yes` · `HOOK_BLOCKED yes` · 긴 봇 글 0). M1 잔여의 "재현 불가" 기록은 필요 없게 됐다.
+
+스스로 정한 것 (as-built 5절에 까닭):
+- `serve --start <과제>` 를 두었다 — 세션 조작 길(M3.3) 전에 W2 재생에서 세션을 켤 길이 필요하다.
+- `session-token` 은 계정이 있어야 낸다. 재생 계정도 `init-admin` · `add-user` 로 먼저 만든다.
+- 커밋 순서를 M2.7 → M2.5 → M2.6 으로 — 화면이 `GET /api/projects` 에 기댄다.
+- 거절된 글의 첨부 파일은 지운다(minidiscord 는 남겼다). JSON 길의 틀린 content-type 은 415. SSE 사건 `project_opened` 를 더했다.
+- 카드는 `defaultToNo` 면 거부 단추를 맨 앞에 두고, 뜰 때 초점을 옮기지 않는다.
+- `web/card.js` · `src/http/respond.js` 두 파일을 설계 목록 밖에 더했다.
+
+새 질문 (meta 에):
+- **N7 "이번 세션 허용" 이 영구 규칙을 쓴다.** `m2-approval` 판 3 에서 SDK `suggestions` 의 `destination` 이 `localSettings` 였고, 설계대로 그대로 돌려주자 봇 폴더 `.claude/settings.local.json` 에 `Bash(curl --version)` 허용이 남았다. 고를 길: (가) 그대로 두고 단추 이름을 "이 봇에 늘 허용" 으로 · (나) 돌려줄 때 `destination` 을 `session` 으로 바꿔 이름대로 · (다) 단추를 빼기. 제작 세션의 권고는 (나). 답이 올 때까지 코드는 설계 그대로다. 실제 봇 폴더로 재생할 때 이 단추를 누르면 그 폴더에 규칙이 남는다.
+- **N8 W2 재생의 봇 폴더.** prodev PR(W2.9) 전의 실제 `prodev/bots/` 설정은 도구 이름이 `mcp__minidiscord-channel__*` 라 pre-reply 훅 matcher 가 cockpit 의 `reply` 에 안 걸린다. 재생을 W2.9 뒤에 하는지, 스모크처럼 설정 사본(`smoke/lib.mjs` `makeScratch` 방법)으로 하는지 정해 주기를 바란다.
+- **N9 `serve --start` 로 세션을 켜는 것**이 W2 에 괜찮은가 (M3.3 전의 임시 길).
+- **N10 ADR-012 (SSE 하나)** 는 아직 "제안 · meta 확인 필요" 다. M2.3 을 그대로 만들었다.
+
+알고 두는 것: 화면은 브라우저에서 눌러 보지 않았다 (순수 함수 · 정적 검사 · 서버가 파일을 내는 것까지). `m2-compact` 에서 PreCompact 훅은 hook 사건으로 안 보였지만 인수인계서는 생겼다. 스모크 값 합 약 $0.32 (haiku 셋).
