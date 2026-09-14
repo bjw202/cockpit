@@ -96,6 +96,33 @@
 
 ---
 
+## 판 올리기 (세운 뒤 새 판이 나왔을 때)
+
+처음 세울 때는 이 절을 건너뛴다(새 클론이다). cockpit · prodev 에 새 판이 들어왔을 때만 친다.
+
+1. **서버를 끈다.** 9번 창에서 Ctrl-C. 세션 상태는 DB 에 남는다.
+2. **cockpit 을 당긴다.**
+   - 친다: `cd C:\work\crew-workspace\cockpit`
+   - 친다: `git pull --ff-only`
+   - 확인: `Fast-forward` 또는 `Already up to date.` 줄. `Not possible to fast-forward` 면 멈추고 그 출력을 meta 에 준다.
+3. **prodev 를 당긴다.**
+   - 친다: `cd C:\work\crew-workspace\prodev`
+   - 친다: `git pull --ff-only`
+   - 확인: 2번과 같다.
+4. **cockpit 의존성을 다시 깐다.**
+   - 친다: `cd C:\work\crew-workspace\cockpit`
+   - 친다: `npm ci`
+   - 확인: `npm test 2>&1 | Select-String -Pattern '^ℹ (tests|pass|fail|cancelled|skipped)'` 가 `ℹ fail 0`.
+5. **(prodev 의 봇 설정이 바뀌었을 때만) 봇 폴더 설정을 다시 쓴다.** `setup.js` 를 다시 돌리면 `settings.local.json` 이 **덮인다** — 손으로 더한 허용 규칙은 사라진다 (prodev ADR-038).
+   - 친다: `node C:\work\crew-workspace\prodev\scripts\setup.js --project 수율개선 --cockpit C:\work\crew-workspace\cockpit\cockpit.json`
+   - 확인: 출력에 `씀  bots/prodev-수율개선-bot/.claude/settings.local.json` 줄.
+6. **서버를 다시 띄운다.** 같은 명령이다. 켜져 있던 세션은 이어 붙는다(resume).
+   - 친다: `node bin/cockpit.js serve --config cockpit.json`
+   - 확인: `cockpit 듣는 중 http://127.0.0.1:3000` 줄.
+7. **브라우저는 보통 새로고침(F5)만 한다.** 정적 파일은 `etag` 로 재검증한다 — 강력 새로고침은 필요 없다. 옛 화면이 남거나 로그인이 안 되면 그 모양을 적어 meta 에 준다.
+
+---
+
 ## 따로 — 자원 계측 (W4 전에 meta 가 청하면)
 
 세션 셋을 켠 채 5분 동안 서버와 그 밑 Claude CLI 프로세스들의 상주 메모리를 1분마다 적는다. 값이 든다(haiku 세 턴). 스크래치 자리를 새로 만들어 쓰므로 실제 봇 폴더 · 과제 폴더를 건드리지 않는다.
