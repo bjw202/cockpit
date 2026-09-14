@@ -62,3 +62,28 @@ test('makeScratch 는 실제 prodev 아래를 스크래치로 쓰지 않는다',
   assert.throws(() => makeScratch(path.join(PRODEV, 'bots', '없어야-하는-스크래치'), 'smoke'), /실제 prodev 아래/);
   assert.throws(() => makeScratch(path.join(os.tmpdir(), '공백 있는 자리'), 'smoke'), /공백/);
 });
+
+// ── (v2 · M5.9) 방 만들기 스모크의 자리 — prodev 를 링크가 아니라 복사한다 ──────────
+const roomScratch = await import('../smoke/scratch.mjs');
+const nodeFs = (await import('node:fs')).default;
+const nodeOs = (await import('node:os')).default;
+const nodePath = (await import('node:path')).default;
+const { spawnSync: runSync } = await import('node:child_process');
+const hasSetup = nodeFs.existsSync(nodePath.join(roomScratch.PRODEV, 'scripts', 'setup.js'));
+
+test('makeRoomScratch 는 prodev 를 링크가 아니라 복사한다 · --fail-setup 대역은 exit 1', { skip: hasSetup ? false : `형제 prodev 없음 (${roomScratch.PRODEV})` }, t => {
+  const base = nodeFs.realpathSync(nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), 'cockpit-roomscratch-')));
+  t.after(() => nodeFs.rmSync(base, { recursive: true, force: true }));
+  const d = roomScratch.makeRoomScratch(nodePath.join(base, 'ok'));
+  for (const sub of ['scripts', 'common']) assert.equal(nodeFs.lstatSync(nodePath.join(d.prodevDir, sub)).isSymbolicLink(), false, `${sub} 는 복사본`);
+  assert.ok(nodeFs.existsSync(nodePath.join(d.prodevDir, 'scripts', 'setup.js')));
+  assert.deepEqual(nodeFs.readdirSync(d.botsDir), [], '봇 폴더는 방 만들기가 만든다');
+  assert.equal(d.config.botsDir, nodePath.join(d.config.prodevDir, 'bots'));
+
+  const f = roomScratch.makeRoomScratch(nodePath.join(base, 'fail'), { failSetup: true });
+  const r = runSync(process.execPath, [nodePath.join(f.prodevDir, 'scripts', 'setup.js'), '--project', '대역'], { encoding: 'utf8' });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /^오류: 스모크 --fail-setup 대역/m);
+  assert.ok(nodeFs.existsSync(nodePath.join(f.botsDir, 'prodev-대역-bot')), '반쯤 만든다 — 되돌림이 지울 것');
+  assert.throws(() => roomScratch.makeRoomScratch(nodePath.join(roomScratch.PRODEV, 'bots', 'x')), /실제 prodev 아래/);
+});

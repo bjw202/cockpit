@@ -135,6 +135,49 @@ export function addScratchProject(d, project, { botName = `prodev-${project}-bot
   return b;
 }
 
+// (v2 · M5.9) 방 만들기 스모크의 자리 — prodev 를 링크가 아니라 **복사**한다 (smoke/m5-room.mjs).
+// 링크된 scripts/setup.js 를 부르면 Node 가 링크를 따라 풀어 PRODEV 가 실제 저장소가 되고, 봇 폴더가 실제 prodev/bots 에 생긴다 (prodev/bots 금지).
+// 과제 폴더 · 봇 폴더 · 설정 두 장은 여기서 만들지 않는다 — 방 만들기(POST /api/rooms)가 진짜 setup.js 로 만든다.
+//   <스크래치>/prodev/{scripts,common,.claude,CLAUDE.md}   복사본 (bots · tmp · node_modules · .git 뺌)
+//   <스크래치>/{data,uploads,projects}   · <스크래치>/prodev/bots (빈 폴더)
+// failSetup: 사본의 scripts/setup.js 를 "봇 폴더를 반쯤 만들고 exit 1" 하는 대역으로 바꾼다 — 502 · 되돌림 갈래
+export const FAIL_SETUP_JS = `// 스모크 --fail-setup 대역 (smoke/scratch.mjs makeRoomScratch) — 봇 폴더를 반쯤 만들고 exit 1
+const fs = require('fs');
+const path = require('path');
+const i = process.argv.indexOf('--project');
+const project = i >= 0 ? process.argv[i + 1] : 'unknown';
+fs.mkdirSync(path.join(__dirname, '..', 'bots', 'prodev-' + project + '-bot', '.claude'), { recursive: true });
+console.log('① 폴더 (대역 — 반쯤 만들고 죽는다)');
+console.error('오류: 스모크 --fail-setup 대역 — 일부러 exit 1');
+process.exit(1);
+`;
+
+export function makeRoomScratch(rootIn, { prodev = PRODEV, failSetup = false } = {}) {
+  const root = path.resolve(rootIn);
+  if (/\s/.test(root)) throw new Error(`스크래치 경로에 공백이 있다: ${root}`);
+  const realProdev = fs.realpathSync(prodev);
+  if (inside(path.resolve(prodev), root) || inside(realProdev, root)) throw new Error(`실제 prodev 아래는 스크래치로 쓰지 않는다: ${root}`);
+  fs.rmSync(root, { recursive: true, force: true });
+  const prodevDir = path.join(root, 'prodev');
+  const d = {
+    root, prodev: realProdev, prodevDir, botsDir: path.join(prodevDir, 'bots'),
+    dataDir: path.join(root, 'data'), uploadsDir: path.join(root, 'uploads'), projectsDir: path.join(root, 'projects'),
+  };
+  const skip = new Set(['node_modules', '.git', 'bots', 'tmp']);
+  for (const sub of ['scripts', 'common', '.claude']) {
+    const src = path.join(realProdev, sub);
+    if (fs.existsSync(src)) fs.cpSync(src, path.join(prodevDir, sub), { recursive: true, dereference: true, filter: s => !skip.has(path.basename(s)) });
+  }
+  fs.copyFileSync(path.join(realProdev, 'CLAUDE.md'), path.join(prodevDir, 'CLAUDE.md'));
+  for (const p of [d.botsDir, d.dataDir, d.uploadsDir, d.projectsDir]) fs.mkdirSync(p, { recursive: true });
+  if (failSetup) fs.writeFileSync(path.join(prodevDir, 'scripts', 'setup.js'), FAIL_SETUP_JS);
+  d.config = {
+    prodevDir, botsDir: d.botsDir, projectsDir: d.projectsDir, uploadsDir: d.uploadsDir, dataDir: d.dataDir,
+    claudePath: process.env.COCKPIT_CLAUDE_PATH || null, maxSessions: 3, approvalTimeoutMin: 10, extraEnvKeys: [],
+  };
+  return d;
+}
+
 // 스모크 뒤 settings.local.json 이 스크래치가 쓴 그대로인지 — 봇이나 승인 답이 규칙을 더했으면 그 차이를 낸다 (d 또는 addScratchProject 의 칸)
 export function localSettingsDrift(d) {
   let now;
