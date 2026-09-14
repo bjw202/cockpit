@@ -964,3 +964,76 @@ h6.md-h { font-size: 0.9em; color: var(--md-text-muted); }
   border-radius: var(--md-radius-badge);
   opacity: 1;
 }
+
+/* ── cockpit 더함 (v2) — 접이식 조종석 판 (ADR-019 · ARCHITECTURE 7.4) ──────────────
+   색 · 글꼴 · 간격 · 모서리는 design-tokens.css 의 --md-* 변수로만 쓴다 (PRD N13). 아래 클래스는 web/card.js · cockpit.js · files.js 가 붙인다 */
+#panel-toggle { margin-left: auto; background: var(--md-bg-input); color: var(--md-text-primary); }
+#panel-toggle[aria-expanded="true"] { background: var(--md-accent); }
+#cockpit-panel {
+  width: var(--md-panel-width);
+  flex-shrink: 0;
+  overflow-y: auto;
+  background: var(--md-bg-panel);
+  border-left: var(--md-border-width) solid var(--md-divider);
+  padding: var(--md-space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--md-space-3);
+  font-size: var(--md-font-size-label);
+}
+#cockpit-panel .panel-section { border-bottom: var(--md-border-width) solid var(--md-divider); padding-bottom: var(--md-space-3); }
+#cockpit-panel summary { cursor: pointer; font-weight: var(--md-font-weight-name); color: var(--md-text-primary); margin-bottom: var(--md-space-2); }
+#cockpit-panel button { padding: var(--md-space-1) var(--md-space-2); }
+#cockpit-panel .error { color: var(--md-status-error); margin: 0; }
+#cockpit-panel .error:empty { display: none; }
+#cockpit-panel .empty { color: var(--md-text-muted); margin: 0; }
+#cockpit-panel .partial { color: var(--md-text-muted); white-space: pre-wrap; max-height: 4.5em; overflow: hidden; margin: 0 0 var(--md-space-2); }
+
+#cockpit-panel .cards { display: flex; flex-direction: column; gap: var(--md-space-2); }
+#cockpit-panel .card { border: var(--md-border-width) solid var(--md-status-error); border-radius: var(--md-radius-input); padding: var(--md-space-2); background: var(--md-bg-main); display: flex; flex-direction: column; gap: var(--md-space-1); }
+#cockpit-panel .card-head { font-weight: var(--md-font-weight-name); }
+#cockpit-panel .card-meta, #cockpit-panel .card-note { color: var(--md-text-muted); font-size: var(--md-font-size-timestamp); margin: 0; }
+#cockpit-panel .card-input { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: var(--md-font-size-timestamp); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 8em; overflow: auto; margin: 0; }
+#cockpit-panel .card-buttons { display: flex; flex-wrap: wrap; gap: var(--md-space-1); }
+#cockpit-panel .card-buttons button[data-decision="deny"] { background: var(--md-status-error); }
+#cockpit-panel .card-buttons button[data-decision="allow"] { background: var(--md-status-online); }
+
+#cockpit-panel h3 { font-size: var(--md-font-size-label); margin: var(--md-space-3) 0 var(--md-space-1); color: var(--md-text-muted); }
+#cockpit-panel h4 { font-size: var(--md-font-size-timestamp); margin: var(--md-space-2) 0 var(--md-space-1); color: var(--md-text-muted); }
+#cockpit-panel .cockpit-head { display: flex; flex-wrap: wrap; gap: var(--md-space-1) var(--md-space-4); margin: 0; }
+#cockpit-panel .cockpit-head div { display: flex; gap: var(--md-space-1); align-items: baseline; }
+#cockpit-panel .cockpit-head dt { color: var(--md-text-muted); font-size: var(--md-font-size-timestamp); }
+#cockpit-panel .cockpit-head dd { margin: 0; font-weight: var(--md-font-weight-name); }
+#cockpit-panel .state-idle { color: var(--md-status-online); }
+#cockpit-panel .state-working, #cockpit-panel .state-starting { color: var(--md-status-idle); }
+#cockpit-panel .state-waiting_approval, #cockpit-panel .state-error { color: var(--md-status-error); }
+#cockpit-panel .state-stopped { color: var(--md-text-muted); }
+#cockpit-panel .cockpit-warn { color: var(--md-status-error); margin: var(--md-space-1) 0 0; }
+#cockpit-panel .session-buttons { display: flex; flex-wrap: wrap; gap: var(--md-space-1); margin-top: var(--md-space-2); }
+#cockpit-panel .tools, #cockpit-panel .hooks, #cockpit-panel .tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--md-space-1); }
+#cockpit-panel .tool { display: grid; grid-template-columns: auto auto 1fr; gap: var(--md-space-2); align-items: baseline; border: var(--md-border-width) solid var(--md-divider); border-radius: var(--md-radius-badge); padding: var(--md-space-1) var(--md-space-2); }
+#cockpit-panel .tool-name { font-weight: var(--md-font-weight-name); }
+#cockpit-panel .tool-status { color: var(--md-text-muted); font-size: var(--md-font-size-timestamp); white-space: nowrap; }
+#cockpit-panel .tool-input { font-size: var(--md-font-size-timestamp); overflow-wrap: anywhere; color: var(--md-text-muted); }
+#cockpit-panel .tool-running { border-color: var(--md-status-idle); }
+#cockpit-panel .tool-red { border-color: var(--md-status-error); }
+#cockpit-panel .tool-red .tool-status, #cockpit-panel .tool-result, #cockpit-panel .hook-blocked { color: var(--md-status-error); }
+#cockpit-panel .tool-result { grid-column: 1 / -1; }
+#cockpit-panel .helper { border-left: var(--md-border-width) solid var(--md-divider); padding-left: var(--md-space-2); }
+#cockpit-panel .task { display: flex; justify-content: space-between; gap: var(--md-space-2); align-items: center; }
+
+#cockpit-panel .files-tree { max-height: 16em; overflow-y: auto; }
+#cockpit-panel .files-preview { overflow: auto; margin-top: var(--md-space-2); }
+#cockpit-panel .files-preview img { max-width: 100%; }
+#cockpit-panel .crumbs { display: flex; flex-wrap: wrap; gap: var(--md-space-1); margin-bottom: var(--md-space-1); }
+#cockpit-panel .entries { list-style: none; margin: 0; padding: 0; }
+#cockpit-panel .entries li { display: flex; justify-content: space-between; gap: var(--md-space-1); align-items: center; }
+#cockpit-panel .entry { background: none; color: var(--md-text-primary); text-align: left; overflow-wrap: anywhere; }
+#cockpit-panel .entry:hover { background: var(--md-bg-hover); }
+#cockpit-panel .entry-dir { font-weight: var(--md-font-weight-name); }
+#cockpit-panel .entry-size { color: var(--md-text-muted); font-size: var(--md-font-size-timestamp); white-space: nowrap; }
+
+/* 좁은 화면 — 판이 채팅 위에 겹쳐 뜬다. 모바일 최적화는 범위 밖 (PRD 5절) */
+@media (max-width: 900px) {
+  #cockpit-panel { position: fixed; top: 0; right: 0; bottom: 0; max-width: 90vw; z-index: 10; }
+}

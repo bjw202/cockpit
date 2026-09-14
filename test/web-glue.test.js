@@ -68,3 +68,21 @@ test('rich.js 는 cockpit 🔒 요청 줄에 승인 단추를 그리지 않는�
   }
   assert.equal(permissionRequestId('승인하려면 "yes abcde", 거절하려면 "no abcde" 라고 답해주세요.'), 'abcde', '검사가 원래 꼴은 잡는다');
 });
+
+// ── (M5.7) 접이식 조종석 판 (ADR-019) ──────────────────────────
+test('panelOpenByDefault: member 는 접힘 · admin 은 펼침 · 기억한 값이 이긴다', async () => {
+  const { panelOpenByDefault } = await import('../web/glue.js');
+  assert.equal(panelOpenByDefault('member', null), false);
+  assert.equal(panelOpenByDefault('admin', null), true);
+  assert.equal(panelOpenByDefault(undefined, null), false, '역할을 모르면 접는다');
+  assert.equal(panelOpenByDefault('member', 'open'), true);
+  assert.equal(panelOpenByDefault('admin', 'closed'), false);
+  assert.equal(panelOpenByDefault('admin', '엉뚱한 값'), true, '모르는 기억은 무시한다');
+});
+
+test('pendingBadge: 0 이면 빈 글자 · N 이면 (N)', async () => {
+  const { pendingBadge } = await import('../web/glue.js');
+  assert.equal(pendingBadge(0), '');
+  assert.equal(pendingBadge(undefined), '');
+  assert.equal(pendingBadge(2), '(2)');
+});

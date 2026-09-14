@@ -163,6 +163,33 @@ test('app.js 에서 원본과 본문이 달라진 최상위 함수는 ARCHITECTU
   assert.deepEqual({ changed, removed, added }, TABLE_7_3);
 });
 
+// ── (M5.7) 접이식 조종석 판 (ADR-019 · ARCHITECTURE 7.4) ─────────────
+test('index.html 에 #cockpit-panel 하나 · #panel-toggle 하나', () => {
+  const html = read('index.html');
+  assert.equal([...html.matchAll(/\bid="cockpit-panel"/g)].length, 1);
+  assert.equal([...html.matchAll(/\bid="panel-toggle"/g)].length, 1);
+  assert.match(html, /<aside id="cockpit-panel"[^>]*\bhidden\b/, '처음에는 접혀 있다 — 역할을 안 뒤 편다');
+  assert.ok(html.indexOf('id="cockpit-panel"') > html.indexOf('<main id="chat">'), '판은 채팅 오른쪽(뒤)');
+  for (const id of ['cards', 'cockpit', 'cockpit-error', 'partial', 'files-tree', 'files-preview']) assert.match(html, new RegExp(`\\bid="${id}"`), id);
+});
+
+test('style.css 의 cockpit 덩이는 색을 var(--md-…) 로만 쓴다(# 색 · rgb( · hsl( 없음)', () => {
+  const css = read('style.css');
+  const start = css.indexOf('/* ── cockpit 더함 (v2)');
+  assert.ok(start > 0, 'cockpit 덩이가 없다');
+  const block = css.slice(start).replace(/\/\*[\s\S]*?\*\//g, '');
+  const decls = [...block.matchAll(/([a-z-]+)\s*:\s*([^;{}]+);/g)].map(m => ({ prop: m[1], value: m[2].trim() }));
+  assert.ok(decls.length > 40, '선언을 읽었다');
+  const literal = decls.filter(d => /#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(/i.test(d.value)).map(d => `${d.prop}: ${d.value}`);
+  assert.deepEqual(literal, [], '색 값을 그대로 적지 않는다');
+  const COLOR_PROPS = new Set(['color', 'background', 'background-color', 'border-color', 'border', 'border-left', 'border-bottom', 'border-top', 'outline']);
+  const loose = decls.filter(d => COLOR_PROPS.has(d.prop) && !/var\(--md-/.test(d.value) && !/^(none|transparent|inherit|0)$/.test(d.value)).map(d => `${d.prop}: ${d.value}`);
+  assert.deepEqual(loose, [], '색이 드는 속성은 토큰 변수를 쓴다');
+  const used = new Set([...block.matchAll(/var\((--md-[a-z0-9-]+)\)/g)].map(m => m[1]));
+  const defined = new Set([...afterFirstLine(read('design-tokens.css')).matchAll(/^\s*(--md-[a-z0-9-]+)\s*:/gm)].map(m => m[1]));
+  assert.deepEqual([...used].filter(v => !defined.has(v)), [], '없는 토큰을 부르지 않는다');
+});
+
 test('로그인 폼에 type=password 칸 하나', () => {
   const form = /<form id="login-form">([\s\S]*?)<\/form>/.exec(read('index.html'));
   assert.ok(form, '로그인 폼이 없다');

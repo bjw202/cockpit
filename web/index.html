@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- 출처 핀: minidiscord web/index.html — 저장소 핀 6633f7b, 이 파일이 마지막으로 바뀐 커밋 e31dfba 2026-09-11, 원본 sha256 b625f21b81844e62cb1e16ca3ad5e0545caf2a3badf237b3fc82bf6a52e8d14a -->
-<!-- cockpit 이 ARCHITECTURE 7.3 표의 자리를 고쳤다 (제목 · 켜기 스크립트 · 비밀번호 칸 · 봇 칸 · 봇 다이얼로그) -->
+<!-- cockpit 이 ARCHITECTURE 7.3 표의 자리를 고쳤다 (제목 · 켜기 스크립트 · 비밀번호 칸 · 봇 칸 · 봇 다이얼로그 · 접이식 판) -->
 <html lang="ko">
 <head>
   <meta charset="utf-8">
@@ -53,6 +53,8 @@
       <header id="room-header">
         <h2 id="room-title"></h2>
         <div id="room-bots"></div>
+        <!-- (cockpit) 봇 참여 단추 대신 접이식 조종석 판 단추 (R13 · ADR-019) -->
+        <button id="panel-toggle" type="button" aria-controls="cockpit-panel" aria-expanded="false">조종석 <span id="panel-toggle-count"></span></button>
       </header>
       <div id="messages"></div>
       <footer id="composer">
@@ -80,6 +82,24 @@
         </div>
       </footer>
     </main>
+    <!-- (cockpit) 접이식 조종석 판 — 승인 카드 · 조종석 · 파일. member 는 접힘, admin 은 펼침이 기본 (ADR-019 · ARCHITECTURE 7.4) -->
+    <aside id="cockpit-panel" aria-label="조종석" hidden>
+      <details id="panel-cards" class="panel-section" open>
+        <summary>승인 카드 <span id="panel-cards-count"></span></summary>
+        <div id="cards" class="cards"></div>
+      </details>
+      <details id="panel-cockpit" class="panel-section" open>
+        <summary>조종석</summary>
+        <p id="cockpit-error" class="error" role="alert"></p>
+        <p id="partial" class="partial" hidden></p>
+        <div id="cockpit"></div>
+      </details>
+      <details id="panel-files" class="panel-section">
+        <summary>파일</summary>
+        <div id="files-tree" class="files-tree"></div>
+        <div id="files-preview" class="files-preview"></div>
+      </details>
+    </aside>
   </div>
 
   <!-- 이름 입력 다이얼로그 — 방 생성과 봇 등록이 공유한다. close 시점에 returnValue 를 읽는다 (plan.md §D 3번) -->

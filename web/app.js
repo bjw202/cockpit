@@ -306,12 +306,13 @@ export async function openRoom(id) {
   scrollMessages()
   // 8단계 — 초대 목록을 받아 캐시하고 봇 칩을 그린다
   await refreshRoomBots()
-  // 9단계 — (cockpit) 작성기에 @TO(봇) 을 미리 채운다 — 지우면 사람끼리의 글 (ADR-018)
+  // 9단계 — (cockpit) 작성기에 @TO(봇) 을 미리 채운다 — 지우면 사람끼리의 글 (ADR-018) · 판이 이 방의 과제를 따른다 (ADR-019)
   if (generation !== state.roomGeneration) return
   const project = projectOfRoom(state.projects, id)
   const fill = prefillValue({ value: $('msg-input').value, bot: project?.bot, archived: room?.status === 'archived' })
   if (fill !== null) { $('msg-input').value = fill; refreshSendState() }
   $('msg-input').placeholder = composerHint($('msg-input').value)
+  panelFollow(project?.name ?? null)
 }
 
 // ── 이름 입력 다이얼로그 ──────────────────────────────────────────────
@@ -346,6 +347,7 @@ export function initApp() {
       renderRooms()
       $('new-room-btn').hidden = state.user?.role !== 'admin'   // (cockpit) 방 만들기 = 봇 생성은 admin 만 (ADR-017)
       openAppStream()
+      initPanel({ role: state.user?.role, getProjects: () => state.projects, onChanged: async () => { await loadProjects(); await refreshRoomBots() } })
     } catch { /* login 이 이미 #auth-error 를 채웠다 */ }
   })
   $('new-room-btn').addEventListener('click', async () => {
@@ -361,6 +363,7 @@ export function initApp() {
     .then(() => {
         $('new-room-btn').hidden = state.user?.role !== 'admin'   // (cockpit) 방 만들기 = 봇 생성은 admin 만 (ADR-017)
         openAppStream()
+        initPanel({ role: state.user?.role, getProjects: () => state.projects, onChanged: async () => { await loadProjects(); await refreshRoomBots() } })
       showMain()
     })
     .catch(() => showAuth())
@@ -609,14 +612,17 @@ function openAppStream() {
     const project = state.projects.find(p => p.name === d.project)
     if (project) project.session.state = d.state
     await refreshRoomBots()
+    panelEvent('session_state', d)
   })
   for (const type of ['room_created', 'room_archived']) {
     on(type, async (d) => {
       await loadRooms()
       await loadProjects()
       await refreshRoomBots()
+      panelEvent(type, d)
     })
   }
+  for (const type of ['permission_request', 'permission_resolved', 'session_event', 'partial']) on(type, d => panelEvent(type, d))
   es.addEventListener('error', () => { hadError = true })
   // 첫 연결이 아니라 error 뒤의 재연결이면 끊긴 사이의 글을 커서로 백필한다 (REQ-WEBCHAT-008 그대로)
   es.addEventListener('open', async () => {
@@ -1114,6 +1120,7 @@ function notifyError(err) {
 // 보낸 뒤의 표시 판정이 같은 자를 쓰도록, 새 판정 함수를 만들지 않고 이름 하나를 더 가져온다.
 import { createRichContext, isImageFilename } from './rich.js'   // (cockpit) 봇 참여 · 등록 명령 다이얼로그는 옮기지 않는다 (R13)
 import { botMark, composerHint, messageForRoom, prefillValue, projectOfRoom, roomBotsOf } from './glue.js'   // (cockpit) 잇는 순수 함수 (ARCHITECTURE 7.3)
+import { initPanel, panelEvent, panelFollow } from './panel.js'   // (cockpit) 접이식 조종석 판 (ADR-019)
 import { renderMarkdown } from './markdown.js'
 
 // 배선 계약 (spec.md REQ-WEBRICH-002) — 방을 열 때마다 openRoom 3-1단계가
