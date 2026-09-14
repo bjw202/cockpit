@@ -43,7 +43,7 @@
 | F5 | 도구 둘을 채널 플러그인과 같은 서명으로 준다: `reply(chat_id?, text, files?)` · `fetch_history(chat_id?, since_id?, since?, until?, speaker?, limit?)`. 전체 이름은 `mcp__cockpit__reply` · `mcp__cockpit__fetch_history` | 도구 서명 시험 · 진짜 SDK 스모크에서 봇이 `mcp__cockpit__reply` 를 부른다 |
 | F6 | 절단 상한 다섯이 채널 플러그인과 같다 (본문 4000B · 첨부 20 · 경로 512B · 이력 16000B · 이름 256B). 중화 뒤에 자르고, 이력은 새것부터 버린다 | 절단 시험 |
 | F7 | 봇의 `reply` 는 prodev 의 pre-reply 훅을 거친 뒤에만 방에 `author_type='bot'` 글로 남는다. 훅이 막으면 글이 안 남는다 | 스모크: 901자 `reply` → 방에 글 0 |
-| F8 | 큐는 세션이 `idle` 일 때만 푼다. 큐를 거치지 않고 곧바로 가는 것은 admin 의 멈춤(`interrupt`) 하나뿐이다. admin 의 `/compact` 도 `idle` 을 기다린다(급하면 멈춤 → 압축). 승인 대기 중에도 큐는 기다린다 (meta D0 Q12) | 모의 SDK 시험: working 중에 들어온 글과 `/compact` 가 result 뒤에 간다 |
+| F8 | 사람 글은 들어오는 즉시 세션에 넣는다 — `idle` 뿐 아니라 `working` · `waiting_approval` 중에도(SDK 가 그 턴에 접어 넣는다, 옛 채널과 같다). 예외는 admin 의 `/compact` 하나: `idle` 을 기다렸다가 넣고, 그 압축 턴 동안은 글을 붙잡는다. 멈춤(`interrupt`)은 곧바로 (meta W2 반려 W2r.1 — D0 Q12 의 "idle 에서만" 을 되돌렸다) | 모의 SDK 시험: working · waiting_approval 중에 들어온 글이 곧바로 입력으로 가고, `/compact` 는 result 뒤에 간다 |
 | F9 | 서버가 죽었다 살아나면 `agent_sessions.session_id` 로 `resume` 하고, `bot_inbox` 에서 `delivered_at IS NULL` 인 글을 id 순서대로 다시 넣는다 | 재기동 시험(모의) · 재기동 대본(진짜, meta) |
 | F10 | 허용 목록 밖 도구는 승인 카드로 온다. 카드는 admin 에게만 버튼이 있다. 요청 키는 `toolUseID`, 도우미 안의 요청은 `agentID` 도 적는다. **요청마다 첫 답이 이긴다.** N분(기본 10) 무응답이면 거부 | 승인 중계 시험 (도우미 둘 동시 · 두 admin 동시 답 · 시간 초과) |
 | F11 | 카드는 SDK 가 준 `title · displayName · description` 을 그대로 쓴다. "이번 세션 허용" 버튼은 `suppressAlwaysAllowRule` 이면 숨기고, `defaultToNo` 면 기본 선택을 거부에 둔다 | 카드 그리기 시험 |

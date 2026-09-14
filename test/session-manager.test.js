@@ -42,7 +42,7 @@ test('같은 과제에 글 셋 → queryFn 호출 1회', async () => {
   await mgr.stop('시험');
 });
 
-test('working 중에 들어온 글은 result 뒤에 간다', async () => {
+test('working 중에 들어온 글도 곧바로 queryFn 입력으로 간다', async () => {
   const w = world(); const hold = deferred();
   const q = makeFakeQueryFn({ turns: [[{ wait: hold.promise }, { result: true }]] });
   const mgr = manager(w, q); const { main } = open(mgr, w);
@@ -51,12 +51,14 @@ test('working 중에 들어온 글은 result 뒤에 간다', async () => {
   await waitFor(() => q.calls[0].received.length === 1);
   assert.equal(mgr.state('시험'), 'working');
   const b = mgr.postUserMessage({ roomId: main.id, username: '박과제', body: '둘째 글' });
-  await new Promise(r => setTimeout(r, 20));
-  assert.equal(q.calls[0].received.length, 1);            // 턴 도중에는 안 넣는다
-  hold.resolve();
-  await waitFor(() => q.calls[0].received.length === 2);
+  await waitFor(() => q.calls[0].received.length === 2, { what: '턴 도중 배달' });   // 턴이 끝나기 전에 (W2r.1)
+  assert.equal(mgr.state('시험'), 'working');
+  assert.equal(mgr.cockpitDb.pendingInbox(1).length, 0, '큐에 걸려 있지 않다');
   assert.deepEqual(messageIdsIn(q.calls[0].received[0]), [a.id]);
   assert.deepEqual(messageIdsIn(q.calls[0].received[1]), [b.id]);
+  hold.resolve();
+  await waitFor(() => mgr.state('시험') === 'idle');
+  assert.equal(mgr.cockpitDb.eventsAfter('시험').filter(e => e.type === 'result').length, 1, 'SDK 가 그 턴에 접어 result 는 하나');
   await mgr.stop('시험');
 });
 
@@ -77,7 +79,7 @@ test('idle 에서 밀린 글 셋은 사용자 메시지 하나에 id 순으로',
   await mgr.stop('시험');
 });
 
-test('waiting_approval 중에는 큐를 안 푼다', async () => {
+test('waiting_approval 중에도 배달', async () => {
   const w = world(); const answer = deferred();
   const q = makeFakeQueryFn({ turns: [[{ canUse: { toolName: 'Bash', input: { command: 'curl --version' }, toolUseID: 'toolu_1' } }, { result: true }]] });
   const asked = [];
@@ -86,12 +88,13 @@ test('waiting_approval 중에는 큐를 안 푼다', async () => {
   await mgr.start('시험');
   mgr.postUserMessage({ roomId: main.id, username: '김과제', body: 'curl 돌려 줘' });
   await waitFor(() => mgr.state('시험') === 'waiting_approval');
-  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '그 사이 다른 글' });
-  await new Promise(r => setTimeout(r, 20));
-  assert.equal(q.calls[0].received.length, 1);
+  const later = mgr.postUserMessage({ roomId: main.id, username: '박과제', body: '그 사이 다른 글' });
+  await waitFor(() => q.calls[0].received.length === 2, { what: '승인 대기 중 배달' });
+  assert.deepEqual(messageIdsIn(q.calls[0].received[1]), [later.id]);
+  assert.equal(mgr.state('시험'), 'waiting_approval', '배달이 승인 대기 상태를 덮지 않는다');
   assert.deepEqual(asked, ['Bash']);
   answer.resolve({ behavior: 'allow', updatedInput: { command: 'curl --version' } });
-  await waitFor(() => q.calls[0].received.length === 2);
+  await waitFor(() => mgr.state('시험') === 'idle');
   assert.equal(q.calls[0].answers[0].behavior, 'allow');
   await mgr.stop('시험');
 });
@@ -111,20 +114,31 @@ test('interrupt 는 큐를 거치지 않는다', async () => {
 });
 
 test('/compact 는 idle 을 기다렸다가 밀린 글보다 먼저 들어간다', async () => {
-  const w = world(); const hold = deferred();
-  const q = makeFakeQueryFn({ turns: [[{ wait: hold.promise }, { result: true }]] });
+  // 턴 0: 일(붙잡힘) — 그 사이 온 글은 곧바로 가서 턴 0 에 접힌다. 턴 1: /compact(붙잡힘) — 그 사이 온 글은 압축 뒤에
+  const w = world(); const hold = deferred(); const holdCompact = deferred();
+  const q = makeFakeQueryFn({ turns: [[{ wait: hold.promise }, { result: true }], [{ result: true }], [{ wait: holdCompact.promise }, { result: true }]] });
   const mgr = manager(w, q); const { main } = open(mgr, w);
   await mgr.start('시험');
   mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '일' });
   await waitFor(() => mgr.state('시험') === 'working');
   mgr.compact('시험');
-  const later = mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '압축 뒤 글' });
+  const during = mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '일하는 중에 온 글' });
+  await waitFor(() => q.calls[0].received.length === 2, { what: '글은 곧바로' });
+  assert.deepEqual(messageIdsIn(q.calls[0].received[1]), [during.id]);
   await new Promise(r => setTimeout(r, 20));
-  assert.equal(q.calls[0].received.length, 1);             // working 중에는 /compact 도 안 넣는다
+  assert.equal(q.calls[0].received.length, 2, 'working 중에는 /compact 를 안 넣는다');
+
   hold.resolve();
-  await waitFor(() => q.calls[0].received.length === 3);
-  assert.equal(text(q.calls[0].received[1]), '/compact');
-  assert.deepEqual(messageIdsIn(q.calls[0].received[2]), [later.id]);
+  await waitFor(() => q.calls[0].received.length === 3, { what: 'idle 에서 /compact' });
+  assert.equal(text(q.calls[0].received[2]), '/compact');
+  const after = mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '압축 중에 온 글' });
+  await new Promise(r => setTimeout(r, 20));
+  assert.equal(q.calls[0].received.length, 3, '압축 턴 동안은 글을 붙잡는다');
+  assert.equal(mgr.cockpitDb.pendingInbox(1).length, 1);
+
+  holdCompact.resolve();
+  await waitFor(() => q.calls[0].received.length === 4, { what: '압축 뒤 배달' });
+  assert.deepEqual(messageIdsIn(q.calls[0].received[3]), [after.id]);
   await mgr.stop('시험');
 });
 
@@ -170,9 +184,12 @@ test('재기동: 새 manager 가 stopped 아닌 줄을 resume:session_id 로 켜
   await waitFor(() => a.state('시험') === 'idle' && qa.calls[0].received.length === 1);
   a.postUserMessage({ roomId: main.id, username: '김과제', body: '둘째 — 턴 도중 서버가 죽는다' });
   await waitFor(() => qa.calls[0].received.length === 2);
+  // 여기서 서버가 죽었다 — 상태는 working 그대로 남는다 (stop 을 안 부른다)
+  await a.release('시험');
+  assert.equal(a.cockpitDb.agentSession('시험').state, 'working');
+  // 서버가 없는 사이 들어온 글 — 큐에만 쌓인다 (W2r.1 뒤로는 살아 있는 세션이면 곧바로 배달되므로 죽은 뒤에 넣는다)
   const m3 = a.postUserMessage({ roomId: files.id, username: '박과제', body: '@TO(prodev-시험-bot) 셋째' });
   const m4 = a.postUserMessage({ roomId: main.id, username: '김과제', body: '넷째' });
-  // 여기서 서버가 죽었다 — a 는 버린다 (stop 을 안 부른다)
   assert.equal(a.cockpitDb.agentSession('시험').session_id, 'sess-1');
 
   const qb = makeFakeQueryFn();

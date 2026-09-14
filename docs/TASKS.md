@@ -64,9 +64,9 @@ meta 의 관문과의 짝: **M1 · M2 = W2(서버 뼈대)**, **M3 = W3(조종석
 - 산출: `src/session/manager.js` · `input-stream.js` · `env.js` · `sdk-query.js` · `test/fakes/fake-query.js`
 - 끝 조건: `test/session-manager.test.js` —
   - `같은 과제에 글 셋 → queryFn 호출 1회`
-  - `working 중에 들어온 글은 result 뒤에 간다`
+  - `working 중에 들어온 글도 곧바로 queryFn 입력으로 간다` (W2r.1 에서 바뀜 — 처음 이름은 `working 중에 들어온 글은 result 뒤에 간다`)
   - `idle 에서 밀린 글 셋은 사용자 메시지 하나에 id 순으로`
-  - `waiting_approval 중에는 큐를 안 푼다`
+  - `waiting_approval 중에도 배달` (W2r.1 에서 바뀜 — 처음 이름은 `waiting_approval 중에는 큐를 안 푼다`)
   - `interrupt 는 큐를 거치지 않는다`
   - `/compact 는 idle 을 기다렸다가 밀린 글보다 먼저 들어간다`
   - `채팅 글에는 origin channel/cockpit, /compact 에는 origin human`
@@ -137,6 +137,12 @@ meta 의 관문과의 짝: **M1 · M2 = W2(서버 뼈대)**, **M3 = W3(조종석
 
 ### M2.M 관문 청하기 (W2)
 - `docs/as-built.md` · `docs/log.md` 갱신. meta 가 옛 대본 다섯을 재생한다
+
+### W2r — W2 반려 뒤 고침 셋 (meta 지시 `instructions/W2-refix.md`, 2026-09-14)
+- W2r.1 큐는 들어오는 즉시 배달(`working` · `waiting_approval` 에서도), `/compact` 만 `idle` 대기. 끝 조건: `test/session-manager.test.js` — `working 중에 들어온 글도 곧바로 queryFn 입력으로 간다` · `waiting_approval 중에도 배달` · `/compact 는 idle 을 기다렸다가 밀린 글보다 먼저 들어간다`
+- W2r.2 `agent_sessions.cost_usd` = 마지막 `result.total_cost_usd`(덮어쓰기). 끝 조건: `test/session-manager.test.js` — `result 셋(0.1 · 0.25 · 0.4) 뒤 cost_usd 는 0.4`
+- W2r.3 스크래치에 prodev 뿌리 흉내(`<스크래치>/prodev/{scripts,common,CLAUDE.md,.claude}` · `bots/<봇>`). 끝 조건: `test/smoke-scratch.test.js` — `makeScratch 뒤 <봇 폴더>/../../scripts/find.js 가 실제 파일`
+- 그리고 prodev PR(W2.9) 하나 · `m2-approval` 재판. meta 가 같은 대본 넷으로 W2 를 재측정한다
 
 ---
 

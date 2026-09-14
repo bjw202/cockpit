@@ -3,8 +3,8 @@
 // 하는 것: 과제 열기 · 켜기(resume) · 끄기 · 멈춤 · 압축 걸기 · 사람 글 넣기 · 큐 풀기 · SDK 메시지를 사건으로 접기.
 // SDK 는 import 하지 않는다. queryFn · makeMcpServer 를 주입받는다 (진짜는 session/sdk-query.js, 시험은 test/fakes).
 //
-// 큐를 푸는 규칙: 상태가 idle 일 때만. 밀린 글을 id 순서대로 모두(상한 20) 사용자 메시지 하나에.
-// 큐를 거치지 않는 것은 멈춤(interrupt) 하나뿐이다. /compact 도 idle 을 기다렸다가 밀린 글보다 먼저 들어간다 (meta D0 Q12).
+// 큐를 푸는 규칙: 글이 들어오면 곧바로(idle · working · waiting_approval). 밀린 글을 id 순서대로 모두(상한 20) 사용자 메시지 하나에.
+// /compact 만 idle 을 기다렸다가 밀린 글보다 먼저 들어가고, 그 압축 턴 동안 글을 붙잡는다 (meta W2r.1 · ADR-008 바뀐 자리).
 
 import { EventEmitter } from 'node:events';
 import path from 'node:path';
@@ -19,6 +19,7 @@ export const BATCH_LIMIT = 20;
 export const COMPACT_START_TEXT = '문맥을 정리 중입니다. 곧 이어서 합니다.';
 export const COMPACT_END_TEXT = '정리가 끝났습니다. 이어서 하려면 말을 걸어 주세요.';
 const RUNNING = new Set(['starting', 'idle', 'working', 'waiting_approval']);
+const DELIVERABLE = new Set(['idle', 'working', 'waiting_approval']);
 const SUMMARY_CHARS = 200;
 const STDERR_LINES = 200;
 
@@ -235,15 +236,20 @@ export class SessionManager extends EventEmitter {
   }
 
   // ── 큐 ─────────────────────────────────────────────────
+  // 글은 들어오는 즉시 배달한다 — idle 뿐 아니라 working · waiting_approval 중에도. SDK 가 그 턴에 접어 넣는다
+  // (옛 채널 플러그인과 같다. prodev orchestrator 가 "한 턴에 여러 방의 @TO" 를 전제한다 — meta W2 반려 W2r.1 · ADR-008).
+  // 예외는 /compact 하나: idle 을 기다렸다가 밀린 글보다 먼저 넣고, 그 압축 턴이 끝날 때까지 글을 붙잡는다.
   #kick(s) {
-    if (s.state !== 'idle' || s.closing) return;
-    if (s.pendingCompact) {
+    if (s.closing || !DELIVERABLE.has(s.state)) return;
+    if (s.state === 'idle' && s.pendingCompact) {
       s.pendingCompact = false;
+      s.compacting = true;
       s.input.push(userMessage('/compact', { origin: this.origin ? HUMAN_ORIGIN : null }));
       this.#setState(s, 'working');
       this.#event(s, 'delivered', { command: '/compact' });
       return;
     }
+    if (s.compacting) return;
     const rows = this.cockpitDb.pendingInbox(s.bot.id, BATCH_LIMIT);
     if (!rows.length) return;
     const blocks = [];
@@ -261,7 +267,7 @@ export class SessionManager extends EventEmitter {
     this.cockpitDb.markDelivered(rows.map(r => r.id));
     if (!blocks.length) return;
     s.input.push(userMessage(blocks.join('\n\n'), { origin: this.origin }));
-    this.#setState(s, 'working');
+    if (s.state === 'idle') this.#setState(s, 'working');   // waiting_approval 이면 그대로 둔다
     this.#event(s, 'delivered', { message_ids: rows.map(r => r.message_id) });
   }
 
@@ -288,6 +294,7 @@ export class SessionManager extends EventEmitter {
         return;
       case 'result':
         s.gotResult = true;
+        s.compacting = false;
         this.cockpitDb.recordResult(s.project, m.total_cost_usd);
         this.#event(s, 'result', { subtype: m.subtype, num_turns: m.num_turns, duration_ms: m.duration_ms, total_cost_usd: m.total_cost_usd, permission_denials: (m.permission_denials ?? []).length });
         if (s.state !== 'stopped' && s.state !== 'error') {

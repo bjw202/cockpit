@@ -43,16 +43,33 @@ class FakeQuery {
   async stopTask(id) { this.stopped.push(id); }
   close() { this.closed = true; this.abort.abort(); }
 
+  // 진짜 SDK 처럼 입력은 턴과 따로 곧바로 받는다 — 턴 도중에 들어온 사용자 메시지도 received 에 바로 쌓인다.
+  // 턴 도중에 들어온 글은 그 턴에 접는다: 그 글의 걸음(result 빼고)을 이어 돌고 result 는 한 번만 낸다.
   async *[Symbol.asyncIterator]() {
     yield { type: 'system', subtype: 'init', session_id: this.sessionId, model: 'fake', permissionMode: this.options.permissionMode };
+    const inbox = [];
+    let ended = false;
+    let wake = () => {};
+    (async () => {
+      try {
+        for await (const um of this.prompt) { this.received.push(um); inbox.push(um); wake(); }
+      } finally { ended = true; wake(); }
+    })();
     let i = 0;
-    for await (const um of this.prompt) {
-      if (this.closed) return;
-      this.received.push(um);
-      const steps = typeof this.turns === 'function' ? this.turns(um, i, this) : (this.turns[i] ?? [{ result: true }]);
-      i++;
-      for (const st of steps) {
+    const stepsFor = um => (typeof this.turns === 'function' ? this.turns(um, i++, this) : (this.turns[i++] ?? [{ result: true }]));
+
+    for (;;) {
+      while (!inbox.length && !ended && !this.closed) await new Promise(r => { wake = r; });
+      if (this.closed || !inbox.length) return;
+      const queue = [...stepsFor(inbox.shift())];
+      while (queue.length) {
+        const st = queue.shift();
         if (this.closed) return;
+        if (st.result && inbox.length) {
+          for (const more of inbox.splice(0)) queue.push(...stepsFor(more).filter(x => !x.result));
+          queue.push(st);
+          continue;
+        }
         if (st.wait) await st.wait;
         if (st.throw) throw new Error(st.throw);
         if (st.canUse) {

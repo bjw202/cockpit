@@ -156,10 +156,10 @@ mcp__cockpit__fetch_history(chat_id?: string, since_id?: number, since?: string,
 
 ### 4.5 큐를 푸는 규칙
 
-- 세션 상태가 **`idle` 일 때만** 푼다. `working` · `waiting_approval` · `starting` 이면 기다린다. 턴 도중에 넣으면 SDK 가 그 턴에 접어 넣어 봇이 두 일을 한 턴에 섞는다 (DESIGN 4.2).
-- 풀 때는 그 봇의 `delivered_at IS NULL` 행을 **id 순서대로 모두**(상한 20) 꺼내 사용자 메시지 **하나**에 4.4 의 덩이를 차례로 담는다. 넣은 즉시 `delivered_at` 을 적고 상태를 `working` 으로.
+- 글이 들어오면 **곧바로** 푼다 — 세션이 `idle` · `working` · `waiting_approval` 이면. `starting` 이면 `idle` 에 닿을 때 푼다. 턴 도중에 넣으면 SDK 가 그 턴에 접어 넣는다 — 옛 채널 플러그인과 같고, prodev orchestrator 가 "한 턴에 여러 방의 `@TO`" 를 전제한다 (ADR-008 되돌림, meta W2r.1. 처음 판의 "idle 에서만" 은 R4 에서 본방 질문을 6분 붙잡았다).
+- 풀 때는 그 봇의 `delivered_at IS NULL` 행을 **id 순서대로 모두**(상한 20) 꺼내 사용자 메시지 **하나**에 4.4 의 덩이를 차례로 담는다. 넣은 즉시 `delivered_at` 을 적고, `idle` 이었으면 상태를 `working` 으로(`waiting_approval` 은 그대로).
 - `cc` 만 밀려 있어도 푼다 — 채널 판에서도 `cc` 는 세션에 들어갔다.
-- **큐를 거치지 않는 것은 멈춤 하나뿐이다**: admin 의 멈춤은 `query.interrupt()` 를 곧바로 부른다. admin 의 압축은 `/compact` 를 걸어 두었다가 **다음 `idle` 에** 밀린 글보다 먼저 넣는다 (meta D0 Q12 — 턴 중 압축은 미실증). 급하면 멈춤 → 압축.
+- 멈춤은 `query.interrupt()` 를 곧바로 부른다. **기다리는 것은 압축 하나뿐이다**: admin 의 압축은 `/compact` 를 걸어 두었다가 **다음 `idle` 에** 밀린 글보다 먼저 넣고, 그 압축 턴의 `result` 까지는 글을 붙잡는다 (meta D0 Q12 — 턴 중 압축은 미실증). 급하면 멈춤 → 압축.
 - 사용자 메시지에는 `origin` 을 스탬프한다: 채팅 글은 `{ kind:'channel', server:'cockpit' }`, admin 의 `/compact` 는 `{ kind:'human' }` (ADR-013).
 - 재기동 뒤: `resume` 이 `idle` 에 닿으면 남은 행을 같은 규칙으로 푼다. `delivered_at` 을 적은 뒤 턴이 끝나기 전에 서버가 죽은 글은 **다시 넣지 않는다** — 봇이 켜질 때 `chat.js since` 로 따라잡는다 (prodev ADR-010 · 021).
 
