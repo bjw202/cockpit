@@ -133,3 +133,17 @@ W2 관문에 필요하다고 한 넷: `serve --config` 로 서버가 뜬다 · `
 새 질문 (meta 에):
 - **N14 프록시 env.** 화이트리스트에 `HTTPS_PROXY` · `HTTP_PROXY` · `NO_PROXY` 가 없다(M4 시험이 그것을 못 박았다). 회사망이 프록시를 거쳐야 Claude 에 닿으면 봇 세션이 못 뜬다. W1.3 결과로 `extraEnvKeys` 에 넣을지, 기본 목록에 넣을지.
 - **N15 `m4-sessions` 의 윈도우 갈래**(`powershell.exe Get-CimInstance` · `taskkill`)는 문법만 봤다. 회사 PC 판이 첫 실행이다.
+
+## 2026-09-14 — M4.M 맥 조건부 통과 · 윈도우 실측 대기
+
+**M4.M 맥 조건부 통과** (meta: 맥에서 되는 여덟 칸 전부 ○ — 사본 `npm test` 158/158 · `check` 네 설정 · INSTALL-WINDOWS 걸음 12 · m4-sessions 서버 최대 91 MB · 자식 셋 최대 824 MB · env 키 · as-built 절 여섯 · 문서 정합 · 값 주석). 윈도우 실측 넷(`npm test` · `check` · `m1-hello` · `m3-restart`)은 사람이 회사 PC 에서 돌려 meta 에 준다 — 그것이 오기 전에는 M4 가 닫히지 않는다.
+
+답: **N14** 프록시 env 는 지금 고치지 않는다 — INSTALL-WINDOWS 6번에 `extraEnvKeys` 한 줄만 넣었다(문서만). **N15** 회사 PC 첫 실행에서 깨지면 사람이 출력을 meta 에 주고 meta 가 지시로 넘긴다.
+
+하지 않은 것 (지시대로): 윈도우 실측을 흉내 내지 않았다 · 브라우저 스모크를 만들지 않았다 · `../prodev-wt-cockpit` 을 지우지 않았다(사람이 정리).
+
+**세션 끝 상태 (2026-09-14)**
+- 마지막 커밋: 이 절과 INSTALL-WINDOWS 한 줄을 넣은 docs 커밋 (그 앞 코드 · 문서 커밋은 59f3523). 작업 트리 깨끗. `npm test` 158/158 (기본 `../prodev` = 1e02367).
+- 형제: prodev PR #17 · #18 머지됨. `../prodev-wt-cockpit` 은 가지 `cockpit-m3` 로 남아 있다(쓰지 않음).
+- 이 세션은 여기서 멈춘다. **다음 제작 지시는 사람의 회사 PC 결과가 온 뒤다.**
+- 다음 세션이 읽을 파일: meta 가 새로 주는 `meta/prodev-review/plans/2026-09-14-web-cockpit/instructions/` 의 다음 지시문 → 이 파일(`docs/log.md`)의 M3 · M4 절 → `docs/as-built.md`(절 여섯, 4.1 윈도우 건너뜀 표) → `docs/TASKS.md` M4 절 → `docs/INSTALL-WINDOWS.md`(회사 PC 결과를 대조할 걸음).

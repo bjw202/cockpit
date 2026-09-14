@@ -47,6 +47,7 @@
      - `✓ claudePath <판> — <경로>` (예 `✓ claudePath 2.1.270 (Claude Code) — C:/Users/…/claude.exe`)
      - `✓ 경로 공백 없음`
    - `✗ claudePath 없다` 면 경로 오타, `✗ claudePath 실행이 안 된다` 면 로그인 · 설치를 3번부터 다시 본다. `✗ <키> … 공백` 이면 그 자리를 공백 없는 곳으로 옮긴다.
+   - 회사망이 프록시를 거치면 `extraEnvKeys` 에 `HTTPS_PROXY` · `HTTP_PROXY` · `NO_PROXY` 를 넣는다 (예 `"extraEnvKeys": ["HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY"]`). 봇 세션 env 는 화이트리스트라 이 키들이 기본으로는 안 실린다 — 넣을지는 W1.3 에서 사람이 잰 결과로 정한다 (meta N14).
 
 7. **봇 폴더를 만든다 (prodev `setup.js`).** 과제 폴더 · 봇 폴더 · 설정 두 장이 생긴다. 과제 이름은 예로 `수율개선`.
    - 친다: `node C:\work\crew-workspace\prodev\scripts\setup.js --project 수율개선 --cockpit C:\work\crew-workspace\cockpit\cockpit.json`
