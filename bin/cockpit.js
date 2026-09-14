@@ -186,7 +186,9 @@ async function serve(opt) {
   if (!config) return 1;
   const { sdkBinding } = await import('../src/session/sdk-query.js');
   const { createServer } = await import('../src/http/server.js');
-  const rt = openRuntime(config, { binding: sdkBinding, model: typeof opt.model === 'string' ? opt.model : undefined });
+  const rt = openRuntime(config, {
+    binding: sdkBinding, model: typeof opt.model === 'string' ? opt.model : undefined, ...(opt['no-origin'] ? { origin: null } : {}),
+  });
   const server = createServer({ ...rt, config });
   try {
     await new Promise((resolve, reject) => { server.once('error', reject); server.listen(config.port, config.host, resolve); });
