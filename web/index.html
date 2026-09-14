@@ -26,8 +26,20 @@
     <button id="logout" type="button" class="quiet">나가기</button>
   </header>
 
+  <nav id="panes" class="panes" role="tablist" aria-label="판"></nav>
+
   <main class="layout">
-    <section class="chat" aria-label="채팅">
+    <section id="pane-cockpit" class="pane cockpit" aria-label="조종석" hidden>
+      <p id="cockpit-error" class="error" role="alert"></p>
+      <div id="cockpit"></div>
+    </section>
+
+    <section id="pane-files" class="pane files" aria-label="파일" hidden>
+      <div id="files-tree" class="files-tree"></div>
+      <div id="files-preview" class="files-preview"><p class="empty">파일을 고르세요</p></div>
+    </section>
+
+    <section id="pane-chat" class="pane chat" aria-label="채팅">
       <div class="chat-head">
         <div class="rooms" role="tablist" aria-label="방">
           <button type="button" role="tab" data-room="main">본방</button>

@@ -1,8 +1,12 @@
-// 화면의 몸통 — 로그인 · 과제 탭 · 방 둘 · 글 · 첨부 · 실시간 (ARCHITECTURE 7절). 프레임워크 · 빌드 · CDN 없음 (ADR-010).
+// 화면의 몸통 — 로그인 · 과제 탭 · 판 셋(채팅 · 조종석 · 파일) · 실시간 (ARCHITECTURE 7절). 프레임워크 · 빌드 · CDN 없음 (ADR-010).
 // 글자를 넣는 곳은 textContent 와 markdown.js 뿐이다 (innerHTML 없음 — test/web-static.test.js).
 
-import { defaultComposerText, messageView, renderMessage, roomKind, statusChip, statusOfState } from './chat.js';
+import { defaultComposerText, messageView, renderMessage, roomKind, statusOfState } from './chat.js';
 import { applyPermissionEvent, cardView, renderCard } from './card.js';
+import { mergeEvents, renderCockpit } from './cockpit.js';
+import { fileUrl, isImage, listUrl, renderEntries, renderPreview } from './files.js';
+import { PANES, applySessionState, chatItems, renderBoundary, tabsView } from './tabs.js';
+import { statusChip } from './chat.js';
 
 const $ = sel => document.querySelector(sel);
 
@@ -10,18 +14,22 @@ const state = {
   me: null,
   projects: [],
   current: null,            // 과제 이름
+  pane: 'chat',             // chat | cockpit | files
   room: 'main',             // main | files
   messages: new Map(),      // 방 id → 글 배열 (연 방만)
   status: new Map(),        // 과제 → { status, tool }
   partial: new Map(),       // 과제 → 봇이 지금 쓰는 글자
+  events: new Map(),        // 과제 → session_events 배열 (조종석 판을 한 번 연 과제만)
   files: [],                // 보낼 첨부
+  dir: '',                  // 파일 판에서 연 폴더
   lastDefault: '',
   stream: null,
   cards: [],                // 걸린 승인 요청 (GET /api/permissions 의 requests 모양)
+  cockpitFrame: 0,
 };
 
 class ApiError extends Error {
-  constructor(status, message) { super(message); this.status = status; }
+  constructor(status, message, body) { super(message); this.status = status; this.body = body; }
 }
 
 async function api(path, { method = 'GET', json, form } = {}) {
@@ -31,13 +39,14 @@ async function api(path, { method = 'GET', json, form } = {}) {
   const r = await fetch(path, init);
   const body = await r.json().catch(() => null);
   if (r.status === 401 && path !== '/api/auth/login') showLogin();
-  if (!r.ok) throw new ApiError(r.status, body?.error ?? body?.message ?? `HTTP ${r.status}`);
+  if (!r.ok) throw new ApiError(r.status, body?.error ?? body?.message ?? `HTTP ${r.status}`, body);
   return body;
 }
 
 const currentProject = () => state.projects.find(p => p.name === state.current) ?? null;
 const currentRoom = () => currentProject()?.rooms?.[state.room] ?? null;
 const projectOfRoom = roomId => state.projects.find(p => p.rooms.main?.id === roomId || p.rooms.files?.id === roomId) ?? null;
+const P = name => encodeURIComponent(name);
 
 // ── 들어가기 · 나가기 ─────────────────────────────────────
 function showLogin() {
@@ -54,6 +63,8 @@ async function enter() {
   $('#me').textContent = `${state.me.username} · ${state.me.role}`;
   $('#admin-panel').hidden = state.me.role !== 'admin';
   state.messages.clear();
+  state.events.clear();
+  renderPanes();
   await loadProjects();
   startStream();
   afterEnter();
@@ -78,7 +89,7 @@ async function logout() {
   showLogin();
 }
 
-// ── 과제 · 방 ─────────────────────────────────────────────
+// ── 과제 · 판 ─────────────────────────────────────────────
 async function loadProjects(select) {
   const { projects } = await api('/api/projects');
   state.projects = projects;
@@ -86,25 +97,24 @@ async function loadProjects(select) {
   if (select) state.current = select;
   if (!projects.some(p => p.name === state.current)) state.current = projects[0]?.name ?? null;
   renderTabs();
-  await openRoom(state.room);
+  await showPane(state.pane);
 }
 
 function renderTabs() {
   const nav = $('#tabs');
   nav.replaceChildren();
-  for (const p of state.projects) {
+  for (const t of tabsView(state.projects, state.current, state.status)) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = `tab${p.name === state.current ? ' active' : ''}`;
-    b.textContent = p.name;
-    const chip = statusChip(state.status.get(p.name)?.status);
-    if (chip) {
+    b.className = `tab${t.active ? ' active' : ''}`;
+    b.textContent = t.name;
+    if (t.chip) {
       const dot = document.createElement('span');
-      dot.className = `dot tone-${chip.tone}`;
-      dot.title = chip.text;
+      dot.className = `dot tone-${t.chip.tone}`;
+      dot.title = t.chip.text;
       b.append(dot);
     }
-    b.addEventListener('click', () => { state.current = p.name; renderTabs(); openRoom(state.room); });
+    b.addEventListener('click', () => selectProject(t.name));
     nav.append(b);
   }
   if (!state.projects.length) {
@@ -115,6 +125,40 @@ function renderTabs() {
   }
 }
 
+async function selectProject(name) {
+  if (state.current !== name) state.dir = '';
+  state.current = name;
+  renderTabs();
+  await showPane(state.pane);
+}
+
+function renderPanes() {
+  const nav = $('#panes');
+  nav.replaceChildren(...PANES.map(p => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('role', 'tab');
+    b.dataset.pane = p.id;
+    b.textContent = p.label;
+    b.addEventListener('click', () => showPane(p.id));
+    return b;
+  }));
+}
+
+async function showPane(pane) {
+  state.pane = pane;
+  for (const b of document.querySelectorAll('#panes button')) {
+    const on = b.dataset.pane === pane;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', String(on));
+  }
+  for (const p of PANES) $(`#pane-${p.id}`).hidden = p.id !== pane;
+  if (pane === 'chat') await openRoom(state.room);
+  else if (pane === 'cockpit') await openCockpit();
+  else await openDir(state.dir);
+}
+
+// ── 채팅 판 ───────────────────────────────────────────────
 function renderChip() {
   const el = $('#bot-chip');
   const s = state.current ? state.status.get(state.current) : null;
@@ -136,6 +180,8 @@ function setComposerDefault() {
   if (!body.value.trim() || body.value === state.lastDefault) body.value = def;
   state.lastDefault = def;
 }
+
+const renderItem = item => (item.kind === 'boundary' ? renderBoundary(item) : renderMessage(messageView(item.message, { me: state.me })));
 
 async function openRoom(kind) {
   state.room = kind;
@@ -164,7 +210,7 @@ async function openRoom(kind) {
   }
   if (currentRoom()?.id !== room.id) return;   // 받는 사이 다른 방으로 옮겼다
   const list = $('#messages');
-  list.replaceChildren(...state.messages.get(room.id).map(m => renderMessage(messageView(m, { me: state.me }))));
+  list.replaceChildren(...chatItems(state.messages.get(room.id)).map(renderItem));
   list.scrollTop = list.scrollHeight;
 }
 
@@ -174,10 +220,10 @@ function addMessage(message) {
   const list = state.messages.get(message.room_id);
   if (!list || list.some(m => m.id === message.id)) return;   // 아직 안 연 방은 열 때 받는다
   list.push(message);
-  if (currentRoom()?.id !== message.room_id) return;
+  if (state.pane !== 'chat' || currentRoom()?.id !== message.room_id) return;
   const el = $('#messages');
   const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
-  el.append(renderMessage(messageView(message, { me: state.me })));
+  el.append(renderItem(chatItems([message])[0]));
   if (atBottom || message.author_user_id === state.me?.id) el.scrollTop = el.scrollHeight;
 }
 
@@ -248,6 +294,113 @@ async function openProject(ev) {
   }
 }
 
+// ── 조종석 판 ─────────────────────────────────────────────
+async function openCockpit() {
+  const project = currentProject();
+  $('#cockpit-error').textContent = '';
+  if (!project) { $('#cockpit').replaceChildren(); return; }
+  if (!state.events.has(project.name)) {
+    let events = [];
+    let after = 0;
+    for (let page = 0; page < 20; page++) {
+      const { events: got } = await api(`/api/projects/${P(project.name)}/events?after=${after}`);
+      events = mergeEvents(events, got);
+      if (got.length < 500) break;
+      after = got.at(-1).id;
+    }
+    state.events.set(project.name, mergeEvents(events, state.events.get(project.name) ?? []));
+  }
+  renderCockpitNow();
+}
+
+function renderCockpitNow() {
+  state.cockpitFrame = 0;
+  const project = currentProject();
+  if (state.pane !== 'cockpit' || !project) return;
+  $('#cockpit').replaceChildren(renderCockpit({ project, events: state.events.get(project.name) ?? [], role: state.me?.role }, document, {
+    onSession: (op, button) => sessionOp(project.name, op, button),
+    onStopTask: (taskId, button) => stopTask(project.name, taskId, button),
+  }));
+}
+
+// 사건이 몰려와도 한 프레임에 한 번만 그린다
+function scheduleCockpit(name) {
+  if (state.pane !== 'cockpit' || name !== state.current || state.cockpitFrame) return;
+  state.cockpitFrame = requestAnimationFrame(renderCockpitNow);
+}
+
+async function sessionOp(name, op, button) {
+  $('#cockpit-error').textContent = '';
+  if (button) button.disabled = true;
+  const path = `/api/projects/${P(name)}/session/${op}`;
+  try {
+    try {
+      await api(path, { method: 'POST' });
+    } catch (e) {
+      if (e.status !== 409 || e.body?.code !== 'TASKS_RUNNING') throw e;
+      const list = (e.body.tasks ?? []).map(t => `- ${t.task_type ?? '도우미'} · ${t.description}`).join('\n');
+      if (!window.confirm(`${e.message}\n${list}\n\n그래도 ${op === 'stop' ? '끌' : '다시 켤'}까요? 도우미의 일은 사라집니다.`)) return;
+      await api(`${path}?confirm=1`, { method: 'POST' });
+    }
+    await loadProjects();
+  } catch (e) {
+    $('#cockpit-error').textContent = e.message;
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+async function stopTask(name, taskId, button) {
+  $('#cockpit-error').textContent = '';
+  if (button) button.disabled = true;
+  try { await api(`/api/projects/${P(name)}/tasks/${encodeURIComponent(taskId)}/stop`, { method: 'POST' }); }
+  catch (e) { $('#cockpit-error').textContent = e.message; if (button) button.disabled = false; }
+}
+
+function onSessionEvent(d) {
+  const list = state.events.get(d.project);
+  const project = state.projects.find(p => p.name === d.project);
+  if (project && d.type === 'result' && d.data?.total_cost_usd != null) project.session.cost_usd = d.data.total_cost_usd;
+  if (project && d.type === 'context') project.session.context_pct = d.data?.percentage ?? null;
+  if (!list) return;   // 조종석 판을 아직 안 연 과제는 열 때 받는다
+  state.events.set(d.project, mergeEvents(list, [{ id: d.id, at: new Date().toISOString(), type: d.type, data: d.data }]));
+  scheduleCockpit(d.project);
+}
+
+// ── 파일 판 ───────────────────────────────────────────────
+async function openDir(dir) {
+  const project = currentProject();
+  const tree = $('#files-tree');
+  if (!project) { tree.replaceChildren(); return; }
+  try {
+    const listing = await api(listUrl(project.name, dir));
+    if (currentProject()?.name !== project.name) return;
+    state.dir = listing.path;
+    tree.replaceChildren(renderEntries(listing, document, { onOpenDir: openDir, onOpenFile: openFile }));
+  } catch (e) {
+    const p = document.createElement('p');
+    p.className = 'error';
+    p.textContent = e.status === 404 ? '과제 폴더가 없거나 열 수 없는 자리입니다' : e.message;
+    tree.replaceChildren(p);
+    if (dir) state.dir = '';
+  }
+}
+
+async function openFile(path) {
+  const project = currentProject();
+  const box = $('#files-preview');
+  if (!project) return;
+  try {
+    const preview = isImage(path) ? { kind: 'image', path, url: fileUrl(project.name, path) } : await api(fileUrl(project.name, path));
+    box.replaceChildren(renderPreview(preview, document));
+  } catch (e) {
+    const p = document.createElement('p');
+    p.className = 'error';
+    p.textContent = e.message;
+    box.replaceChildren(p);
+  }
+}
+
 // ── 실시간 ────────────────────────────────────────────────
 const streamHandlers = {
   message: d => addMessage(d.message),
@@ -258,6 +411,15 @@ const streamHandlers = {
     renderChip();
     renderPartial();
   },
+  session_state: d => {
+    state.status = applySessionState(state.status, d);
+    const project = state.projects.find(p => p.name === d.project);
+    if (project) project.session.state = d.state;
+    renderTabs();
+    renderChip();
+    scheduleCockpit(d.project);
+  },
+  session_event: onSessionEvent,
   partial: d => {
     state.partial.set(d.project, (state.partial.get(d.project) ?? '') + d.text);
     if (d.project === state.current) renderPartial();
@@ -284,7 +446,7 @@ function startStream() {
     if (es.readyState !== EventSource.CLOSED || state.stream !== es) return;
     setTimeout(async () => {
       if (state.stream !== es) return;
-      try { await api('/api/auth/me'); startStream(); } catch { /* showLogin 이 이미 그렸다 */ }
+      try { await api('/api/auth/me'); state.events.clear(); startStream(); } catch { /* showLogin 이 이미 그렸다 */ }
     }, 3000);
   });
 }
