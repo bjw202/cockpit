@@ -9,8 +9,10 @@ import { openRuntime } from '../../src/runtime.js';
 import { createServer } from '../../src/http/server.js';
 import { createAccount } from '../../src/auth/sessions.js';
 import { makeFakeQueryFn } from './fake-query.js';
+import { makeFakeSetup } from './fake-setup.js';
 
-export async function httpWorld({ turns, webDir, config: extra = {}, runtime = {} } = {}) {
+// runSetup: 방 만들기(POST /api/rooms · /api/projects)가 부르는 setup — 기본은 가짜 ok (진짜 prodev setup.js 는 계약 시험만)
+export async function httpWorld({ turns, webDir, config: extra = {}, runtime = {}, runSetup = makeFakeSetup() } = {}) {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-http-')));
   const config = { maxSessions: 3, approvalTimeoutMin: 10, extraEnvKeys: [], host: '127.0.0.1', port: 3000, claudePath: null, tls: null };
   for (const k of ['botsDir', 'projectsDir', 'uploadsDir', 'dataDir']) {
@@ -23,13 +25,13 @@ export async function httpWorld({ turns, webDir, config: extra = {}, runtime = {
 
   const queryFn = makeFakeQueryFn({ turns });
   const rt = openRuntime(config, { binding: { queryFn, makeMcpServer: handlers => ({ handlers }) }, processEnv: { PATH: '/bin', HOME: '/h' }, ...runtime });
-  const server = createServer({ ...rt, config, webDir });
+  const server = createServer({ ...rt, config, configFile, runSetup, webDir });
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${server.address().port}`;
   const tokens = {};
 
   const w = {
-    ...rt, dir, config, configFile, queryFn, rt, server, base, tokens,
+    ...rt, dir, config, configFile, queryFn, runSetup, rt, server, base, tokens,
     async user(username, role = 'member', password = 'password-1234') {
       const acc = await createAccount({ chatDb: rt.chatDb, cockpitDb: rt.cockpitDb, username, password, role });
       tokens[username] = rt.cockpitDb.createWebSession(acc.id);

@@ -38,7 +38,7 @@ test('봇 한 줄 · 방 하나(prodev-<과제>) · agent_sessions 한 줄', asy
     bot: { id: 1, name: 'prodev-수율-bot' },
     rooms: { main: { id: 1, name: 'prodev-수율' }, legacy_files: null },
     session: { state: 'stopped', session_id: null, cost_usd: 0, last_result_at: null, model: null, context_pct: null },
-    bot_dir: botDir, bot_dir_exists: false,
+    bot_dir: botDir, bot_dir_exists: true,   // (v2) 과제 열기가 setup 으로 봇 폴더까지 만든다 — 이 시험은 가짜 setup (ADR-017)
   });
   assert.deepEqual(counts(w), { bots: 1, rooms: 1, sessions: 1 });
   const bot = w.chatDb.db.prepare('SELECT name, role, token FROM bots').get();

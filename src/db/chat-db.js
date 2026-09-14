@@ -156,6 +156,15 @@ export class ChatDb {
     });
   }
 
+  // (v2) 방 만들기 되돌림 — openProject 가 방금 넣은 봇 · 방 두 줄을 지운다. 글이 달린 방은 지우지 않는다 (ARCHITECTURE 4.6)
+  removeOpened({ bot, main }) {
+    return this.tx(() => {
+      if (main && this.db.prepare('SELECT 1 FROM messages WHERE room_id = ? LIMIT 1').get(main.id)) throw new ChatError('IN_USE', `방에 글이 있어 되돌리지 않는다: ${main.name}`, 500);
+      if (main) this.db.prepare('DELETE FROM rooms WHERE id = ?').run(main.id);
+      if (bot) this.db.prepare('DELETE FROM bots WHERE id = ?').run(bot.id);
+    });
+  }
+
   // ── 봉투 → 대상 (ARCHITECTURE 4.3) ─────────────────────
   // bot: 이 방의 봇 { id, name }. 방마다 봇은 하나다.
   resolveTargets(room, bot, body) {

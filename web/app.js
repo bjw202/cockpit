@@ -424,7 +424,7 @@ const streamHandlers = {
     state.partial.set(d.project, (state.partial.get(d.project) ?? '') + d.text);
     if (d.project === state.current) renderPartial();
   },
-  project_opened: () => loadProjects(),
+  room_created: () => loadProjects(),   // (v2) project_opened → room_created (ARCHITECTURE 8.2)
   permission_request: d => { state.cards = applyPermissionEvent(state.cards, 'permission_request', d); renderCards(); },
   permission_resolved: d => { state.cards = applyPermissionEvent(state.cards, 'permission_resolved', d); renderCards(); },
 };

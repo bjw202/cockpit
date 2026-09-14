@@ -1,37 +1,19 @@
 // 과제 길 (ARCHITECTURE 8.2 · 5.2).
-//   GET  /api/projects   로그인 — { projects:[{ name, bot:{id,name}, rooms:{ main:{id,name}, files:{id,name} },
+//   GET  /api/projects   로그인 — { projects:[{ name, bot:{id,name}, rooms:{ main:{id,name}, legacy_files:{id,name}|null },
 //                                   session:{ state, session_id, cost_usd, last_result_at, model, context_pct } }] }
 //                        admin 에게만 bot_dir · bot_dir_exists 를 싣는다 (서버 경로다)
-//   POST /api/projects   admin — { name, bot_name?, bot_dir? } → 201 같은 모양 · 봇 한 줄 · 방 둘 · agent_sessions 한 줄(stopped) · 같은 이름 409
-// 봇 폴더는 prodev setup.js --project 가 만든다. 여기서는 자리만 적는다 — 기본 <botsDir>/prodev-<과제>-bot.
+//   POST /api/projects   admin — { name, bot_name?, bot_dir? } → (v2) POST /api/rooms 와 같은 처리기(src/rooms/create.js, ARCHITECTURE 4.6)
+//                        201 아래 과제 모양 · 400 이름 규칙 · bot_dir 이 botsDir 밖 · 409 같은 이름 · 502 setup 실패 · 500 저장 실패
 // 봇 이름 기본은 prodev-<과제>-bot, 옛 대본은 prodev-worktogether-비서 꼴이라 bot_name 으로 준다 (meta D0 Q6).
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { HttpError, readJson, sendJson } from './respond.js';
+import { createRoom, botNameProblem, defaultBotDir, projectNameProblem, NAME_MAX } from '../rooms/create.js';
 
-export const NAME_MAX = 64;
+// 이름 규칙은 방 만들기 처리기로 옮겼다 — CLI 와 옛 import 자리를 위해 다시 내보낸다
+export { botNameProblem, defaultBotDir, projectNameProblem, NAME_MAX };
 export const EVENTS_LIMIT = 500;
-// 과제 이름은 방 이름의 첫 '/' 앞이다 — '/' 가 들어가면 갈래가 틀어진다
-const BAD_PROJECT_CHARS = /[/\\()\s\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
-// 봇 이름은 봉투 정규식 @(TO|CC)\(([^()\s]+)\) 에 실려야 한다
-const BAD_BOT_CHARS = /[()\s\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
-
-export function projectNameProblem(name) {
-  if (typeof name !== 'string' || name === '') return '과제 이름이 필요합니다';
-  if ([...name].length > NAME_MAX) return `과제 이름은 ${NAME_MAX}자 이하여야 합니다`;
-  if (BAD_PROJECT_CHARS.test(name) || name === '.' || name === '..') return '과제 이름에 / · \\ · 괄호 · 공백 · 제어문자를 쓸 수 없습니다';
-  return null;
-}
-
-export function botNameProblem(name) {
-  if (typeof name !== 'string' || name === '') return '봇 이름이 필요합니다';
-  if ([...name].length > NAME_MAX) return `봇 이름은 ${NAME_MAX}자 이하여야 합니다`;
-  if (BAD_BOT_CHARS.test(name)) return '봇 이름에 괄호 · 공백 · 제어문자를 쓸 수 없습니다';
-  return null;
-}
-
-export const defaultBotDir = (config, project) => path.join(config.botsDir, `prodev-${project}-bot`);
 
 export function projectView(ctx, row, { admin = false } = {}) {
   const { main, legacy_files: legacy } = ctx.chatDb.projectRooms(row.project);
@@ -68,17 +50,14 @@ export function registerProjectRoutes(route, ctx) {
     const bad = projectNameProblem(name) ?? (botName === undefined ? null : botNameProblem(botName));
     if (bad) throw new HttpError(400, { error: bad });
 
-    let botDir = defaultBotDir(ctx.config, name);
+    let botDir;
     if (botDirIn !== undefined) {
       if (typeof botDirIn !== 'string' || !path.isAbsolute(botDirIn)) throw new HttpError(400, { error: '봇 폴더는 절대 경로여야 합니다' });
       const r = path.relative(path.resolve(ctx.config.botsDir), path.resolve(botDirIn));
       if (r === '' || r === '..' || r.startsWith(`..${path.sep}`) || path.isAbsolute(r)) throw new HttpError(400, { error: '봇 폴더는 botsDir 안이어야 합니다' });
       botDir = path.resolve(botDirIn);
     }
-    if (ctx.cockpitDb.agentSession(name)) throw new HttpError(409, { error: `과제가 이미 있습니다: ${name}` });
-
-    ctx.manager.openProject({ project: name, botDir, ...(botName ? { botName } : {}) });   // 방 · 봇 이름이 이미 있으면 ChatError 409, 행을 안 남긴다
-    ctx.hub?.publish('project_opened', { project: name });
+    await createRoom(ctx, { project: name, ...(botName ? { botName } : {}), ...(botDir ? { botDir } : {}) });
     sendJson(res, 201, projectView(ctx, ctx.cockpitDb.agentSession(name), { admin: true }));
   }, { auth: 'admin' });
 }

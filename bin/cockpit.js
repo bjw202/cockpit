@@ -29,6 +29,7 @@ import { openRuntime, waitForBotMessage } from '../src/runtime.js';
 import { createAccount, initAdmin, issueToken } from '../src/auth/sessions.js';
 import { botNameProblem, defaultBotDir, projectNameProblem } from '../src/http/routes-projects.js';
 import { applyMigration, describeLegacy, legacyFilesRooms, legacyWarning } from '../src/rooms/migrate.js';
+import { createRoom } from '../src/rooms/create.js';
 
 export function parseArgs(argv) {
   const pos = []; const opt = {};
@@ -90,23 +91,30 @@ function check(opt) {
   return failed || errors.length ? 1 : 0;
 }
 
+// (v2) 방 만들기 = 봇 생성 — POST /api/rooms 와 같은 처리기 (ARCHITECTURE 4.6 · ADR-017).
+// --no-setup: prodev setup.js 를 부르지 않는다 (스모크 스크래치 · 옛 봇 이름 재생 — 봇 폴더는 이미 있어야 한다)
 async function openProject(opt, [project]) {
   if (!project) {
-    console.error('쓰는 법: open-project <과제> [--bot-dir <봇 폴더>] [--bot-name <이름>]');
+    console.error('쓰는 법: open-project <과제> [--no-setup] [--bot-dir <봇 폴더>] [--bot-name <이름>]');
     return 1;
   }
   const config = loadOrDie(opt);
   if (!config) return 1;
   const botName = typeof opt['bot-name'] === 'string' ? opt['bot-name'] : undefined;
-  const bad = projectNameProblem(project) ?? (botName === undefined ? null : botNameProblem(botName));
-  if (bad) { console.error(`✗ ${bad}`); return 1; }
   const rt = openRuntime(config);
   try {
-    const { bot, main } = rt.manager.openProject({
-      project, botDir: typeof opt['bot-dir'] === 'string' ? path.resolve(opt['bot-dir']) : defaultBotDir(config, project), ...(botName ? { botName } : {}),
+    const made = await createRoom({ ...rt, config, configFile: configFile(opt) }, {
+      project, ...(botName ? { botName } : {}),
+      ...(typeof opt['bot-dir'] === 'string' ? { botDir: path.resolve(opt['bot-dir']) } : {}),
+      setup: !opt['no-setup'],
     });
-    console.log(`과제 ${project} · 봇 ${bot.name} (id ${bot.id}) · 방 ${main.name} (id ${main.id})`);
+    console.log(`과제 ${project} · 봇 ${made.bot.name} (id ${made.bot.id}) · 방 ${made.main.name} (id ${made.main.id}) · 봇 폴더 ${made.botDir}${opt['no-setup'] ? ' (setup 건너뜀)' : ''}`);
     return 0;
+  } catch (e) {
+    console.error(`✗ ${e.body?.error ?? e.message}`);
+    for (const l of e.body?.setup_tail ?? []) console.error(`  ${l}`);
+    for (const l of e.body?.left ?? []) console.error(`  남음 ${l}`);
+    return 1;
   } finally { await rt.close(); }
 }
 
@@ -212,7 +220,7 @@ async function serve(opt) {
   const rt = openRuntime(config, {
     binding: sdkBinding, model: typeof opt.model === 'string' ? opt.model : undefined, ...(opt['no-origin'] ? { origin: null } : {}),
   });
-  const server = createServer({ ...rt, config });
+  const server = createServer({ ...rt, config, configFile: configFile(opt) });   // (v2) 방 만들기가 setup.js --cockpit 에 넘긴다
   try {
     await new Promise((resolve, reject) => { server.once('error', reject); server.listen(config.port, config.host, resolve); });
   } catch (e) {
