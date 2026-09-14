@@ -12,12 +12,15 @@ node smoke/m1-guard.mjs    <스크래치 폴더> [모델] [--no-origin]
 node smoke/m2-approval.mjs <스크래치 폴더> [모델]
 node smoke/m2-compact.mjs  <스크래치 폴더> [모델] [--no-origin]
 node smoke/m3-restart.mjs  <스크래치 폴더> [모델]
+node smoke/m4-sessions.mjs <스크래치 폴더> [모델] [--minutes 5]
 ```
 
 세 갈래로 돈다:
 - `m1-*` — 세션 관리자를 곧바로 쓰고 승인 요청을 전부 허용한다.
 - `m2-approval` — 서버를 이 프로세스 안 임시 포트에 띄우고 사람 역할을 HTTP 로 한다. 김과제(member)가 글을 올리고 김피엘(admin)이 카드에 답한다. 승인은 진짜 중계를 거친다.
-- `m2-compact` · `m3-restart` — **진짜 CLI `bin/cockpit.js serve` 를 자식 프로세스로** 띄우고(`smoke/server.mjs`), 세션 조작은 admin API(`POST /api/projects/:name/session/{start,compact,stop}`)로만 한다. meta 가 대본의 손 걸음(압축 · 끄기 · 켜기)을 같은 길로 대신하므로 스모크가 먼저 밟는다 (ARCHITECTURE 8.3). 승인 카드가 뜨면 admin 으로 허용하고 `ASKED` 에 남긴다. serve 의 출력은 `<스크래치>/serve.log`.
+- `m2-compact` · `m3-restart` · `m4-sessions` — **진짜 CLI `bin/cockpit.js serve` 를 자식 프로세스로** 띄우고(`smoke/server.mjs`), 세션 조작은 admin API(`POST /api/projects/:name/session/{start,compact,stop}`)로만 한다. meta 가 대본의 손 걸음(압축 · 끄기 · 켜기)을 같은 길로 대신하므로 스모크가 먼저 밟는다 (ARCHITECTURE 8.3). 승인 카드가 뜨면 admin 으로 허용하고 `ASKED` 에 남긴다. serve 의 출력은 `<스크래치>/serve.log`.
+
+`m4-sessions` 는 같은 스크래치에 과제 셋(`s1` · `s2` · `s3`, `scratch.mjs` 의 `addScratchProject`)을 두고 셋을 켜 한 번씩 답하게 한 뒤 0~5분 1분마다 serve 와 그 밑 프로세스 나무의 상주 메모리를 적는다 (맥 · 리눅스 `ps`, 윈도우 `Win32_Process.WorkingSetSize`). 윈도우에는 프로세스 묶음 신호가 없어 `server.mjs` 가 `taskkill /T /F` 로 나무째 끈다.
 
 `m3-restart` 는 serve 를 제 프로세스 묶음(detached)으로 띄워 **묶음째 SIGKILL** 한다 — serve 와 그 밑 Claude CLI 가 함께 죽는다(PC 가 꺼진 것처럼). 그 사이 글 둘을 DB 에 넣고 serve 를 다시 띄워 resume · 재배달 · 답을 본 뒤, admin API 로 끄고 켠다.
 
@@ -58,6 +61,7 @@ prodev PR(W2.9) 전의 템플릿이면 사본에서 바꾼다: 도구 이름 `mc
 | `m1-guard` | `GIVEN_BODY_CHARS` · `TURN_DONE` · `REPLY_CALLS` · `REPLY_ATTEMPT_CHARS` · `ATTEMPTED_OVER_900` · `HOOK_BLOCKED` · `ROOM_MESSAGES_FROM_BOT` · `LONG_BOT_MESSAGES` · `ASKED` · `COST_USD` |
 | `m2-approval` | 판마다 `CARD …` · `ANSWER <decision> <status>` · `ROUND <n> …` · 끝에 `REASKED_AFTER_SESSION_ALLOW` · `BASH_RAN_AFTER_SESSION_ALLOW` · `LOCK_MESSAGES` · `ANSWER_MESSAGES <✅> <⛔>` · `ASKED` · `COST_USD` |
 | `m2-compact` | `START_API` · `FIRST_REPLY` · `COMPACT_API <status> queued=` · `COMPACTED` · `COMPACT_BOUNDARY` · `SYSTEM_MESSAGES` · `HANDOFF 정상\|못 썼다\|없음` · `HANDOFF_AT scratch\|prodev <경로>\|none` · `FIRST_TEXT_AFTER` · `HOOKS` · `STOP_API` · `ASKED` · `COST_USD` |
+| `m4-sessions` | `PLATFORM` · `START_API <과제>` ×3 · `WARM <과제> yes\|no` ×3 · `RSS_MB <분> <서버> <자식 합>` (0~N분) · `CHILD_PROCS <분> <수>` · `STATES` · `STOP_API <과제>` ×3 · `ASKED` · `COST_USD` |
 | `m3-restart` | `START_API` · `FIRST_REPLY` · `SESSION_BEFORE` · `KILLED` · `STATE_AFTER_KILL` · `INSERTED <id> <id>` · `SERVE_BOOT` · `RESUMED session_id=<uuid>\|NEW (…)` · `REDELIVERED <N>` · `BOT_REPLIES_AFTER_RESTART <N>` · `STOP_API` · `START_API_AGAIN <status> <state> same_session=yes\|no` · `CONTEXT_PCT` · `ASKED` · `COST_USD` |
 
 세션이 죽으면 `ERROR {…}` 한 줄이 더 나온다. `m2-approval` 밖의 스모크는 승인 요청을 전부 허용하고 `ASKED` 에 이름만 적는다. `m2-approval` 의 `ASKED` 는 `도구:behavior` 목록이다.

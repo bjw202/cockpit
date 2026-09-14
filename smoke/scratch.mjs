@@ -3,12 +3,14 @@
 // 실전 배치를 흉내 낸다 (meta W2r.3): 봇 폴더가 prodev 뿌리 아래 bots/<봇> 에 있어야 orchestrator 가 말하는
 // "봇 폴더에서 돌 때는 ../../scripts/" (find.js · plot.py …)가 산다. 그래서
 //   <스크래치>/prodev/                  prodev 뿌리 흉내
-//     scripts → 실제 prodev/scripts     심볼릭 링크
-//     common  → 실제 prodev/common      심볼릭 링크
+//     scripts → 실제 prodev/scripts     심볼릭 링크 (윈도우는 junction)
+//     common  → 실제 prodev/common      심볼릭 링크 (윈도우는 junction)
 //     CLAUDE.md                          사본
 //     .claude/{skills,agents}            실제 prodev 로 링크
 //     bots/<봇>/                         봇 폴더 (cockpit.json 의 botsDir = <스크래치>/prodev/bots)
 //   <스크래치>/projects/<과제>/  data/  uploads/
+//
+// 과제가 여럿이면(m4-sessions 의 세션 셋) addScratchProject 로 같은 자리에 과제 · 봇 폴더를 더한다.
 //
 // 설정은 두 파일로 쓴다 (meta W2 판정 · prodev W2.9): 허용 · 거부(permissions)는 .claude/settings.local.json,
 // 훅 · env · statusLine · autoCompact 는 .claude/settings.json. headless/SDK 세션은 settings.json 의 permissions.allow 를
@@ -27,12 +29,16 @@ export const PROJECT_SUBDIRS = Object.freeze(['cards', 'wiki', 'inbox', 'journal
 
 const pat = p => '//' + p.replace(/\\/g, '/').replace(/^\//, '');   // Claude Code 권한 패턴 (prodev setup.js 와 같다)
 const esc = s => s.replace(/\\/g, '\\\\');
+// 윈도우는 폴더 링크를 junction 으로 — 개발자 모드 · 관리자 권한 없이 만들어진다 (M4.1)
+const LINK_DIR = process.platform === 'win32' ? 'junction' : 'dir';
 
 const inside = (root, p) => {
   const r = path.relative(root, p);
   return r === '' || (!r.startsWith('..') && !path.isAbsolute(r));
 };
 
+// 첫 과제의 칸(project · botName · botDir · projectDir · settingsFile · localSettingsFile · localSettingsBaseline)은 d 에도 그대로 싣는다 —
+// m1~m3 스모크가 d.botDir 들을 쓴다. 모든 과제는 d.bots 에 있다.
 export function makeScratch(rootIn, project, { botName = `prodev-${project}-bot`, prodev = PRODEV } = {}) {
   const root = path.resolve(rootIn);
   if (/\s/.test(root)) throw new Error(`스크래치 경로에 공백이 있다: ${root}`);
@@ -41,58 +47,73 @@ export function makeScratch(rootIn, project, { botName = `prodev-${project}-bot`
 
   const shim = path.join(root, 'prodev');
   const d = {
-    root, project, botName, prodev: realProdev, shim,
+    root, prodev: realProdev, shim,
     dataDir: path.join(root, 'data'), uploadsDir: path.join(root, 'uploads'),
     projectsDir: path.join(root, 'projects'), botsDir: path.join(shim, 'bots'),
+    marker: path.join(root, 'pretooluse-marker.json'), markerHook: path.join(root, 'marker-hook.mjs'),
+    bots: [],
   };
-  d.projectDir = path.join(d.projectsDir, project);
-  d.botDir = path.join(d.botsDir, botName);
-  d.marker = path.join(root, 'pretooluse-marker.json');
-  d.settingsFile = path.join(d.botDir, '.claude', 'settings.json');
-  d.localSettingsFile = path.join(d.botDir, '.claude', 'settings.local.json');
 
   fs.rmSync(root, { recursive: true, force: true });
-  for (const p of [d.dataDir, d.uploadsDir, d.projectDir, path.join(d.botDir, '.claude'), path.join(shim, '.claude')]) fs.mkdirSync(p, { recursive: true });
-
-  // 과제 폴더 — setup.js 가 만드는 자리들 + 결재 대조용 헌장 한 줄
-  for (const sub of PROJECT_SUBDIRS) fs.mkdirSync(path.join(d.projectDir, sub), { recursive: true });
-  fs.writeFileSync(path.join(d.projectDir, 'charter.md'), '# 헌장 (스모크)\n\nPL: 김피엘\n');
-  fs.writeFileSync(path.join(d.projectDir, 'house.md'), '# 이 과제에서 일하는 방식\n\n### 하지 말 것\n(아직 없다)\n');
+  for (const p of [d.dataDir, d.uploadsDir, d.projectsDir, d.botsDir, path.join(shim, '.claude')]) fs.mkdirSync(p, { recursive: true });
 
   // prodev 뿌리 흉내
-  for (const sub of ['scripts', 'common']) fs.symlinkSync(path.join(realProdev, sub), path.join(shim, sub), 'dir');
+  for (const sub of ['scripts', 'common']) fs.symlinkSync(path.join(realProdev, sub), path.join(shim, sub), LINK_DIR);
   fs.copyFileSync(path.join(realProdev, 'CLAUDE.md'), path.join(shim, 'CLAUDE.md'));
-  fs.copyFileSync(path.join(realProdev, 'CLAUDE.md'), path.join(d.botDir, 'CLAUDE.md'));
   for (const sub of ['skills', 'agents']) {
     const src = path.join(realProdev, '.claude', sub);
-    if (!fs.existsSync(src)) continue;
-    fs.symlinkSync(src, path.join(shim, '.claude', sub), 'dir');
-    fs.symlinkSync(src, path.join(d.botDir, '.claude', sub), 'dir');
+    if (fs.existsSync(src)) fs.symlinkSync(src, path.join(shim, '.claude', sub), LINK_DIR);
   }
 
   // 표식 훅 — stdin JSON 을 파일로 남긴다. sh 대신 node 라 윈도우에서도 돈다
-  const markerHook = path.join(root, 'marker-hook.mjs');
-  fs.writeFileSync(markerHook, `import fs from 'node:fs';\nfs.writeFileSync(${JSON.stringify(d.marker)}, fs.readFileSync(0, 'utf8'));\n`);
+  fs.writeFileSync(d.markerHook, `import fs from 'node:fs';\nfs.writeFileSync(${JSON.stringify(d.marker)}, fs.readFileSync(0, 'utf8'));\n`);
+
+  d.config = {
+    botsDir: d.botsDir, projectsDir: d.projectsDir, uploadsDir: d.uploadsDir, dataDir: d.dataDir,
+    claudePath: process.env.COCKPIT_CLAUDE_PATH || null, maxSessions: 3, approvalTimeoutMin: 10, extraEnvKeys: [],
+  };
+  const first = addScratchProject(d, project, { botName });
+  for (const k of ['project', 'botName', 'projectDir', 'botDir', 'settingsFile', 'localSettingsFile', 'localSettingsBaseline']) d[k] = first[k];
+  return d;
+}
+
+// 같은 스크래치에 과제 폴더 하나 · 봇 폴더 하나 · 설정 두 장을 더한다. 돌려주는 것은 그 과제의 칸들
+export function addScratchProject(d, project, { botName = `prodev-${project}-bot` } = {}) {
+  const b = { project, botName, projectDir: path.join(d.projectsDir, project), botDir: path.join(d.botsDir, botName) };
+  b.settingsFile = path.join(b.botDir, '.claude', 'settings.json');
+  b.localSettingsFile = path.join(b.botDir, '.claude', 'settings.local.json');
+  for (const p of [b.projectDir, path.join(b.botDir, '.claude')]) fs.mkdirSync(p, { recursive: true });
+
+  // 과제 폴더 — setup.js 가 만드는 자리들 + 결재 대조용 헌장 한 줄
+  for (const sub of PROJECT_SUBDIRS) fs.mkdirSync(path.join(b.projectDir, sub), { recursive: true });
+  fs.writeFileSync(path.join(b.projectDir, 'charter.md'), '# 헌장 (스모크)\n\nPL: 김피엘\n');
+  fs.writeFileSync(path.join(b.projectDir, 'house.md'), '# 이 과제에서 일하는 방식\n\n### 하지 말 것\n(아직 없다)\n');
+
+  fs.copyFileSync(path.join(d.prodev, 'CLAUDE.md'), path.join(b.botDir, 'CLAUDE.md'));
+  for (const sub of ['skills', 'agents']) {
+    const src = path.join(d.prodev, '.claude', sub);
+    if (fs.existsSync(src)) fs.symlinkSync(src, path.join(b.botDir, '.claude', sub), LINK_DIR);
+  }
 
   const fill = text => JSON.parse(text
-    .replace(/\{\{PROJECT\}\}/g, pat(d.projectDir))
-    .replace(/\{\{BOT\}\}/g, pat(d.botDir))
-    .replace(/\{\{PRODEV\}\}/g, pat(shim))
-    .replace(/\{\{HOOKS\}\}/g, esc(path.join(shim, 'common', 'hooks')))
-    .replace(/\{\{PROJECT_DIR\}\}/g, esc(d.projectDir))
+    .replace(/\{\{PROJECT\}\}/g, pat(b.projectDir))
+    .replace(/\{\{BOT\}\}/g, pat(b.botDir))
+    .replace(/\{\{PRODEV\}\}/g, pat(d.shim))
+    .replace(/\{\{HOOKS\}\}/g, esc(path.join(d.shim, 'common', 'hooks')))
+    .replace(/\{\{PROJECT_DIR\}\}/g, esc(b.projectDir))
     .replace(/\{\{UPLOADS_DIR\}\}/g, esc(d.uploadsDir))
-    .replace(/\{\{PRODEV_DIR\}\}/g, esc(shim))
+    .replace(/\{\{PRODEV_DIR\}\}/g, esc(d.shim))
     .replace(/\{\{BOT_NAME\}\}/g, botName)
     .replace(/\{\{DB\}\}/g, esc(path.join(d.dataDir, 'chat.db')))
     .replace(/\{\{GIT_BASH\}\}/g, esc(process.env.CLAUDE_CODE_GIT_BASH_PATH || 'C:\\Program Files\\Git\\bin\\bash.exe'))
     .replace(/\{\{URL\}\}/g, '')
-    .replace(/\{\{STATUSLINE\}\}/g, esc(path.join(shim, 'common', 'statusline.sh')))
+    .replace(/\{\{STATUSLINE\}\}/g, esc(path.join(d.shim, 'common', 'statusline.sh')))
     .replace(/\{\{PATH\}\}/g, esc(process.env.PATH || ''))
     .replace('"{{AUTOCOMPACT}}"', '650000')
     .replaceAll('mcp__minidiscord-channel__', 'mcp__cockpit__'));
 
-  const settings = fill(fs.readFileSync(path.join(realProdev, 'common', 'settings.template.json'), 'utf8'));
-  const localTemplate = path.join(realProdev, 'common', 'settings.local.template.json');
+  const settings = fill(fs.readFileSync(path.join(d.prodev, 'common', 'settings.template.json'), 'utf8'));
+  const localTemplate = path.join(d.prodev, 'common', 'settings.local.template.json');
   const local = fs.existsSync(localTemplate) ? fill(fs.readFileSync(localTemplate, 'utf8')) : { permissions: settings.permissions ?? {} };
   delete settings.permissions;
   if (settings.env) delete settings.env.MINIDISCORD_URL;
@@ -101,24 +122,20 @@ export function makeScratch(rootIn, project, { botName = `prodev-${project}-bot`
   const cockpitDb = path.join(d.dataDir, 'cockpit.db');
   perms.deny = [...(perms.deny ?? []), `Read(${pat(cockpitDb)})`, `Edit(${pat(cockpitDb)})`, `Write(${pat(cockpitDb)})`];
   // 링크를 따라 풀린 실제 prodev 경로로 읽을 때도 작업 폴더 밖이 되지 않게
-  perms.additionalDirectories = [...new Set([...(perms.additionalDirectories ?? []), realProdev])];
+  perms.additionalDirectories = [...new Set([...(perms.additionalDirectories ?? []), d.prodev])];
 
   settings.hooks ??= {};
   settings.hooks.PreToolUse ??= [];
-  settings.hooks.PreToolUse.push({ matcher: 'mcp__cockpit__reply', hooks: [{ type: 'command', command: `node ${esc(markerHook)}` }] });
+  settings.hooks.PreToolUse.push({ matcher: 'mcp__cockpit__reply', hooks: [{ type: 'command', command: `node ${esc(d.markerHook)}` }] });
 
-  fs.writeFileSync(d.settingsFile, JSON.stringify(settings, null, 2) + '\n');
-  fs.writeFileSync(d.localSettingsFile, JSON.stringify(local, null, 2) + '\n');
-  d.localSettingsBaseline = fs.readFileSync(d.localSettingsFile, 'utf8');
-
-  d.config = {
-    botsDir: d.botsDir, projectsDir: d.projectsDir, uploadsDir: d.uploadsDir, dataDir: d.dataDir,
-    claudePath: process.env.COCKPIT_CLAUDE_PATH || null, maxSessions: 3, approvalTimeoutMin: 10, extraEnvKeys: [],
-  };
-  return d;
+  fs.writeFileSync(b.settingsFile, JSON.stringify(settings, null, 2) + '\n');
+  fs.writeFileSync(b.localSettingsFile, JSON.stringify(local, null, 2) + '\n');
+  b.localSettingsBaseline = fs.readFileSync(b.localSettingsFile, 'utf8');
+  d.bots.push(b);
+  return b;
 }
 
-// 스모크 뒤 settings.local.json 이 스크래치가 쓴 그대로인지 — 봇이나 승인 답이 규칙을 더했으면 그 차이를 낸다
+// 스모크 뒤 settings.local.json 이 스크래치가 쓴 그대로인지 — 봇이나 승인 답이 규칙을 더했으면 그 차이를 낸다 (d 또는 addScratchProject 의 칸)
 export function localSettingsDrift(d) {
   let now;
   try { now = fs.readFileSync(d.localSettingsFile, 'utf8'); } catch { return { changed: true, added: ['(파일이 사라졌다)'] }; }

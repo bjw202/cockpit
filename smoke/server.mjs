@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { openRuntime } from '../src/runtime.js';
 import { createAccount } from '../src/auth/sessions.js';
@@ -35,29 +35,36 @@ export function freePort() {
   });
 }
 
-// 스크래치(makeScratch 의 d) 에 설정 파일 · 과제 · 계정 둘. 토큰은 쿠키 값 원문
+// 스크래치(makeScratch 의 d) 에 설정 파일 · 과제(d.bots 전부) · 계정 둘. 토큰은 쿠키 값 원문.
+// rooms · bot 은 첫 과제의 것, projects 는 과제 이름 → { rooms, bot }
 export async function prepareServer(d) {
   const port = await freePort();
   const configFile = path.join(d.root, 'cockpit.json');
   fs.writeFileSync(configFile, JSON.stringify({ ...d.config, host: '127.0.0.1', port }, null, 2));
   const rt = openRuntime(d.config);
   try {
-    const opened = rt.manager.openProject({ project: d.project, botDir: d.botDir });
+    const projects = {};
+    for (const b of d.bots ?? [d]) {
+      const o = rt.manager.openProject({ project: b.project, botDir: b.botDir, botName: b.botName });
+      projects[b.project] = { rooms: { main: o.main, files: o.files }, bot: o.bot };
+    }
     const tokens = {};
     for (const [username, role] of [[ADMIN, 'admin'], [MEMBER, 'member']]) {
       const acc = await createAccount({ chatDb: rt.chatDb, cockpitDb: rt.cockpitDb, username, password: 'smoke-password', role });
       tokens[username] = rt.cockpitDb.createWebSession(acc.id);
     }
-    return { configFile, port, base: `http://127.0.0.1:${port}`, tokens, rooms: { main: opened.main, files: opened.files }, bot: opened.bot };
+    return { configFile, port, base: `http://127.0.0.1:${port}`, tokens, ...projects[d.project], projects };
   } finally {
     await rt.close({ keepState: true });
   }
 }
 
-// serve 를 제 프로세스 묶음(detached)으로 띄운다 — kill('SIGKILL') 이 serve 와 그 밑의 Claude CLI 를 한꺼번에 죽인다 (PC 가 꺼진 것처럼)
+// serve 를 제 프로세스 묶음(detached)으로 띄운다 — kill('SIGKILL') 이 serve 와 그 밑의 Claude CLI 를 한꺼번에 죽인다 (PC 가 꺼진 것처럼).
+// 윈도우에는 프로세스 묶음 신호가 없어 taskkill /T /F 로 나무째 죽인다 (신호 이름은 가리지 않는다)
 export async function startServe(configFile, { model, extra = [], logFile } = {}) {
   const args = [BIN, 'serve', '--config', configFile, ...(model ? ['--model', model] : []), ...extra];
-  const child = spawn(process.execPath, args, { cwd: REPO, detached: true, stdio: ['ignore', 'pipe', 'pipe'], env: process.env });
+  const win = process.platform === 'win32';
+  const child = spawn(process.execPath, args, { cwd: REPO, detached: !win, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], env: process.env });
   const lines = [];
   const log = logFile ? fs.createWriteStream(logFile, { flags: 'a' }) : null;
   const take = chunk => { for (const l of String(chunk).split('\n').filter(Boolean)) { lines.push(l); log?.write(`${l}\n`); } };
@@ -71,7 +78,13 @@ export async function startServe(configFile, { model, extra = [], logFile } = {}
   if (!up) throw new Error(`serve 가 뜨지 않았다:\n${lines.join('\n')}`);
   return {
     child, lines, exited,
-    kill: signal => { try { process.kill(-child.pid, signal); } catch { /* 이미 죽었다 */ } return exited; },
+    kill: signal => {
+      try {
+        if (win) spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true });
+        else process.kill(-child.pid, signal);
+      } catch { /* 이미 죽었다 */ }
+      return exited;
+    },
   };
 }
 

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { makeScratch, localSettingsDrift, PRODEV } from '../smoke/scratch.mjs';
+import { makeScratch, addScratchProject, localSettingsDrift, PRODEV } from '../smoke/scratch.mjs';
 
 const skip = fs.existsSync(path.join(PRODEV, 'common', 'settings.template.json')) ? false : `형제 prodev 없음 (${PRODEV})`;
 const scratch = () => makeScratch(path.join(fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-scratch-'))), 's'), 'smoke');
@@ -40,6 +40,22 @@ test('makeScratch 는 허용 · 거부를 settings.local.json 에, 훅 · env �
   changed.permissions.allow.push('Bash(curl --version)');
   fs.writeFileSync(d.localSettingsFile, JSON.stringify(changed));
   assert.deepEqual(localSettingsDrift(d), { changed: true, added: ['allow:Bash(curl --version)'] });
+});
+
+test('addScratchProject 는 같은 자리에 과제 · 봇 폴더를 더한다 (m4-sessions 의 세션 셋)', { skip }, () => {
+  const d = scratch();
+  const b = addScratchProject(d, 's2');
+  assert.deepEqual(d.bots.map(x => x.project), ['smoke', 's2']);
+  assert.equal(d.botDir, d.bots[0].botDir, '첫 과제의 칸은 d 에도 그대로');
+  assert.equal(path.dirname(b.botDir), d.botsDir);
+  assert.ok(fs.statSync(path.join(b.botDir, '..', '..', 'scripts', 'find.js')).isFile());
+  assert.ok(fs.existsSync(path.join(b.projectDir, 'charter.md')));
+  const settings = readJson(b.settingsFile);
+  assert.equal(settings.env.PRODEV_BOT, 'prodev-s2-bot', '봇 이름이 그 과제의 것');
+  assert.equal(settings.env.PRODEV_PROJECT, b.projectDir);
+  assert.ok(readJson(b.localSettingsFile).permissions.allow.length > 0);
+  assert.deepEqual(localSettingsDrift(b), { changed: false, added: [] });
+  assert.equal(readJson(d.settingsFile).env.PRODEV_BOT, 'prodev-smoke-bot', '앞 과제의 설정은 그대로');
 });
 
 test('makeScratch 는 실제 prodev 아래를 스크래치로 쓰지 않는다', { skip }, () => {
