@@ -54,9 +54,13 @@ function serveStatic(req, res, url, webDir) {
   if (!insideDir(root, real)) return notFound();
   const st = fs.statSync(real);
   if (!st.isFile()) return notFound();
+  // (M6 N16) no-cache 에 재검증 기준(etag · last-modified)을 붙인다 — 판을 올린 뒤 브라우저가 옛 app.js 를 쓰지 않게, 안 바뀌었으면 304
+  const etag = `W/"${st.size.toString(16)}-${Math.floor(st.mtimeMs).toString(16)}"`;
+  const common = { etag, 'last-modified': st.mtime.toUTCString(), 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff', 'content-security-policy': CSP };
+  if (req.headers['if-none-match']?.split(',').some(t => t.trim() === etag)) { res.writeHead(304, common); res.end(); return; }
   res.writeHead(200, {
     'content-type': STATIC_TYPES[path.extname(real).toLowerCase()] ?? 'application/octet-stream',
-    'content-length': st.size, 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff', 'content-security-policy': CSP,
+    'content-length': st.size, ...common,
   });
   if (req.method === 'HEAD') { res.end(); return; }
   fs.createReadStream(real).pipe(res);

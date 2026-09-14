@@ -187,6 +187,33 @@ test('정적 파일 경로 탈출(../) 404', async t => {
   }
 });
 
+// (M6 N16) 같은 주소에 v1 → v2 를 올리자 브라우저가 옛 app.js 를 써 로그인이 안 됐다 — 재검증 기준을 싣는다
+test('정적 파일은 no-cache + etag · last-modified 로 재검증한다 — 같으면 304, 바뀌면 새 etag 로 200', async t => {
+  const webDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-web-')));
+  fs.writeFileSync(path.join(webDir, 'index.html'), '<!doctype html><title>조종석</title>');
+  fs.writeFileSync(path.join(webDir, 'app.js'), 'export const v = 1;\n');
+  const { w } = await world(t, { webDir });
+
+  const first = await w.raw('/app.js');
+  assert.equal(first.status, 200);
+  assert.equal(first.headers['cache-control'], 'no-cache');
+  assert.match(first.headers.etag ?? '', /^W\/"[0-9a-f]+-[0-9a-f]+"$/);
+  assert.ok(!Number.isNaN(Date.parse(first.headers['last-modified'])), 'last-modified 가 날짜');
+  assert.equal((await w.raw('/')).headers['cache-control'], 'no-cache', 'index.html 도');
+
+  const same = await w.raw('/app.js', { 'if-none-match': first.headers.etag });
+  assert.equal(same.status, 304);
+  assert.equal(same.text, '');
+  assert.equal(same.headers.etag, first.headers.etag);
+
+  fs.writeFileSync(path.join(webDir, 'app.js'), 'export const v = 2; // 새 판\n');
+  fs.utimesSync(path.join(webDir, 'app.js'), new Date(), new Date(Date.now() + 5000));
+  const changed = await w.raw('/app.js', { 'if-none-match': first.headers.etag });
+  assert.equal(changed.status, 200, '옛 etag 로 물어도 새 파일을 준다');
+  assert.match(changed.text, /새 판/);
+  assert.notEqual(changed.headers.etag, first.headers.etag);
+});
+
 test('다른 출처의 POST 는 403 · 없는 길은 404 · health 는 로그인 없이', async t => {
   const { w, main } = await world(t);
   const cross = await post(w, '김과제', main.id, form('안녕'));
