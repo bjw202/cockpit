@@ -1,8 +1,8 @@
 # cockpit — 만드는 순서 (TASKS)
 
-이 문서는 "다음에 무엇을 하나" 의 유일한 자리다. 마일스톤 넷(M1~M4), 태스크마다 산출물과 **끝 조건**. 끝 조건은 기계가 셀 수 있는 것만 적는다 — 시험 파일 이름 · 시험 이름 · 파일 존재 · 명령 출력.
+이 문서는 "다음에 무엇을 하나" 의 유일한 자리다. 마일스톤 다섯(M1~M4 · v2 회차의 M5), 태스크마다 산출물과 **끝 조건**. 끝 조건은 기계가 셀 수 있는 것만 적는다 — 시험 파일 이름 · 시험 이름 · 파일 존재 · 명령 출력.
 
-meta 의 관문과의 짝: **M1 · M2 = W2(서버 뼈대)**, **M3 = W3(조종석 판)**, M4 는 W4(실전) 앞의 설치 · 문서다 (`../../meta/prodev-review/plans/2026-09-14-web-cockpit/TASKS.md`). W1(회사 PC 실증)은 meta 와 사람이 한다.
+meta 의 관문과의 짝: **M1 · M2 = W2(서버 뼈대)**, **M3 = W3(조종석 판)**, M4 는 W4(실전) 앞의 설치 · 문서다 (`../../meta/prodev-review/plans/2026-09-14-web-cockpit/TASKS.md`). W1(회사 PC 실증)은 meta 와 사람이 한다. **(v2) D0-v2 = 문서 관문, M5 = minidiscord 화면 · 방 하나, M5.M = 옛 대본 다섯 v2 + 새 대본 R8** (`../../meta/prodev-review/plans/2026-09-14-cockpit-후속/AS-IS-TO-BE-v2.md` 절차). W1 은 M4 판으로 병행한다.
 
 ## 0. 자리 규칙
 
@@ -214,9 +214,139 @@ meta 의 관문과의 짝: **M1 · M2 = W2(서버 뼈대)**, **M3 = W3(조종석
 
 ---
 
+## M5 — (v2) minidiscord 화면 · 방 하나 · 방 만들기 = 봇 생성 · 접이식 판
+
+**D0-v2(문서 관문) 통과 뒤에 시작한다.** 근거: `ADR.md` ADR-015~020 · `PRD.md` F2 · F3 · F15 · F19~F23 · `ARCHITECTURE.md` 4.3 · 4.6 · 4.7 · 7 · 8.4 · 11.1. meta 의 관문 짝: **M5.M = 옛 대본 다섯의 v2 판 + 새 대본 R8 재생(새 기준선)**. W1(회사 PC 실증)은 M4 판으로 병행하고 M5 는 그것을 기다리지 않는다.
+
+**순서의 원칙.** 서버 규칙(방 하나 · 봉투 · 첨부)을 먼저 굳히고(M5.0~M5.2), 방 만들기 · 보관(M5.3 · M5.4), 화면은 그 위에(M5.5~M5.8). prodev PR(M5.10)은 M5.1 뒤 · M5.M 전, 관문 사이에 worktree 로.
+
+**진행 규칙** (M1~M4 와 같다): 태스크 단위 커밋 · 첫 줄에 태스크 번호 · `npm test` 는 서버 · SDK · 네트워크 없이 · 스모크는 스크래치 + haiku + `prodev/bots` 금지 · 형제 본 체크아웃은 읽기만 · meta 의 예측 · 채점표 · fixtures · runs 안 읽음. **옛 시험 이름을 바꾸거나 지우면** 그 옛 이름과 새 이름을 as-built 에 짝으로 적는다.
+
+### M5.0 설정 · 옛 files 방 이관
+- 산출: `src/config.js`(`prodevDir` · `botsDir` 짝 검사) · `src/rooms/migrate.js` · `bin/cockpit.js migrate-v2 [--apply]` · `serve` 기동 경고 한 줄 · `cockpit.example.json` 에 `prodevDir`
+- 끝 조건: `test/config.test.js` — `prodevDir 가 없으면 botsDir 의 부모로 본다` · `botsDir 가 <prodevDir>/bots 가 아니면 키 이름과 함께 거절한다`
+- 끝 조건: `test/migrate.test.js` — `migrate-v2 는 보이기만 하고 아무 행도 안 바꾼다` · `--apply 는 옛 files 방을 archived 로 두고 글 · 첨부 · 대상 · 큐 행 수가 그대로다` · `두 번 돌려도 같다` · `serve 는 활성 files 방이 있으면 경고 한 줄을 내고 뜬다`
+- 끝 조건(명령 출력): v1 판 스크래치 `chat.db` 에 `node bin/cockpit.js migrate-v2 --config <설정>` → 과제마다 `prodev-<과제>/files  id=<N>  글 <수>  첨부 <수>  큐 미배달 <수>  → 보관` 한 줄 · `--apply` 뒤 끝 줄 `보관 <N>` · exit 0
+
+### M5.1 방 하나 · 봉투 규칙
+- 산출: `src/db/chat-db.js` — `openProject` 방 하나 · `resolveTargets` 봉투 없음 → `[]` · `projectRooms` → `{ main, legacy_files }` · `src/mcp/tools.js` 의 허락된 방(쓰기 본방 · 읽기 본방 + 옛 방) · `src/session/manager.js projectOfRoom` · `smoke/`의 파일방 사용(`m1-envelope` 등)을 본방 `@TO` 첨부로
+- 끝 조건: `test/chat-db.test.js` —
+  - `봉투 없는 글은 행 없음(어느 방이든)` — 옛 `본방 봉투 없는 글은 to 한 줄` · `파일방 봉투 없는 글은 행 없음` 둘을 대체
+  - `과제를 열면 방 하나(prodev-<과제>) · / 든 방 0`
+  - `projectRooms 는 main 과 legacy_files(없으면 null)`
+  - (그대로) `@TO 는 to · @CC 는 cc` · `같은 봇 TO+CC 는 두 줄` · `모르는 봇 이름은 거절하고 행을 안 남긴다`
+- 끝 조건: `test/session-manager.test.js` — `봉투 없는 글 셋 뒤 queryFn 입력 0 · 상태 그대로` · `봉투 없는 글 뒤 @TO 글 하나는 곧바로 한 덩이로 간다`
+- 끝 조건(계약): `test/contract/chat-js.test.js` — `봉투 없는 글의 targets 칸이 비었다` · (고침) `targets 칸이 prodev-<과제>-bot:to` 는 `@TO` 글로. `test/contract/replay-js.test.js` — 방 하나 판으로: `걸음 셋짜리 대본(방 하나): exit 0 · 기록 JSONL 에 bot.message_id 가 셋` · `첨부가 이름 그대로 올라간다(본방)` (옛 이름은 as-built 에 짝으로). 형제가 없으면 건너뜀
+- 끝 조건(파일): `grep -rn "/files" src/ smoke/ bin/` 의 줄이 `src/rooms/migrate.js` · `src/db/chat-db.js` 의 옛 방 이름 풀이 밖에 없다
+
+### M5.2 `fetch_history` 첨부 · 옛 방 읽기
+- 산출: `src/mcp/tools.js fetchHistory` (ARCHITECTURE 4.2 의 `attachments` 규칙)
+- 끝 조건: `test/mcp-tools.test.js` —
+  - `fetch_history: 첨부 있는 글에만 attachments[{filename,path}]`
+  - `attachments 의 path 는 실제 파일의 절대 경로다`
+  - `첨부 없는 이력은 v1 과 바이트까지 같다` (v1 기대 문자열을 시험 안에 손으로 적는다)
+  - `첨부 21 → 20 + 잘림 표시 한 원소`
+  - `attachments 를 더해 16000B 를 넘으면 새것부터 버린다`
+  - `보관된 옛 files 방은 fetch_history 가 읽고 reply 는 오류 결과`
+  - (그대로) `도구 서명: reply 는 text 만 필수 · fetch_history 는 필수 없음` — 입력 서명은 안 바뀐다
+
+### M5.3 방 만들기 = 봇 생성 · 되돌림
+- 산출: `src/rooms/create.js` · `src/rooms/setup-runner.js` · `src/http/routes-rooms.js` 의 `POST /api/rooms` · `src/http/routes-projects.js` 의 `POST /api/projects` 를 같은 처리기로 · `bin/cockpit.js open-project [--no-setup]` · SSE `room_created`(옛 `project_opened` 대체) · `test/fakes/fake-setup.js`
+- 끝 조건: `test/rooms-create.test.js` —
+  - `성공: setup 한 번 · 봇 · 방 하나 · agent_sessions stopped · room_created 사건 · 201`
+  - `setup 이 실패하면 502 · setup_tail · 새 봇 폴더 · 새 과제 폴더 · 행 0`
+  - `setup 이 반쯤 만들고 죽어도 요청이 새로 만든 폴더를 지운다`
+  - `cockpit.db 쓰기가 실패하면 chat.db 행과 봇 폴더를 되돌린다`
+  - `요청 전에 있던 과제 폴더는 지우지 않는다`
+  - `같은 이름 409 — 방 · 봇 · agent_sessions · 봇 폴더`
+  - `같은 이름 동시 두 요청은 하나만 201`
+  - `prodev- 로 시작하는 이름은 400`
+  - `member 는 403`
+  - `POST /api/projects 와 open-project 도 같은 처리기(방 하나)`
+  - `setup 자식 프로세스 env 는 화이트리스트 키뿐`
+- 끝 조건: `test/http-projects.test.js` — 옛 `봇 한 줄 · 방 둘(prodev-<과제> · prodev-<과제>/files) · agent_sessions 한 줄` 을 `봇 한 줄 · 방 하나(prodev-<과제>) · agent_sessions 한 줄` 로 (짝을 as-built 에)
+- 끝 조건(계약): `test/contract/setup-js.test.js` — `임시 prodev 사본에서 setup.js --project 를 부르면 bots/prodev-<과제>-bot/.claude/settings.local.json 이 생긴다` · `setup.js 가 exit 1 이면 createRoom 이 502 와 되돌림`. 형제가 없으면 건너뜀
+
+### M5.4 방 보관 · 봇 길 없음
+- 산출: `POST /api/rooms/:id/archive` · SSE `room_archived`
+- 끝 조건: `test/rooms-archive.test.js` — `보관: 세션 stopped · rooms archived · room_archived 사건` · `도우미가 돌면 409 TASKS_RUNNING · confirm=1 이면 보관` · `보관 방 글 POST 409 · 두 번째 보관 409` · `걸린 승인 요청은 거둬 감` · `member 403` · `/api/bots · /api/rooms/:id/bots 는 404`
+
+### M5.5 화면 옮기기 — 사본 다섯
+- 산출: `web/index.html` · `web/app.js` · `web/rich.js` · `web/style.css` · `web/design-tokens.css` (minidiscord 사본, 머리에 출처 핀 · ARCHITECTURE 7.1) · `web/boot.js` · `test/fixtures/minidiscord-web.json`(파일마다 저장소 핀 · 마지막 커밋 · 원본 sha256 · 원본 줄 수)
+- 끝 조건: `test/web-static.test.js` —
+  - `design-tokens.css 는 머리 줄을 빼면 원본 sha256 과 같고 --md- 토큰이 34`
+  - `rich.js 는 머리 줄을 빼면 원본 sha256 과 같다`
+  - `style.css 의 원본 구간(머리 줄 뒤 965줄)은 원본 sha256 과 같다`
+  - `옮긴 파일 다섯의 머리에 저장소 핀 · 마지막 커밋 · sha256 이 있다`
+  - `인라인 script 가 없다(CSP script-src self)`
+  - `innerHTML 대입은 markdown.js 밖에서 빈 문자열뿐` — 옛 `innerHTML 대입이 markdown.js 밖에 없다` 를 대체 (minidiscord `app.js` 가 목록을 `innerHTML = ''` 로 비운다)
+  - `web/ 어느 파일에도 /api/bots 가 없다`
+  - `로그인 폼에 type=password 칸 하나`
+  - (그대로) `web/ 의 어느 파일에도 http:// · https:// 로 시작하는 외부 src/href 가 없다` · `모든 <script> 가 type=module` · `markdown.js 사본은 머리의 출처 핀 · sha256 이 본문과 맞다`
+- 끝 조건(명령 출력): `node --check web/app.js web/rich.js web/glue.js web/panel.js web/boot.js` exit 0
+
+### M5.6 화면 잇기 — `web/glue.js` 와 `app.js` 고침
+- 산출: `web/glue.js` · `web/app.js` 의 ARCHITECTURE 7.3 표 자리
+- 끝 조건: `test/web-glue.test.js` —
+  - `roomBotsOf: 방의 봇 하나를 [{bot_id, bot_name, online}] 로`
+  - `online 은 idle · working · waiting_approval · starting 이면 참`
+  - `messageForRoom: 다른 방 글은 null`
+  - `botMark: thinking · tool · approval → working, idle · stopped · error → idle`
+  - `composerDefault 는 @TO(<봇 이름>) `
+  - `composerHint: 봉투가 없으면 "봇에게 가지 않습니다 — 부르려면 @"`
+  - `보관 방은 미리 채우지 않는다`
+  - `rich.js 는 cockpit 🔒 요청 줄에 승인 단추를 그리지 않는다` (`permissionRequestId(<cockpit 🔒 줄>) === null`)
+- 끝 조건: `test/web-static.test.js` — `app.js 에서 원본과 본문이 달라진 최상위 함수는 ARCHITECTURE 7.3 표의 것뿐` (최상위 `function` 머리로 잘라 원본과 맞대는 정적 비교. 지운 함수 · 새 함수 이름도 표와 맞댄다)
+
+### M5.7 접이식 판
+- 산출: `web/panel.js`(v1 `card.js` · `cockpit.js` · `files.js` 를 부른다) · `index.html` 의 `#cockpit-panel` · `#panel-toggle` · `style.css` 끝 cockpit 덩이
+- 끝 조건: `test/web-glue.test.js` — `panelOpenByDefault: member 는 접힘 · admin 은 펼침 · 기억한 값이 이긴다` · `pendingBadge: 0 이면 빈 글자 · N 이면 (N)`
+- 끝 조건: `test/web-static.test.js` — `index.html 에 #cockpit-panel 하나 · #panel-toggle 하나` · `style.css 의 cockpit 덩이는 색을 var(--md-…) 로만 쓴다(# 색 · rgb( · hsl( 없음)`
+- 끝 조건: v1 시험 `test/web-card.test.js` · `test/web-cockpit.test.js` 가 고치지 않고 초록
+
+### M5.8 v1 화면 파일 정리
+- 산출: `web/chat.js` · `web/tabs.js` · `test/web-chat.test.js` · `test/web-tabs.test.js` 지움
+- 끝 조건(명령 출력): `ls web/chat.js web/tabs.js test/web-chat.test.js test/web-tabs.test.js` 가 넷 다 없다고 낸다 · `grep -rn "from './chat.js'\|from './tabs.js'" web/` 0줄 · 지운 시험 이름 여덟(`web-chat` 5 · `web-tabs` 3)은 as-built 에 "대체 → `web-glue` 의 어느 시험" 짝으로
+
+### M5.9 스모크 v2
+- 산출: `smoke/m5-room.mjs` — 스크래치 prodev 사본(`smoke/scratch.mjs`) 위에 진짜 `serve` 를 자식으로 띄우고 HTTP 로: ① admin 이 `POST /api/rooms`(진짜 `setup.js`) ② 켜기 ③ member 가 봉투 없는 글 둘(하나에 csv 첨부) ④ 30초 기다림 ⑤ member 가 `@TO(<봇>) 위에 올린 파일 봐 주세요` ⑥ 봇 답을 기다림 ⑦ admin 이 보관. `--fail-setup` 이면 ① 에서 setup 이 실패하게(없는 `--cockpit` 경로) 하고 되돌림만 본다
+- 내는 줄:
+  ```
+  ROOM_CREATE_API <status> room=<이름> bot=<이름> setup_ms=<N>
+  ROOMS_FOR_PROJECT <N>
+  START_API <status> <state>
+  PLAIN_MESSAGES 2 TARGET_ROWS <N> INBOX_ROWS <N>
+  BOT_TURNS_AFTER_PLAIN <N>
+  FETCH_HISTORY_CALLED yes|no
+  FETCH_HISTORY_HAS_ATTACHMENTS yes|no
+  READ_ATTACHMENT yes|no
+  BOT_REPLY message_id=<N>
+  ARCHIVE_API <status> state=<state>
+  ASKED <canUseTool 로 온 도구 이름 목록 JSON>
+  (--fail-setup) ROOM_CREATE_API 502 · ROLLBACK_BOT_DIR_EXISTS yes|no · ROLLBACK_ROWS <N>
+  ```
+- 끝 조건(파일): 스크립트가 있다 · `smoke/README.md` 에 돌리는 법 한 절. 판정은 meta
+- 끝 조건: `m1-envelope` · `m2-approval` · `m2-compact` · `m3-restart` · `m4-sessions` 가 방 하나 판으로 돈다 — `grep -rn "files" smoke/*.mjs` 에 파일방 이름 0줄
+
+### M5.10 prodev PR — 방 하나 판 (관문 사이, worktree)
+- 산출: `../prodev-wt-cockpit-v2/`(가지 `cockpit-v2`) · ARCHITECTURE 11.1 의 11곳 가운데 prodev 의 것(1~10) · 새 ADR 한 절(ADR-022 · 038 ⑤ 대체) · prodev 시험 갱신 · PR 본문에 9번(find.js · index.js) 대조 결과
+- 끝 조건(명령 출력): 그 worktree 에서 `npm test` 요약 `fail 0` · `grep -rn "files 방\|/files 방\|방 둘\|방은 둘" CLAUDE.md common .claude/skills` 0줄
+- 끝 조건(명령 출력): cockpit 에서 `COCKPIT_PRODEV_DIR=../prodev-wt-cockpit-v2 npm test` 요약 `fail 0` · `skipped 0`
+- 머지는 사람. 11번(`weekly.sh`)은 meta 몫이라 PR 에 넣지 않는다
+
+### M5.11 as-built · log
+- 끝 조건(파일): `docs/as-built.md` 절 여섯을 v2 로 갱신 — 1 폴더 나무(옮긴 파일 다섯의 출처 핀) · 3.2 길(더함 둘) · 4 시험 묶음과 건수 · **5 설계와 다르게 된 자리** · 대체된 시험 이름 짝 표 · `docs/log.md` M5 절
+
+### M5.M 관문 청하기 (옛 대본 다섯 v2 + 새 대본 R8)
+- `docs/as-built.md` · `docs/log.md` 갱신. meta 에 명령 줄(VERIFICATION 5절 M5.M 줄)과 함께 알린다. 재생은 prodev PR(M5.10) 머지 뒤 또는 그 가지에서
+
+---
+
 ## 크기 (제작만, 추정)
 
 M1 4일 · M2 4일 · M3 3일 · M4 2일. 첫 관문(W2) 전에 M1 · M2 가 끝나야 해서 meta 의 "W2 2주" 에 빠듯하다 — meta 검토 1차의 "W2 를 둘로 쪼개라" 와 같은 뜻으로 **M1.M 에서 한 번 멈춘다.**
+
+(v2) M5 5일 — 서버 규칙 · 방 만들기(M5.0~M5.4) 2일 · 화면 이식 · 판(M5.5~M5.8) 2일 · 스모크 · prodev PR · 문서(M5.9~M5.11) 1일. 화면 사본의 7.3 표 밖 자리가 필요해지면 그 자리에서 멈추고 meta 에 묻는다.
 
 ## 하지 않는 것
 
@@ -224,3 +354,10 @@ M1 4일 · M2 4일 · M3 3일 · M4 2일. 첫 관문(W2) 전에 M1 · M2 가 끝
 - 진짜 SDK 를 `npm test` 에 넣는 것
 - prodev · minidiscord 본 체크아웃을 고치는 것 (사본을 가져올 때는 출처 커밋을 파일 머리에 적는다)
 - 자기 관문 판정 · 예측표 읽기
+- (v2) **D0-v2 통과 전에 코드 · 시험 · 스모크를 고치는 것** — 이 회차는 문서 다섯과 log 만
+- (v2) `design-tokens.css` · `rich.js` 의 글자를 고치는 것 · `style.css` 원본 구간을 고치는 것 · ARCHITECTURE 7.3 표 밖의 `app.js` · `index.html` 자리를 고치는 것
+- (v2) jsdom 같은 시험 의존성을 들이는 것 (PRD N4)
+- (v2) 봇 배정 · 봇 등록 · 봇 없는 방 화면을 옮기는 것 (R13)
+- (v2) 옛 files 방의 글을 본방으로 옮기거나 합치는 것 (ADR-015)
+- (v2) 올라오는 첨부를 봇에게 족족 보내는 것 (ADR-020)
+- (v2) `weekly.sh` 계측 · meta 대본을 고치는 것 (meta 몫)

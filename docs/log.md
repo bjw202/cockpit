@@ -147,3 +147,44 @@ W2 관문에 필요하다고 한 넷: `serve --config` 로 서버가 뜬다 · `
 - 형제: prodev PR #17 · #18 머지됨. `../prodev-wt-cockpit` 은 가지 `cockpit-m3` 로 남아 있다(쓰지 않음).
 - 이 세션은 여기서 멈춘다. **다음 제작 지시는 사람의 회사 PC 결과가 온 뒤다.**
 - 다음 세션이 읽을 파일: meta 가 새로 주는 `meta/prodev-review/plans/2026-09-14-web-cockpit/instructions/` 의 다음 지시문 → 이 파일(`docs/log.md`)의 M3 · M4 절 → `docs/as-built.md`(절 여섯, 4.1 윈도우 건너뜀 표) → `docs/TASKS.md` M4 절 → `docs/INSTALL-WINDOWS.md`(회사 PC 결과를 대조할 걸음).
+
+## 2026-09-14 저녁 — v2 회차 D0-v2 문서 개정 (속은 cockpit, 겉은 minidiscord)
+
+**무엇이 정해졌나 (사람).** 속은 cockpit, 겉은 minidiscord 화면(디자인 토큰 그대로). 방 하나 = 과제 하나 = 전용 봇 하나, files 방은 없다. 봇에게 가는 글은 `@TO` · `@CC` 뿐, 첨부는 부른 글의 것만 + 따라잡기, 조종석은 오른쪽 접이식 판(member 접힘 · admin 펼침), 봇 없는 방은 첫 판에 없다. 지시 `meta/prodev-review/plans/2026-09-14-web-cockpit/instructions/D0-v2.md`, 요구는 같은 `plans/` 의 `2026-09-14-cockpit-후속/AS-IS-TO-BE-v2.md`(R9~R14) · `DIRECTION-v2.md`. 이 회차는 **문서 다섯과 이 파일만** 고친다 — 코드 · 시험 · 스모크 · prodev · minidiscord 는 안 건드렸다(읽기만). `as-built.md` 는 코드 뒤라 안 고쳤다.
+
+**읽은 것.** 지시문 · AS-IS-TO-BE-v2 · DIRECTION-v2 · 후속 README(3.2 · 3.3 · 3.5 맞물림) · 문서 다섯 · as-built. 실물 대조: minidiscord `web/`(`app.js` 의 `/api/` 호출 14곳 · `rich.js` · `index.html` · `style.css` 머리 · 토큰 34) · minidiscord 서버 길(`routes-rooms.ts` · `routes-events.ts` · `targets.ts`) · cockpit `chat-db.js` · `tools.js` · `routes-projects.js` · `server.js` CSP · prodev `setup.js`(봇 이름 · 자리) · 하네스 11곳의 줄. meta 의 예측(`PREDICTIONS-v2.md`) · 채점표 · fixtures · runs 는 읽지 않았다.
+
+**커밋** (ADR 먼저, 본문은 그 다음 — 지시 2절 순서):
+- d4f71d5 ADR-015~020 · ADR-005 · 010 에 "일부 대체됨"
+- 3dcae38 PRD — F2 · F3 · F15 를 v2 로(옛 글에 대체됨) · F19~F23 · N13
+- 8b29c3b ARCHITECTURE — 4.3 · 4.6 방 만들기와 되돌림 · 4.7 이관 · 7 화면 · 8.4 길 15 · 11.1 prodev 고칠 자리 11
+- 이 절을 넣은 docs 커밋 — TASKS M5 · VERIFICATION M5.M · log
+
+**새 ADR 여섯.** ADR-015 방 하나(옛 files 방은 보관으로 이관) · ADR-016 화면 계승(minidiscord `web/` 다섯 파일 사본, 토큰 · `rich.js` 무변경) · ADR-017 방 만들기 = 봇 생성(`POST /api/rooms` 가 prodev `setup.js` 를 자식 프로세스로 부르고 실패하면 새로 만든 것만 되돌림) · ADR-018 `@` 규칙(봉투 없음 → 안 감 · 작성기 `@TO(봇)` 미리 채움) · ADR-019 접이식 조종석 판 · ADR-020 첨부 읽는 때(봉투는 그대로 · `fetch_history` 결과에 `attachments` 칸). v1 에서 뒤집히는 결정은 cockpit ADR 절로는 ADR-005 · 010 의 일부뿐이었다 — 나머지(방 둘 · 본방 봉투 없음 `to` · 화면 셋)는 PRD · ARCHITECTURE 본문에 있어 그 자리에 "대체됨" 을 붙였다.
+
+**찾은 것 · 막힌 것.**
+- **출처 sha `6633f7b` 가 minidiscord 저장소에 없다.** 지시문과 v1 문서 · 코드 주석이 이 번호를 핀으로 적었는데, 오늘 `git -C ../minidiscord log --all` 에도 crew-workspace 저장소에도 없다. minidiscord `HEAD` 는 `dfa33c3`, `web/` 다섯 파일의 마지막 변경은 `a44ecf8`(2026-09-11), v1 `markdown.js` 사본의 저장소 핀은 `dfa33c3`. ARCHITECTURE 7.1 에 사실과 기본값(옮기는 날 HEAD)을 적고 질문으로 올린다(Q1).
+- **minidiscord `index.html` 의 인라인 스크립트는 cockpit CSP(`script-src 'self'`, `server.js:30`)에 막힌다.** 켜기 한 줄을 `web/boot.js` 로 옮기는 것을 7.3 고치는 자리에 넣었다. 작성기 썸네일의 `blob:` 은 `img-src` 에 있어 된다.
+- **minidiscord `app.js` 는 목록을 `innerHTML = ''` 로 비운다(대입 여섯 곳, 모두 빈 문자열 — grep 한 아홉 줄 중 셋은 주석).** v1 정적 시험 `innerHTML 대입이 markdown.js 밖에 없다` 는 그대로 두면 사본에서 빨갛다 — M5.5 에서 "빈 문자열뿐" 으로 바꾸는 끝 조건을 적었다.
+- **minidiscord `rich.js` 의 채팅 줄 승인 단추**는 minidiscord 브로커의 `승인하려면 "yes <id>"…` 줄에만 붙는다. cockpit 🔒 줄과 꼴이 달라 안 그려진다 — 파일을 안 고치고 시험 하나로 못 박기로 했다.
+- **DIRECTION 2.3 의 `find.js` · `index.js` "방 이름 갈래"** 는 오늘 grep 으로 코드가 안 보인다(`files.md` 는 `inbox/*/files.md` 사이드카 이름). 11.1 9번에 "고칠 것이 없을 수 있다 — PR 에서 다시 대조" 로 적고 질문으로 올린다(Q2).
+- `weekly.sh` 는 prodev 가 아니라 `meta/prodev-review/scripts/tools/` 에 있다 — 11.1 11번에 meta 몫으로 적었다.
+
+**스스로 정한 것 (ADR 에 "제안" 으로 표시).**
+- `POST /api/rooms {name}` 의 `name` 은 **과제 이름**, 방 이름은 `prodev-<name>` (방 이름 규칙 = 결합 재고 C.8 하드 계약). `prodev-` 로 시작하면 400.
+- 방 만들기는 `setup.js` 를 **자식 프로세스로 부른다**(같은 일을 cockpit 이 다시 짜지 않는다 — 봇 설정의 진실을 prodev 한 곳에). 상한 60초. 되돌림은 요청이 새로 만든 폴더 · 행만, 요청 전에 있던 과제 폴더는 안 지운다.
+- 설정 키 `prodevDir` 를 더하고 `botsDir` = `<prodevDir>/bots` 가 아니면 기동하지 않는다 — `setup.js` 가 봇 폴더를 자기 저장소 `bots/` 에 만들기 때문(`setup.js:316`).
+- `POST /api/projects` · CLI `open-project` 는 없애지 않고 같은 처리기로(`--no-setup` 은 스모크 · 옛 봇 이름 재생용).
+- 옛 files 방은 **보관**(옮기지도 합치지도 않음 — 카드 `source_msgs` · `confirmed_at` 이 글 번호에 묶여 있다). `migrate-v2` 명령, `serve` 는 경고만 하고 뜬다. `fetch_history` 는 옛 방을 읽을 수 있다.
+- 방 봇 칩 · 자동완성의 재료는 `/api/rooms/:id/bots` 를 더하지 않고 `GET /api/projects` 에서 같은 모양으로 만든다(R13).
+- `fetch_history` 입력 서명은 그대로, 결과의 `attachments` 는 첨부 있는 글에만(글만 있는 이력은 v1 과 바이트까지 같게).
+- 옮긴 `app.js` 의 DOM 몸통은 jsdom 없이 — 잇는 판단을 `web/glue.js` 순수 함수로 빼고, "원본과 달라진 함수가 7.3 표의 것뿐" 을 정적 비교로 센다.
+- SSE 사건 `project_opened` 를 `room_created` 로 이름을 바꾸고 `room_archived` 를 더한다.
+
+**새 질문 (meta 에).**
+- **Q1 출처 핀.** 옮기는 화면 파일 다섯의 "저장소 핀" 을 무엇으로 적나. 지시의 `6633f7b` 는 minidiscord 저장소에서 못 찾았다. 기본값은 옮기는 날의 minidiscord `HEAD`(오늘 `dfa33c3`) + 파일마다 마지막 변경 커밋(오늘 `a44ecf8`) + 원본 sha256. v1 문서 · 코드 주석의 `6633f7b`(`db.ts` · `channel-server.ts` 등)도 같은 번호라, 그것이 다른 저장소 · 옛 이력의 번호인지 알려 주면 주석을 맞춘다(코드는 M5 에서).
+- **Q2 prodev 11곳의 9번.** `scripts/find.js` · `index.js` 에서 "방 이름 갈래" 코드를 오늘 grep(`roomParts` · `/files` · `갈래`)으로 못 찾았다. DIRECTION 2.3 이 가리킨 줄이 따로 있으면 알려 주기를 바란다. 없으면 PR 에서 "고칠 것 없음" 으로 적어 10곳이 된다.
+
+**세션 끝 상태 (2026-09-14 저녁, D0-v2)**
+- 작업 트리: 이 절의 커밋 뒤 깨끗. 코드 · 시험은 안 건드렸다 — `npm test` 는 이 회차에 돌리지 않았다(M4 판 158/158 그대로일 것, 추정).
+- 다음: meta 의 D0-v2 판정 → 통과면 M5 지시. 다음 세션이 읽을 파일: 그 지시문 → 이 절 → `docs/ADR.md` ADR-015~020 → `docs/ARCHITECTURE.md` 4.6 · 7 · 8.4 · 11.1 → `docs/TASKS.md` M5 → `docs/VERIFICATION.md` 4.1.
