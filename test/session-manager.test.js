@@ -62,6 +62,38 @@ test('working 중에 들어온 글도 곧바로 queryFn 입력으로 간다', as
   await mgr.stop('시험');
 });
 
+test('result 뒤에 이어 온 봇 메시지는 state 를 working 으로 되돌린다', async () => {
+  // 진짜 SDK 는 턴 도중 넣은 글을 result 뒤 새 턴으로 이어 돌기도 한다 — 큐가 비어 있어도 봇이 말하면 working (meta M3.0 ①)
+  const w = world(); const gap = deferred(); const hold = deferred();
+  const q = makeFakeQueryFn({ turns: [[
+    { result: true },
+    { wait: gap.promise },
+    { msg: { type: 'assistant', message: { content: [{ type: 'text', text: '이어서 합니다' }] }, parent_tool_use_id: null } },
+    { wait: hold.promise },
+    { result: true },
+  ]] });
+  const mgr = manager(w, q); const { main } = open(mgr, w);
+  await mgr.start('시험');
+  mgr.postUserMessage({ roomId: main.id, username: '김과제', body: '첫 글' });
+  await waitFor(() => mgr.cockpitDb.eventsAfter('시험').some(e => e.type === 'result') && mgr.state('시험') === 'idle', { what: '첫 result' });
+  gap.resolve();
+  await waitFor(() => mgr.state('시험') === 'working', { what: '이어 온 assistant 로 working' });
+  assert.equal(mgr.cockpitDb.agentSession('시험').state, 'working', 'agent_sessions 에도 적힌다 (GET /api/projects 가 읽는다)');
+  hold.resolve();
+  await waitFor(() => mgr.state('시험') === 'idle', { what: '둘째 result' });
+  await mgr.stop('시험');
+});
+
+test('봇 세션 env 의 PRODEV_BOT_DIR 은 그 과제의 봇 폴더', async () => {
+  // find.log · 인수인계서가 봇 폴더에 가게 (meta M3.0 ② — W2r 에서 worktree 의 bots/ 로 갔다). 스크래치면 스크래치 봇 폴더다
+  const w = world(); const q = makeFakeQueryFn();
+  const mgr = manager(w, q); open(mgr, w);
+  await mgr.start('시험');
+  assert.equal(q.calls[0].options.env.PRODEV_BOT_DIR, path.join(w.dir, 'bots', 'prodev-시험-bot'));
+  assert.equal(q.calls[0].options.cwd, q.calls[0].options.env.PRODEV_BOT_DIR);
+  await mgr.stop('시험');
+});
+
 test('idle 에서 밀린 글 셋은 사용자 메시지 하나에 id 순으로', async () => {
   const w = world(); const q = makeFakeQueryFn();
   const mgr = manager(w, q); const { main, files } = open(mgr, w);

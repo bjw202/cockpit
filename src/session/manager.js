@@ -277,6 +277,11 @@ export class SessionManager extends EventEmitter {
       s.sessionId = m.session_id;
       this.cockpitDb.setSessionId(s.project, m.session_id);
     }
+    // 턴 도중에 넣은 글을 SDK 가 그 턴에 접지 않고 result 뒤에 새 턴으로 이어 돌 때가 있다 — 그때 큐는 비어 있어 #kick 이 상태를 안 바꾼다.
+    // 봇이 다시 말하거나 도구 결과가 오면 일하는 중이다 (meta W2r 17:54 — 즉시 배달 뒤 GET /api/projects 가 idle 로 보였다)
+    if (s.state === 'idle' && (m.type === 'assistant' || m.type === 'stream_event' || (m.type === 'user' && Array.isArray(m.message?.content) && m.message.content.some(b => b.type === 'tool_result')))) {
+      this.#setState(s, 'working');
+    }
     switch (m.type) {
       case 'stream_event':
         this.emit('partial', { project: s.project, event: m.event });   // 살아 있는 화면만. 적지 않는다 (DESIGN V4)
