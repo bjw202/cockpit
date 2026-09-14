@@ -156,6 +156,12 @@ export class ChatDb {
     });
   }
 
+  // (v2) 방 보관 — 활성 방만 archived 로. 바뀐 행이 1 이면 이 요청이 보관한 것 (ARCHITECTURE 4.6 끝 · minidiscord routes-rooms.ts 와 같다)
+  archiveRoom(id) {
+    const r = this.db.prepare("UPDATE rooms SET status = 'archived', archived_at = datetime('now') WHERE id = ? AND status = 'active'").run(Number(id));
+    return Number(r.changes) === 1;
+  }
+
   // (v2) 방 만들기 되돌림 — openProject 가 방금 넣은 봇 · 방 두 줄을 지운다. 글이 달린 방은 지우지 않는다 (ARCHITECTURE 4.6)
   removeOpened({ bot, main }) {
     return this.tx(() => {
