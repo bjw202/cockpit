@@ -63,14 +63,14 @@ cockpit 의 절반은 **정해진 입력에 정해진 출력**이다(봉투 · �
 ### 2.3 meta 가 세는 법
 
 ```
-npm test 2>&1 | tail -n 12
+npm test 2>&1 | grep -E '^ℹ (tests|pass|fail|cancelled|skipped)'
 ```
 
-요약 줄 `# tests N` · `# pass N` · `# fail 0` · `# cancelled 0` · `# skipped N` 을 적는다. **`# skipped` 가 0 이 아니면 C 층을 못 잰 것**이고 통과로 세지 않는다. 시험 수를 늘려 채우는 것을 막으려고 기준은 건수가 아니라 **2절 표의 파일이 있고 TASKS 끝 조건의 시험 이름이 출력에 있는가**다:
+Node 24 의 기본 보고 꼴은 요약 줄을 `ℹ tests N` · `ℹ pass N` · `ℹ fail 0` · `ℹ cancelled 0` · `ℹ skipped N` 으로 낸다. TAP 꼴(`# tests N` …)이 필요하면 `node --test --test-reporter=tap "test/**/*.test.js"` 로 같은 묶음을 돌린다. **`skipped` 가 0 이 아니면 C 층을 못 잰 것**이고 통과로 세지 않는다. 시험 수를 늘려 채우는 것을 막으려고 기준은 건수가 아니라 **2절 표의 파일이 있고 TASKS 끝 조건의 시험 이름이 출력에 있는가**다:
 
 ```
-npm test 2>&1 | grep -c '^# Subtest: '     # 시험 이름 줄 수
-npm test 2>&1 | grep '^not ok'             # 비어야 한다
+npm test 2>&1 | grep '^✔'                  # 통과한 시험 이름들 — TASKS 끝 조건의 이름과 맞댄다
+npm test 2>&1 | grep '^✖'                  # 비어야 한다
 ```
 
 ---

@@ -222,7 +222,7 @@ stateDiagram-v2
 
 값은 클라이언트 추정치다(청구액이 아니다). 화면에 그렇게 적는다.
 
-### 5.4 `query()` 옵션 — 한 자리에서만 만든다 (`src/session/sdk-query.js`)
+### 5.4 `query()` 옵션 — 한 자리에서만 만든다 (`src/session/options.js`, SDK 에 넘기는 것은 `sdk-query.js`)
 
 | 옵션 | 값 | 근거 |
 |---|---|---|
@@ -341,7 +341,9 @@ cockpit/
   src/mcp/tools.js             reply · fetch_history 처리기 (순수 함수)
   src/session/manager.js       상태 · 큐 · 켜기/끄기 · 재기동 · 사건 접기
   src/session/input-stream.js  스트리밍 입력 흐름
-  src/session/sdk-query.js     SDK 를 import 하는 유일한 파일 (옵션 5.4)
+  src/session/options.js       query() 옵션 (5.4) — SDK 를 import 하지 않아 시험이 곧바로 본다
+  src/session/sdk-query.js     SDK 를 import 하는 유일한 파일 (queryFn · makeMcpServer)
+  src/runtime.js               설정 → 저장소 둘 + 세션 관리자 조립 · 봇 답 기다리기 (CLI · 스모크 · 서버가 같이 쓴다)
   src/session/env.js           화이트리스트
   src/permissions/relay.js     6절
   src/auth/password.js         scrypt

@@ -75,7 +75,7 @@ meta 의 관문과의 짝: **M1 · M2 = W2(서버 뼈대)**, **M3 = W3(조종석
   - `resume 실패면 새 세션으로 켜고 session_events 에 까닭`
   - `compact_boundary → 본방 system 글 둘` (정리 중 · 정리 끝)
   - `stream_event 는 session_events 에 안 적는다`
-- 끝 조건: `test/sdk-options.test.js` — `sdk-query.js 가 만드는 옵션`: `permissionMode 'default'` · `allowedTools 는 정확히 mcp__cockpit__reply · mcp__cockpit__fetch_history` · `settingSources ['project','local']` · `strictMcpConfig true` · `persistSession true` · `includePartialMessages true` · `enableFileCheckpointing true` · `permissionPrompts 없음` · `env 에 COCKPIT_SECRET_PROBE 가 없다` · `env 키가 화이트리스트의 부분집합` · `bypassPermissions 문자열이 src/ 에 없다`
+- 끝 조건: `test/sdk-options.test.js` — `options.js 가 만드는 옵션`(시험 이름 `옵션 칸이 설계 5.4 와 같다` · `env 에 COCKPIT_SECRET_PROBE 가 없다` · `env 키가 화이트리스트의 부분집합` · `bypassPermissions 문자열이 src/ 에 없다`): `permissionMode 'default'` · `allowedTools 는 정확히 mcp__cockpit__reply · mcp__cockpit__fetch_history` · `settingSources ['project','local']` · `strictMcpConfig true` · `persistSession true` · `includePartialMessages true` · `enableFileCheckpointing true` · `permissionPrompts 없음` · `env 에 COCKPIT_SECRET_PROBE 가 없다` · `env 키가 화이트리스트의 부분집합` · `bypassPermissions 문자열이 src/ 에 없다`
 - 끝 조건: `test/no-sdk-import.test.js` — `src/session/sdk-query.js 밖의 src/ · test/ 파일은 @anthropic-ai/claude-agent-sdk 를 import 하지 않는다`
 
 ### M1.7 최소 CLI 와 첫 스모크
