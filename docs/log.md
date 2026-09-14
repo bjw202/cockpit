@@ -63,4 +63,6 @@ W2 관문에 필요하다고 한 넷: `serve --config` 로 서버가 뜬다 · `
 - **N9 `serve --start` 로 세션을 켜는 것**이 W2 에 괜찮은가 (M3.3 전의 임시 길).
 - **N10 ADR-012 (SSE 하나)** 는 아직 "제안 · meta 확인 필요" 다. M2.3 을 그대로 만들었다.
 
+**M2.M 뒤 (W2 재생 중, meta 알림 — 기록만, 코드는 판정 뒤 M3 지시로)**: N7 답 (나)를 b7b6263 으로 넣었다. meta 가 재생 중에 가른 사실: headless/SDK 세션은 프로젝트 `.claude/settings.json` 의 `permissions.allow` 를 읽지 않고(Bash 접두 · Edit/Write 경로 · `Write(**)` 모두 거부), 같은 규칙을 `.claude/settings.local.json` 에 두면 먹는다. 훅 · env 는 `settings.json` 에서도 실린다. 그래서 prodev 허용 목록 22건(setup.js 가 settings.json 에 씀)이 조종석에서 안 먹고, W2 재생의 과제 폴더 Read · Write 가 카드로 왔으며, M1 N2(uploads Read 콜백)도 같은 원인이다. 실증 4e · 4j 의 "규칙이 먹는다" 는 규칙 없이도 통과하는 안전 명령을 본 것이었다. 고칠 자리는 prodev PR(W2.9: 허용 · 거부를 settings.local.json 에). cockpit 쪽(`smoke/lib.mjs` makeScratch · `check` 가 그 파일을 보기)은 판정 뒤 지시를 기다린다. 덧: M2 `m2-approval` 판 4 에서 재요청이 0 이었던 것은 판 3 의 답이 바로 그 `settings.local.json` 에 규칙을 써서였을 수도 있다 — b7b6263 뒤(session 으로 돌려줌)에도 재요청 0 인지는 다시 재야 한다.
+
 알고 두는 것: 화면은 브라우저에서 눌러 보지 않았다 (순수 함수 · 정적 검사 · 서버가 파일을 내는 것까지). `m2-compact` 에서 PreCompact 훅은 hook 사건으로 안 보였지만 인수인계서는 생겼다. 스모크 값 합 약 $0.32 (haiku 셋).
