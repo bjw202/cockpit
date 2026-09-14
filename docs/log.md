@@ -188,3 +188,59 @@ W2 관문에 필요하다고 한 넷: `serve --config` 로 서버가 뜬다 · `
 **세션 끝 상태 (2026-09-14 저녁, D0-v2)**
 - 작업 트리: 이 절의 커밋 뒤 깨끗. 코드 · 시험은 안 건드렸다 — `npm test` 는 이 회차에 돌리지 않았다(M4 판 158/158 그대로일 것, 추정).
 - 다음: meta 의 D0-v2 판정 → 통과면 M5 지시. 다음 세션이 읽을 파일: 그 지시문 → 이 절 → `docs/ADR.md` ADR-015~020 → `docs/ARCHITECTURE.md` 4.6 · 7 · 8.4 · 11.1 → `docs/TASKS.md` M5 → `docs/VERIFICATION.md` 4.1.
+
+## 2026-09-15 — M5 minidiscord 화면 · 방 하나 · 방 만들기 = 봇 생성 · 접이식 판 (M5.M 관문 전)
+
+**D0-v2 통과** (meta: 열여섯 중 열다섯 ○ · 필수 여섯 ○). 돌려보낸 칸 하나 — as-built 에 "고친 자리 ↔ minidiscord 기준 ↔ cockpit 시험" 짝 표 (as-built 4.4 에 넣었다). 지시 `instructions/M5.md`. 답: **Q1** `6633f7b` 는 minidiscord `origin/main`(PR #10) — 이 맥 체크아웃이 뒤처져 있었고 meta 가 fetch 해 두었다. 사본은 `git archive`/`git show 6633f7b` 로 떴다. **Q2** find.js · index.js 는 고칠 것 없음, prodev 고칠 자리는 10곳.
+
+**커밋** (태스크마다 하나, `npm test` 는 커밋마다 초록을 보고 넣었다):
+- 81515e2 M5.0 설정 · 옛 files 방 이관 (164)
+- bf1f158 M5.1 방 하나 · 봉투 규칙 (168)
+- acfd4be M5.2 fetch_history 첨부 · 옛 방 읽기 (174)
+- e87718e M5.3 방 만들기 = 봇 생성 · 되돌림 (187)
+- 9ca2e43 M5.4 방 보관 · 봇 길 없음 (193)
+- 8bc69fb M5.5 화면 옮기기 — 사본 다섯 (200)
+- 291a7e8 M5.6 화면 잇기 — glue.js · app.js 7.3 자리 (209)
+- 5c4aa11 M5.7 접이식 조종석 판 (213)
+- 2926067 M5.8 v1 화면 파일 정리 (205 — 지운 시험 여덟만큼 줄었다)
+- b1ca6e1 M5.9 스모크 v2 — m5-room · makeRoomScratch (206)
+- 이 절 · as-built 를 넣은 docs 커밋 (M5.11)
+- prodev **PR #19** (`cockpit-v2`, worktree `../prodev-wt-cockpit-v2/`, 커밋 9db7cac) — ADR-039
+
+**`npm test`** 206건 · 실패 0 · 건너뜀 0 (기본 `../prodev` = 1e02367, 직접 실행). `COCKPIT_PRODEV_DIR=../prodev-wt-cockpit-v2 npm test` 도 206 · 0 · 0. prodev worktree `npm test` 144/144 · `test:server` 18/18 · 끝 조건 grep 0줄.
+
+**스모크 여섯** (이 맥 · haiku · 스크래치 · 기본 `../prodev` = PR #19 전, 판정 아님 — 요지):
+- `m5-room`: `ROOM_CREATE_API 201 room=prodev-smoke bot=prodev-smoke-bot setup_ms=68` · `ROOMS_FOR_PROJECT 1` · `BOT_DIR_SETTINGS_LOCAL yes` · `START_API 200 idle` · `PLAIN_MESSAGES 2 TARGET_ROWS 0 INBOX_ROWS 0` · `BOT_TURNS_AFTER_PLAIN 0` · `DELIVERED_AFTER_PLAIN 0` · `FETCH_HISTORY_CALLED yes` · `FETCH_HISTORY_HAS_ATTACHMENTS yes` · `READ_ATTACHMENT yes` · `BOT_REPLY message_id=4 "파일의 첫 줄은 다음과 같습니다: **lot,yield** …"` · `ARCHIVE_API 200 state=stopped` · `COST_USD 0.0402` · `ASKED []` · exit 0
+- `m5-room --fail-setup`: `ROOM_CREATE_API 502` · `SETUP_ERROR "setup 실패: 오류: 스모크 --fail-setup 대역 — 일부러 exit 1"` · `ROLLBACK_BOT_DIR_EXISTS no` · `ROLLBACK_PROJECT_DIR_EXISTS no` · `ROLLBACK_ROWS 0` · `ASKED []`
+- `m1-hello`: `STATE_AFTER_START idle` · `SYSTEM_PROMPT preset+append` · `BOT_REPLY message_id=2 room=prodev-smoke` · `PRE_REPLY_MARKER yes` · `ASKED []` · $0.0337 · exit 0
+- `m1-envelope` (방 하나 판): `SESSION_START_HOOK yes` · `PRE_REPLY_MARKER yes` · `ROOM_ID 1` · `REPLY_CHAT_ID 1` · `REPLIED_TO_CC no` · `READ_ATTACHMENT yes` · $0.0204 · exit 0
+- `m2-compact`: `COMPACT_API 200 queued=false` · `COMPACTED yes` · `SYSTEM_MESSAGES 2` · `HANDOFF 정상` · `HANDOFF_AT scratch` · `STOP_API 200 stopped` · $0.0671 · exit 0
+- `m3-restart`: `RESUMED session_id=<같은 uuid>` · `REDELIVERED 2` · `BOT_REPLIES_AFTER_RESTART 2` · `START_API_AGAIN 200 idle same_session=yes` · $0.0399 · exit 0
+- 값 합 약 $0.20. 돌리기 전 · 뒤의 실제 `prodev/bots` 목록이 같다 (직접 대조).
+
+**막힌 것 · 고친 것.**
+- 이관 시험이 CLI 자식에서 셋 빨갛다 — 시험 설정의 `port: 0` 이 설정 검사(1~65535)에 걸렸다. 빈 포트를 골라 쓰게 시험을 고쳤다.
+- M5.1 에서 옛 시험 글 스무 곳 남짓이 봉투 없이 봇 배달을 기대했다. `@TO` 를 붙이는 치환이 이미 봉투가 있던 글 둘에 하나를 더 붙여 "`@CC` 참고" 가 to+cc 가 됐다 — 두 시험을 원래 봉투로 되돌렸다.
+- `http-projects` 가 `bot_dir_exists: false` 를 기대했다 — 과제 열기가 이제 setup(시험은 가짜)으로 봇 폴더를 만든다. 기대값을 v2 로.
+- **스크래치의 `scripts/` 는 실제 prodev 로 가는 링크라**, 거기서 `setup.js` 를 부르면 Node 가 링크를 따라 풀어 봇 폴더가 실제 `prodev/bots/` 에 생긴다. `m5-room` 은 prodev 를 **복사한** 자리(`makeRoomScratch`)에서 돈다. 계약 시험 `setup-js` 도 복사본.
+- minidiscord `index.html` 의 인라인 스크립트는 cockpit CSP 에 막힌다 — `web/boot.js` (D0-v2 에서 예고한 대로).
+- prodev: 확정 조건 ② 를 바꾸자 fixture E-0006 이 여전히 막혔지만 **까닭이 ④ 로 바뀌었다** (확정 글 #10 이 같은 과제 본방). 조건 ② 를 재는 시험이 사라진 셈이라, fixture DB 사본에서 글을 옮겨 "같은 과제 본방 통과 · 다른 과제 방 막음" 시험 둘을 더하고 사례 이름을 사실대로 고쳤다.
+
+**스스로 정한 것 (as-built 5절에 까닭).**
+- 화면 사본은 스크래치 생성 스크립트(`port-web.mjs`)가 원본에서 매번 새로 만든다 — 함수 단위 치환이 정확히 한 번 맞아야 한다. 원본 지문(파일 sha256 · app.js 최상위 함수 지문)은 `test/fixtures/minidiscord-web.json` 에 두어 형제 저장소 없이 시험한다.
+- **M5.5 커밋에 7.3 표의 일부(로그인 비밀번호 · 봇 칸 · 봇 다이얼로그)가 먼저 들어갔다** — M5.5 끝 조건(`/api/bots` 0 · 비밀번호 칸)이 그것을 요구했다. SSE · 칩 · 미리 채움은 M5.6.
+- `app.js` 에 새 최상위 함수는 `loadProjects` · `openAppStream` 둘뿐 — 미리 채움 · 역할 단추는 이미 바뀌는 함수(`openRoom` · `sendMessage` · `initApp`) 안에 넣었다.
+- 판은 minidiscord `api()`(상태 코드 없음) 대신 자기 `call()` 을 쓴다 — 409 `TASKS_RUNNING` 확인 때문. 판의 승인 카드는 지금 연 방의 과제 것만, 접힌 단추의 수는 전체.
+- 방 만들기: 이름 규칙을 `src/rooms/create.js` 로 옮겨 `routes-projects` 가 다시 내보낸다 · 같은 이름 동시 요청은 `chat.db` 연결마다 잠금 하나 · 되돌림에서 못 지운 경로는 `left` 로 · CLI `open-project` 는 이제 기본이 setup(스모크 · 옛 봇 이름 재생은 `--no-setup`).
+- `check` 는 `prodevDir` 를 짐작한 자리면 `·` 한 줄(실패 아님), 적어 준 자리에 `setup.js` 가 없으면 `✗`.
+- 보관 길은 과제의 **본방**일 때만 세션을 끈다 — 활성으로 남은 옛 files 방을 보관할 때 세션을 건드리지 않게.
+
+**재생 전 조건 (VERIFICATION 4.1 ①~③).** ① 위 `npm test` 206 · 0 · 0 ② prodev PR #19 머지 뒤, 또는 `COCKPIT_PRODEV_DIR=../prodev-wt-cockpit-v2` — 안 들어가면 확정 조건 ② 가 본방의 "확정" 을 막는다 ③ 옛 봇 이름 재생은 `node bin/cockpit.js open-project <과제> --no-setup --bot-name <이름> --bot-dir <스크래치 봇 폴더>`, 새 이름은 `POST /api/rooms`(진짜 setup) ④ v1 로 연 `chat.db` 를 이어 쓰면 먼저 `migrate-v2 --apply`.
+
+**새 질문 (meta 에).**
+- **Q3 화면 눌러 보기.** v2 는 화면이 바뀐 회차인데 기계가 보는 것은 정적 검사 · 순수 함수 · "원본에서 달라진 함수가 7.3 표뿐" 까지다. 브라우저에서 방 만들기 · 방 전환 · 자동완성 · 붙여넣기 · 판 접기를 사람이 한 번 눌러 볼 자리를 M5.M 에 둘지 (M3.M N13 은 회사 PC 설치 때로 미뤘다).
+- **Q4 M5.M 재생의 봇 폴더.** 옛 대본의 봇 이름(`prodev-worktogether-비서`)은 setup 이 못 만든다. W2 처럼 스크래치 봇 폴더 + `open-project --no-setup` 으로 할지, 대본 v2 를 `prodev-<과제>-bot` 이름으로 바꿔 `POST /api/rooms`(진짜 setup) 로 할지.
+
+**세션 끝 상태 (2026-09-15, M5)**
+- cockpit 작업 트리: M5.11 docs 커밋 뒤 깨끗. prodev worktree `../prodev-wt-cockpit-v2` 는 가지 `cockpit-v2`(PR #19 열림, 머지 전). `../prodev-wt-cockpit`(cockpit-m3)은 쓰지 않음.
+- 다음 세션이 읽을 파일: meta 의 M5.M 판정 · 다음 지시 → 이 절 → `docs/as-built.md`(4.3 대체된 시험 짝 · 4.4 minidiscord 기준 짝 · 5절) → `docs/TASKS.md` M5 → `smoke/README.md` m5-room.
