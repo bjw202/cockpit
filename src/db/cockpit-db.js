@@ -117,8 +117,9 @@ export class CockpitDb {
   setSessionId(project, sessionId) {
     this.db.prepare('UPDATE agent_sessions SET session_id = ?, started_at = COALESCE(started_at, ?) WHERE project = ?').run(sessionId, iso(Date.now()), project);
   }
+  // SDK 의 result.total_cost_usd 는 그 세션의 누적값이다 — 더하지 않고 덮어쓴다 (meta W2r.2: 더해서 $51.57 로 보인 것의 실제는 $2.72)
   recordResult(project, costUsd) {
-    this.db.prepare('UPDATE agent_sessions SET last_result_at = ?, cost_usd = cost_usd + ? WHERE project = ?').run(iso(Date.now()), Number(costUsd) || 0, project);
+    this.db.prepare('UPDATE agent_sessions SET last_result_at = ?, cost_usd = ? WHERE project = ?').run(iso(Date.now()), Number(costUsd) || 0, project);
   }
 
   // ── 사건 ───────────────────────────────────────────────

@@ -57,6 +57,6 @@ test('agent_sessions 의 state 는 여섯 값만 받는다', () => {
   assert.equal(db.agentSession('시험').state, 'stopped');
   db.setState('시험', 'waiting_approval');
   assert.throws(() => db.setState('시험', 'sleeping'));
-  db.recordResult('시험', 0.05); db.recordResult('시험', 0.03);
+  db.recordResult('시험', 0.05); db.recordResult('시험', 0.08);   // SDK total_cost_usd 는 누적값 — 덮어쓴다 (W2r.2)
   assert.ok(Math.abs(db.agentSession('시험').cost_usd - 0.08) < 1e-9);
 });

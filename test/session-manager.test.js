@@ -268,6 +268,22 @@ test('stream_event 는 session_events 에 안 적는다', async () => {
   await mgr.stop('시험');
 });
 
+test('result 셋(0.1 · 0.25 · 0.4) 뒤 cost_usd 는 0.4', async () => {
+  // SDK 의 result.total_cost_usd 는 그 세션의 누적값이다 — 더하면 0.75 가 된다 (meta W2r.2: $51.57 로 보인 것의 실제는 $2.72)
+  const w = world();
+  const q = makeFakeQueryFn({ turns: [[{ result: true, cost: 0.1 }], [{ result: true, cost: 0.25 }], [{ result: true, cost: 0.4 }]] });
+  const mgr = manager(w, q); const { main } = open(mgr, w);
+  await mgr.start('시험');
+  const results = () => mgr.cockpitDb.eventsAfter('시험').filter(e => e.type === 'result');
+  for (const [i, body] of ['하나', '둘', '셋'].entries()) {
+    mgr.postUserMessage({ roomId: main.id, username: '김과제', body });
+    await waitFor(() => results().length === i + 1 && mgr.state('시험') === 'idle', { what: `result ${i + 1}` });
+  }
+  assert.ok(Math.abs(mgr.cockpitDb.agentSession('시험').cost_usd - 0.4) < 1e-9, `덮어쓴다: ${mgr.cockpitDb.agentSession('시험').cost_usd}`);
+  assert.deepEqual(results().map(e => e.data.total_cost_usd), [0.1, 0.25, 0.4], 'session_events 의 result 행에는 그 값을 그대로');
+  await mgr.stop('시험');
+});
+
 test('CLI 가 죽으면 state error 와 까닭', async () => {
   const w = world();
   const q = makeFakeQueryFn({ turns: [[{ throw: 'spawn claude ENOENT' }]] });
