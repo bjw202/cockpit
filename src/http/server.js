@@ -16,6 +16,7 @@ import { registerAuthRoutes } from './routes-auth.js';
 import { registerRoomRoutes } from './routes-rooms.js';
 import { registerMessageRoutes } from './routes-messages.js';
 import { registerPermissionRoutes } from './routes-permissions.js';
+import { registerProjectRoutes } from './routes-projects.js';
 
 export const DEFAULT_WEB_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'web');
 
@@ -77,6 +78,7 @@ export function createApp(baseCtx) {
   registerRoomRoutes(route, ctx);
   registerMessageRoutes(route, ctx);
   registerPermissionRoutes(route, ctx);
+  registerProjectRoutes(route, ctx);
 
   const webDir = ctx.webDir ?? DEFAULT_WEB_DIR;
   const secure = !!ctx.config?.tls;
