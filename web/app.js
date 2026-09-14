@@ -198,6 +198,7 @@ export async function logout() {
   state.rooms = { active: [], archived: [] }
   state.projects = []
   state.currentRoomId = null
+  if (state.sse) { state.sse.close(); state.sse = null }   // (cockpit) 앱 흐름 하나를 닫는다 (ADR-012)
   showAuth()
 }
 
@@ -260,11 +261,7 @@ function toastError(err) {
 export async function openRoom(id) {
   // 0단계 — 채팅 전용 state 필드를 만들고 작성기 핸들러를 건다
   initChat()
-  // 1단계 — 열려 있는 스트림이 있으면 닫는다
-  if (state.sse) {
-    state.sse.close()
-    state.sse = null
-  }
+  // 1단계 — (cockpit) 스트림은 방마다 열고 닫지 않는다. 로그인 뒤 앱 흐름 하나가 열려 있다 (openAppStream · ADR-012)
   // 2단계 — 이전 방의 stale 타이머를 전부 해제하고 working·stale 표시를 비운다
   for (const key of Object.keys(state.staleTimers)) {
     clearTimeout(state.staleTimers[key])
@@ -309,9 +306,12 @@ export async function openRoom(id) {
   scrollMessages()
   // 8단계 — 초대 목록을 받아 캐시하고 봇 칩을 그린다
   await refreshRoomBots()
-  // 9단계 — 스트림을 연다 (같은 세대일 때만)
+  // 9단계 — (cockpit) 작성기에 @TO(봇) 을 미리 채운다 — 지우면 사람끼리의 글 (ADR-018)
   if (generation !== state.roomGeneration) return
-  openStream()
+  const project = projectOfRoom(state.projects, id)
+  const fill = prefillValue({ value: $('msg-input').value, bot: project?.bot, archived: room?.status === 'archived' })
+  if (fill !== null) { $('msg-input').value = fill; refreshSendState() }
+  $('msg-input').placeholder = composerHint($('msg-input').value)
 }
 
 // ── 이름 입력 다이얼로그 ──────────────────────────────────────────────
@@ -345,6 +345,7 @@ export function initApp() {
       await loadMe()
       renderRooms()
       $('new-room-btn').hidden = state.user?.role !== 'admin'   // (cockpit) 방 만들기 = 봇 생성은 admin 만 (ADR-017)
+      openAppStream()
     } catch { /* login 이 이미 #auth-error 를 채웠다 */ }
   })
   $('new-room-btn').addEventListener('click', async () => {
@@ -359,6 +360,7 @@ export function initApp() {
     .then(() => loadProjects())
     .then(() => {
         $('new-room-btn').hidden = state.user?.role !== 'admin'   // (cockpit) 방 만들기 = 봇 생성은 admin 만 (ADR-017)
+        openAppStream()
       showMain()
     })
     .catch(() => showAuth())
@@ -544,15 +546,11 @@ export function renderMessage(m, prev = lastRenderedMsg) {
   lastRenderedMsg = m
 }
 
-// 참여 목록(v2: GET /api/rooms/:id/bots — [{bot_id, bot_name, online}])을 받아 캐시하고 봇 칩을 다시 그린다.
+// (cockpit) 방 봇 칩 · 자동완성의 재료 — /api/rooms/:id/bots 대신 과제 목록에서 같은 모양 [{bot_id, bot_name, online}] 을 만든다 (R13).
 // 방을 열 때(openRoom 8단계)와 참여를 더한 뒤에만 부른다 — 키 입력마다 부르지 않는다 (REQ-WEBCHAT-009).
 // 응답 반영 직전에 방 세대를 검사한다.
 export async function refreshRoomBots() {
-  const generation = state.roomGeneration
-  const id = state.currentRoomId
-  const participants = await api(`/api/rooms/${id}/bots`)
-  if (generation !== state.roomGeneration) return   // 방이 바뀐 사이에 온 응답은 버린다
-  state.roomBots = participants
+  state.roomBots = roomBotsOf(state.projects, state.currentRoomId)
   renderRoomBots()
 }
 
@@ -582,40 +580,56 @@ function hideAutocomplete() {
   acIndex = 0   // 숨기면 옛 선택 위치는 뜻이 없다 (REQ-WEBACNAV-001)
 }
 
-// ── 실시간 수신 ───────────────────────────────────────────────────────
-// EventSource 를 열고 message·bot_status·error/open 을 듣는다 (REQ-WEBCHAT-005~008).
-function openStream() {
-  const id = state.currentRoomId
-  const generation = state.roomGeneration
-  const es = new EventSource(`/api/rooms/${id}/events`)
+// (cockpit) 실시간 — 방마다가 아니라 로그인 뒤 GET /api/stream 하나를 연다 (ADR-012 · ARCHITECTURE 7.3).
+// message 는 { project, message } 로 온다 — 지금 연 방의 글만 그린다. bot_status 는 { project, status } 를 working/idle 로 바꿔 칩에 넘긴다.
+// 재연결 백필은 minidiscord 그대로 REST 커서(?after=)다.
+function openAppStream() {
+  initChat()   // 채팅 state 필드를 먼저 만든다 — 뒤에 부르는 initChat 이 state.sse 를 null 로 덮지 않게
+  if (state.sse) return
+  const es = new EventSource('/api/stream')
   state.sse = es
   let hadError = false
-
-  es.addEventListener('message', (e) => {
-    const m = JSON.parse(e.data)
+  const on = (type, fn) => es.addEventListener(type, (e) => {
+    let data
+    try { data = JSON.parse(e.data) } catch { return }
+    Promise.resolve(fn(data)).catch(err => console.warn(`cockpit 사건 ${type}`, err))
+  })
+  on('message', (d) => {
+    const m = messageForRoom(d, state.currentRoomId)
+    if (!m) return
     renderMessage(m)
     scrollMessages()
-    // 마지막 수신 id — 재연결 백필의 커서다 (REQ-WEBCHAT-005)
     state.lastEventId = m.id
   })
-
-  es.addEventListener('bot_status', (e) => {
-    const { bot_id, state: botState } = JSON.parse(e.data)
-    markBotStatus(bot_id, botState)
+  on('bot_status', (d) => {
+    const project = state.projects.find(p => p.name === d.project)
+    if (project?.bot && project.rooms?.main?.id === state.currentRoomId) markBotStatus(project.bot.id, botMark(d.status))
   })
-
+  on('session_state', async (d) => {
+    const project = state.projects.find(p => p.name === d.project)
+    if (project) project.session.state = d.state
+    await refreshRoomBots()
+  })
+  for (const type of ['room_created', 'room_archived']) {
+    on(type, async (d) => {
+      await loadRooms()
+      await loadProjects()
+      await refreshRoomBots()
+    })
+  }
   es.addEventListener('error', () => { hadError = true })
-
-  // 첫 연결이 아니라 error 뒤의 재연결이면 끊긴 사이의 메시지를 커서로 백필한다 (REQ-WEBCHAT-008).
-  // 서버가 id:/retry: 를 발행하지 않으므로 Last-Event-ID 재개 경로는 없다 — REST 커서뿐이다.
+  // 첫 연결이 아니라 error 뒤의 재연결이면 끊긴 사이의 글을 커서로 백필한다 (REQ-WEBCHAT-008 그대로)
   es.addEventListener('open', async () => {
     if (!hadError) return
-    if (generation !== state.roomGeneration) return
+    hadError = false
+    const id = state.currentRoomId
+    const generation = state.roomGeneration
+    if (id === null) return
     const { messages } = await api(`/api/rooms/${id}/messages?after=${state.lastEventId}`)
     if (generation !== state.roomGeneration) return
     for (const m of messages) {
       renderMessage(m)
-      state.lastEventId = m.id   // 커서를 계속 올린다 — 반복 재연결에도 중복이 없게 한다
+      state.lastEventId = m.id
     }
     scrollMessages()
   })
@@ -665,6 +679,7 @@ function currentMentionToken() {
 function onComposerInput() {
   // 보내기 상태 갱신이 먼저다 — 아래에 조기 return 이 있어도 매 입력에서 돌아야 한다 (REQ-WEBUI-011)
   refreshSendState()
+  $('msg-input').placeholder = composerHint($('msg-input').value)   // (cockpit) 봉투가 없으면 봇에게 안 간다고 알린다 (ADR-018)
   const token = currentMentionToken()
   if (token === null) { hideAutocomplete(); return }
   const prefix = token.toLowerCase()
@@ -808,6 +823,9 @@ export async function sendMessage() {
   try {
     await api(`/api/rooms/${state.currentRoomId}/messages`, { method: 'POST', body: form })
     clearPickedFiles()  // 성공했을 때만 비운다 — 실패하면 선택이 남아 다시 보내기로 그대로 나간다
+    // (cockpit) 보낸 뒤 입력칸이 비었으면 @TO(봇) 을 다시 채운다 (ADR-018)
+    const fill = prefillValue({ value: box.value, bot: projectOfRoom(state.projects, state.currentRoomId)?.bot, archived: false })
+    if (fill !== null) { box.value = fill; refreshSendState() }
   } catch (err) {
     notifyError(err)
     // 그 사이 사용자가 다음 메시지를 치고 있을 수 있다 — 빈 칸일 때만 되살린다 (plan.md §D 9번)
@@ -1095,6 +1113,7 @@ function notifyError(err) {
 // isImageFilename 은 SPEC-WEBRICH-001 이 이미 export 한다 — 작성기의 미리보기 판정과
 // 보낸 뒤의 표시 판정이 같은 자를 쓰도록, 새 판정 함수를 만들지 않고 이름 하나를 더 가져온다.
 import { createRichContext, isImageFilename } from './rich.js'   // (cockpit) 봇 참여 · 등록 명령 다이얼로그는 옮기지 않는다 (R13)
+import { botMark, composerHint, messageForRoom, prefillValue, projectOfRoom, roomBotsOf } from './glue.js'   // (cockpit) 잇는 순수 함수 (ARCHITECTURE 7.3)
 import { renderMarkdown } from './markdown.js'
 
 // 배선 계약 (spec.md REQ-WEBRICH-002) — 방을 열 때마다 openRoom 3-1단계가

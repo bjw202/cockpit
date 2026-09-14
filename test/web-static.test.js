@@ -131,6 +131,38 @@ test('web/ 어느 파일에도 /api/bots 가 없다', () => {
   assert.deepEqual(webFiles().filter(f => f.text.includes('/api/bots')).map(f => f.name), []);
 });
 
+// 최상위 함수 — 줄 머리의 [export] [async] function 이름( 부터 다음 '}' 한 줄까지 (scratchpad port-web.mjs 가 원본 지문을 같은 자르기로 적었다)
+function topFunctions(src) {
+  const lines = src.split('\n');
+  const out = new Map();
+  for (let i = 0; i < lines.length; i++) {
+    const m = /^(?:export )?(?:async )?function (\w+)\s*\(/.exec(lines[i]);
+    if (!m) continue;
+    let j = i;
+    while (j < lines.length && lines[j] !== '}') j++;
+    out.set(m[1], lines.slice(i, j + 1).join('\n'));
+    i = j;
+  }
+  return out;
+}
+
+// ARCHITECTURE 7.3 표 — 이 밖의 함수를 고치면 여기서 빨갛다
+const TABLE_7_3 = {
+  changed: ['initApp', 'login', 'logout', 'onComposerInput', 'openRoom', 'refreshRoomBots', 'renderRooms', 'sendMessage'],
+  removed: ['createBot', 'deleteBot', 'hideInviteError', 'initInvite', 'inviteNodes', 'loadBots', 'openStream', 'pickParticipant', 'renderBots', 'showInviteError', 'showRegistration'],
+  added: ['loadProjects', 'openAppStream'],
+};
+
+test('app.js 에서 원본과 본문이 달라진 최상위 함수는 ARCHITECTURE 7.3 표의 것뿐', () => {
+  const now = topFunctions(read('app.js'));
+  const before = FIX.appFunctions;
+  assert.ok(Object.keys(before).length > 50, '원본 지문이 비어 있지 않다');
+  const changed = [...now].filter(([n, text]) => n in before && sha(text) !== before[n]).map(([n]) => n).sort();
+  const removed = Object.keys(before).filter(n => !now.has(n)).sort();
+  const added = [...now.keys()].filter(n => !(n in before)).sort();
+  assert.deepEqual({ changed, removed, added }, TABLE_7_3);
+});
+
 test('로그인 폼에 type=password 칸 하나', () => {
   const form = /<form id="login-form">([\s\S]*?)<\/form>/.exec(read('index.html'));
   assert.ok(form, '로그인 폼이 없다');
