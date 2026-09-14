@@ -119,7 +119,8 @@ export class PermissionRelay extends EventEmitter {
   #resultOf(behavior, { by, reason, input, card }) {
     switch (behavior) {
       case 'allow': return { behavior: 'allow', updatedInput: input };
-      case 'allow_session': return { behavior: 'allow', updatedInput: input, updatedPermissions: card.suggestions ?? [] };
+      // 이름대로 "이번 세션" 만 — SDK 가 localSettings 등을 주어도 session 으로 바꿔 넣는다. 봇 폴더에 영구 규칙을 남기지 않는다 (meta M2.M N7 · ADR-009)
+      case 'allow_session': return { behavior: 'allow', updatedInput: input, updatedPermissions: (card.suggestions ?? []).map(s => ({ ...s, destination: 'session' })) };
       case 'deny': return { behavior: 'deny', message: reason ? `${by} 거부: ${reason}` : `${by} 거부` };
       case 'timeout': return { behavior: 'deny', message: `승인 시간 초과 (${this.timeoutMin}분)` };
       default: return { behavior: 'deny', message: '승인 요청을 거둬 갔다 (멈춤 · 끄기)' };

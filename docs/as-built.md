@@ -154,7 +154,7 @@ TASKS 에 적은 시험 이름은 모두 이 이름 그대로 있다 (TASKS M2 �
 
 ## 6. 알고 두는 것
 
-- **"이번 세션 허용" 이 봇 폴더에 영구 규칙을 쓴다.** `m2-approval` 판 3 에서 SDK 가 준 `suggestions` 의 `destination` 이 `localSettings` 였고, 그대로 `updatedPermissions` 로 돌려주자 스크래치 봇 폴더에 `.claude/settings.local.json` 이 생겼다: `{"permissions":{"allow":["Bash(curl --version)"]}}`. 이름은 "이번 세션" 인데 세션이 끝나도 남는다. 지금 코드는 설계(ARCHITECTURE 6절 ⑥ · meta M2 지시 4절 2항)대로 그대로 돌려준다 — meta 질문으로 올린다 (log M2 절).
+- **"이번 세션 허용" 이 봇 폴더에 영구 규칙을 쓴다.** `m2-approval` 판 3 에서 SDK 가 준 `suggestions` 의 `destination` 이 `localSettings` 였고, 그대로 `updatedPermissions` 로 돌려주자 스크래치 봇 폴더에 `.claude/settings.local.json` 이 생겼다: `{"permissions":{"allow":["Bash(curl --version)"]}}`. 이름은 "이번 세션" 인데 세션이 끝나도 남는다. meta N7 답 (나)에 따라 돌려줄 때 `destination` 을 전부 `session` 으로 바꿔 넣는다 (M2.M 뒤 커밋 · ADR-009 바뀐 자리 · 시험 `allow_session 의 updatedPermissions 는 전부 destination=session`). W2 판정 사본(f22af98)에는 들어 있지 않다.
 - SDK 가 카드 `title` 을 **null** 로 줬다(haiku · Bash). 카드는 `displayName`("Bash") 을 쓴다.
 - 화면은 **브라우저에서 눌러 보지 않았다.** 확인한 것은 순수 함수 시험 · 정적 검사 · 진짜 서버가 파일 여섯을 200 과 CSP 로 내는 것 · 모듈 문법 검사(`node --check`)까지다.
 - SSE 흐름은 연 뒤에 쿠키가 만료돼도 스스로 닫지 않는다. 로그아웃은 닫는다.

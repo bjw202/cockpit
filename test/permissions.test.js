@@ -140,6 +140,24 @@ test('allow_session 은 updatedPermissions=suggestions', async t => {
   assert.equal(w.cockpitDb.permission('toolu_A').behavior, 'allow_session');
 });
 
+test('allow_session 의 updatedPermissions 는 전부 destination=session', async t => {
+  const { w, ask, answer } = await world(t);
+  // m2-approval 스모크에서 SDK 가 실제로 준 꼴 — destination 이 localSettings 였고 그대로 돌려주자 봇 폴더에 규칙이 남았다
+  const given = [
+    { type: 'addRules', rules: [{ toolName: 'Bash', ruleContent: 'curl --version' }], behavior: 'allow', destination: 'localSettings' },
+    { type: 'addDirectories', directories: ['/tmp/x'], destination: 'projectSettings' },
+    { type: 'addRules', rules: [{ toolName: 'Read' }], behavior: 'allow', destination: 'session' },
+  ];
+  const pending = ask('toolu_A', { suggestions: given });
+  await waitFor(() => w.cockpitDb.pendingPermissions().length === 1, { what: '요청' });
+  assert.equal((await answer('김피엘', 'toolu_A', { decision: 'allow_session' })).status, 200);
+  const result = await pending;
+  assert.equal(result.updatedPermissions.length, 3);
+  assert.ok(result.updatedPermissions.every(p => p.destination === 'session'), JSON.stringify(result.updatedPermissions));
+  assert.deepEqual(result.updatedPermissions.map(({ destination, ...rest }) => rest), given.map(({ destination, ...rest }) => rest), '규칙 내용은 그대로');
+  assert.deepEqual(JSON.parse(w.cockpitDb.permission('toolu_A').card_json).suggestions, given, '카드 기록에는 SDK 가 준 그대로 남긴다');
+});
+
 test('suppressAlwaysAllowRule 이면 allow_session 400', async t => {
   const { w, ask, answer } = await world(t);
   const pending = ask('toolu_A', { suggestions: SUGGESTIONS, suppressAlwaysAllowRule: true });

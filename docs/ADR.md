@@ -70,6 +70,7 @@
 **결정** 키는 `toolUseID`. 답은 `UPDATE … WHERE answered_at IS NULL` 로 첫 답만 먹는다(나머지 409). `approvalTimeoutMin`(기본 10) 무응답이면 거부. `suppressAlwaysAllowRule` 이면 "이번 세션 허용" 을 받지 않고, `defaultToNo` 면 기본 선택이 거부다. 요청과 답을 본방 `author_type='system'` 글로 한 줄씩 남긴다 — 요청 줄은 🔒, 답 줄은 ✅(허용 · 이번 세션 허용) · ⛔(거부 · 시간 초과 · 거둬 감). admin 만 답한다.
 **까닭** 요청 단위가 아니면 동시 요청 둘을 못 가른다. 기한이 없으면 사람이 자리를 비운 사이 세션이 영영 선다 (`plans/research/design-review-1.md` #4 · #5 · `plans/research/coupling-inventory.md` C.7).
 **결과** 🔒 글 수 = 승인 요청 수다 (meta D0 Q7). 답은 ✅ · ⛔ 로 따로 센다.
+**바뀐 자리 (meta M2.M N7, 2026-09-14)** "이번 세션 허용" 은 SDK `suggestions` 를 돌려주되 `destination` 을 전부 `'session'` 으로 바꿔 넣는다 — `m2-approval` 스모크에서 SDK 가 `localSettings` 를 주었고, 그대로 돌려주자 봇 폴더 `.claude/settings.local.json` 에 영구 허용 규칙이 남았다. 카드 기록(`card_json`)에는 SDK 가 준 그대로 둔다.
 
 ## ADR-010 프레임워크도 빌드도 없다
 **상태** 제안
@@ -86,7 +87,7 @@
 **결과** 매개변수가 저장 꼴에 있어 나중에 올려도 옛 해시가 산다.
 
 ## ADR-012 브라우저 실시간은 SSE 하나 — WebSocket 이 아니다
-**상태** 제안 (설계 문서는 `/ws` 를 적었다 — meta 확인 필요)
+**상태** 채택(meta, D0 승인 · M2.M N10 에서 확인, 2026-09-14). 설계 문서는 `/ws` 를 적었었다
 **맥락** 브라우저 → 서버는 글 올리기 · 승인 답 · 세션 조작이고, 셋 다 드문 요청이라 REST 로 족하다. 서버 → 브라우저는 계속 흐른다(글 · 봇 상태 · 도구 호출 · 카드). Node 에는 WebSocket **서버**가 없어 `ws` 패키지가 든다. minidiscord 도 방별 SSE 였다.
 **결정** `GET /api/stream` SSE 하나에 사건을 전부 싣는다. 사건마다 id 를 붙여 재접속 때 `Last-Event-ID` 로 놓친 것을 받는다. 살아 있는 글자(`partial`)는 id 없이 흘리고 놓치면 버린다.
 **까닭** 의존성이 안 늘고, 재접속 · 이어 받기가 브라우저 `EventSource` 에 들어 있다. 조종석 판의 되그리기 요구와 맞는다.
