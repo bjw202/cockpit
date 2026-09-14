@@ -1,6 +1,7 @@
 // 출처 핀: minidiscord web/markdown.js — 저장소 핀 dfa33c3, 이 파일이 마지막으로 바뀐 커밋 b374dc8 2026-09-11, 원본 sha256 6db7e2c1728e369db14bf846327a222c5faf9f885c10417fb7dec7ef3305e28f
 // 아래는 원본을 한 글자도 안 바꾼 사본이다. 고칠 일은 minidiscord 에서 하고 다시 옮긴다 (ARCHITECTURE 7절 · ADR-010).
 // cockpit 화면에서 마크다운을 DOM 으로 바꾸는 유일한 자리다 — innerHTML 을 쓰지 않는다 (test/web-static.test.js).
+// (M5.5) 화면 다섯을 옮긴 핀 6633f7b 안의 web/markdown.js 도 위 sha256 과 같다 — 저장소 핀 dfa33c3 은 그대로 둔다 (meta M5 지시 2절).
 
 /*
  * minidiscord 웹 마크다운 렌더러 (SPEC-WEBMD-001)

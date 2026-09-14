@@ -1,0 +1,60 @@
+/* 출처 핀: minidiscord web/design-tokens.css — 저장소 핀 6633f7b, 이 파일이 마지막으로 바뀐 커밋 edd982e 2026-08-26, 원본 sha256 331812e6846e5fec0f48f2f92834b8c963826ef31cec523ba64574268f82fef2 */
+/*
+ * minidiscord 디자인 토큰
+ * 출처: 사용자 제공 Discord 앱 스크린샷 분석 (.moai/project/design-dna-discord.md)
+ * M5(웹 UI) 작업은 이 파일을 web/style.css 맨 위에서 불러와 쓴다.
+ */
+
+:root {
+  /* 색상 — 배경 레이어 (어두운 순서) */
+  --md-bg-sidebar: #1e1f22;      /* 방 목록 사이드바 */
+  --md-bg-panel: #2b2d31;        /* 봇 상태 패널, 카드류 */
+  --md-bg-main: #313338;         /* 채팅 영역 (가장 밝은 배경) */
+  --md-bg-hover: #2e3035;        /* 메시지/리스트 항목 호버 */
+  --md-bg-input: #383a40;        /* 메시지 입력창 배경 */
+
+  /* 색상 — 텍스트 */
+  --md-text-primary: #f2f3f5;
+  --md-text-muted: #949ba4;
+  --md-text-link: #00a8fc;
+
+  /* 색상 — 강조/상태 */
+  --md-accent: #5865f2;          /* 브랜드 강조색(블러플) — 버튼, 포커스 링, 뱃지 */
+  --md-status-online: #23a55a;
+  --md-status-idle: #f0b232;
+  --md-status-error: #f23f43;
+
+  /* 색상 — 구분선 */
+  --md-divider: #3f4147;
+
+  /* 봇 이름 색 팔레트 — 봇마다 순서대로 배정해 누가 말했는지 구분 */
+  --md-role-color-1: #f3a06c; /* 주황 */
+  --md-role-color-2: #57f287; /* 초록 */
+  --md-role-color-3: #eb459e; /* 핑크 */
+  --md-role-color-4: #5865f2; /* 블러플 */
+  --md-role-color-5: #fee75c; /* 노랑 */
+
+  /* 타이포그래피 */
+  --md-font-family: -apple-system, "Segoe UI", "Noto Sans KR", sans-serif;
+  --md-font-size-body: 15px;
+  --md-font-size-timestamp: 12px;
+  --md-font-size-label: 11px;
+  --md-font-weight-name: 600;
+
+  /* 간격 — 4px 배수 체계 */
+  --md-space-1: 4px;
+  --md-space-2: 8px;
+  --md-space-3: 12px;
+  --md-space-4: 16px;
+  --md-space-5: 20px;
+
+  /* 모양 */
+  --md-radius-avatar: 50%;
+  --md-radius-input: 8px;
+  --md-radius-badge: 4px;
+  --md-border-width: 1px;
+
+  /* 레이아웃 */
+  --md-sidebar-width: 240px;
+  --md-panel-width: 240px;
+}

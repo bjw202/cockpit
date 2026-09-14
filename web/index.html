@@ -1,82 +1,99 @@
-<!doctype html>
+<!DOCTYPE html>
+<!-- 출처 핀: minidiscord web/index.html — 저장소 핀 6633f7b, 이 파일이 마지막으로 바뀐 커밋 e31dfba 2026-09-11, 원본 sha256 b625f21b81844e62cb1e16ca3ad5e0545caf2a3badf237b3fc82bf6a52e8d14a -->
+<!-- cockpit 이 ARCHITECTURE 7.3 표의 자리를 고쳤다 (제목 · 켜기 스크립트 · 비밀번호 칸 · 봇 칸 · 봇 다이얼로그) -->
 <html lang="ko">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>cockpit</title>
-<link rel="stylesheet" href="style.css">
-<script type="module" src="app.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>cockpit</title>
+  <link rel="stylesheet" href="/style.css">
+  <!-- (cockpit) 인라인 스크립트는 CSP script-src 'self' 에 막힌다 — 켜기 두 줄을 파일로 옮겼다 -->
+  <script type="module" src="/boot.js"></script>
 </head>
 <body>
-<section id="login" class="login" hidden>
-  <form id="login-form" class="login-box">
-    <h1>cockpit</h1>
-    <label>이름 <input name="username" autocomplete="username" required></label>
-    <label>비밀번호 <input name="password" type="password" autocomplete="current-password" required></label>
-    <button type="submit">들어가기</button>
-    <p id="login-error" class="error" role="alert"></p>
-  </form>
-</section>
+  <!-- 인증 화면 — (cockpit) 이름과 비밀번호로 들어온다 · 계정은 admin 이 만든다 (ADR-011) -->
+  <section id="auth-view">
+    <!-- 서버가 준 오류 문구가 여기 뜬다 — 화면은 인증 뷰에 머문다 (REQ-WEBSHELL-008) -->
+    <p id="auth-error" hidden></p>
+    <form id="login-form">
+      <h1>cockpit</h1>
+      <label for="login-username">사용자 이름</label>
+      <input id="login-username" autocomplete="username">
+      <label for="login-password">비밀번호</label>
+      <input id="login-password" type="password" autocomplete="current-password">
+      <button type="submit">들어가기</button>
+    </form>
+  </section>
 
-<section id="app" class="app" hidden>
-  <header class="topbar">
-    <strong class="brand">cockpit</strong>
-    <nav id="tabs" class="tabs" aria-label="과제"></nav>
-    <span id="me" class="me"></span>
-    <button id="logout" type="button" class="quiet">나가기</button>
-  </header>
-
-  <nav id="panes" class="panes" role="tablist" aria-label="판"></nav>
-
-  <main class="layout">
-    <section id="pane-cockpit" class="pane cockpit" aria-label="조종석" hidden>
-      <p id="cockpit-error" class="error" role="alert"></p>
-      <div id="cockpit"></div>
-    </section>
-
-    <section id="pane-files" class="pane files" aria-label="파일" hidden>
-      <div id="files-tree" class="files-tree"></div>
-      <div id="files-preview" class="files-preview"><p class="empty">파일을 고르세요</p></div>
-    </section>
-
-    <section id="pane-chat" class="pane chat" aria-label="채팅">
-      <div class="chat-head">
-        <div class="rooms" role="tablist" aria-label="방">
-          <button type="button" role="tab" data-room="main">본방</button>
-          <button type="button" role="tab" data-room="files">파일방</button>
-        </div>
-        <span id="room-name" class="room-name"></span>
-        <span id="bot-chip" class="chip" hidden></span>
+  <!-- 메인 화면: 사이드바 + 채팅. 채팅 내용물는 형제 SPEC(SPEC-WEBCHAT-001) 소유다 -->
+  <div id="main-view" hidden>
+    <nav id="sidebar">
+      <div class="sidebar-head">
+        <h2>방</h2>
+        <!-- + 는 SVG 아이콘이 되었고 글자 라벨은 aria-label 로 옮겼다 (REQ-WEBUI-004) -->
+        <button id="new-room-btn" type="button" aria-label="새 방"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
       </div>
-      <ol id="messages" class="messages" aria-live="polite"></ol>
-      <p id="partial" class="partial" hidden></p>
-      <form id="composer" class="composer">
-        <ul id="pending-files" class="pending-files"></ul>
-        <textarea id="body" name="body" rows="3" placeholder="글을 쓰세요 — Ctrl+Enter 로 보냅니다. 그림은 붙여넣어도 됩니다"></textarea>
-        <div class="composer-row">
-          <label class="file-pick">첨부 <input id="file-input" type="file" multiple></label>
-          <span id="send-error" class="error" role="alert"></span>
-          <button type="submit">보내기</button>
+      <ul id="room-list"></ul>
+      <div id="archived-box">
+        <h2>보관된 방</h2>
+        <ul id="archived-list"></ul>
+      </div>
+      <!-- (cockpit) 봇 목록 · 봇 등록 칸은 옮기지 않는다 — 방마다 전용 봇 하나 (R13) -->
+      <!-- 계정 바 — 28px 아바타 · 현재 사용자 이름(M3 이 채운다) · 조용한 로그아웃 아이콘 (REQ-WEBUI-012).
+           #logout-btn 은 새로 만들지 않고 이 안으로 옮겼다 — 영속 id 이자 initApp() 핸들러의 결속점이다. -->
+      <div class="account-bar">
+        <span class="account-avatar"></span>
+        <span class="account-name"></span>
+        <button id="logout-btn" type="button" aria-label="로그아웃" title="로그아웃"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></button>
+      </div>
+    </nav>
+    <!-- #chat 요소는 SPEC-WEBSHELL-001 소유(§4.8 계약 4). 안쪽 내용물은 SPEC-WEBCHAT-001 소유다.
+         #placeholder 는 제거했다 — 형제의 영구 기준은 그 존재를 단언하지 않는다. -->
+    <main id="chat">
+      <header id="room-header">
+        <h2 id="room-title"></h2>
+        <div id="room-bots"></div>
+      </header>
+      <div id="messages"></div>
+      <footer id="composer">
+        <!-- 멘션 자동완성 드롭다운 — 토큰이 감지될 때만 보인다 (REQ-WEBCHAT-009).
+             #composer 의 직계 자식으로 남는다 — bottom:100% 기준이 바뀌면 뜨는 자리가 어긋난다 (REQ-WEBUI-009) -->
+        <div id="autocomplete" hidden></div>
+        <!-- 작성기 컨테이너 — 첨부 칩 줄과 입력 줄을 한 테두리 안에 담는다 (REQ-WEBUI-009) -->
+        <div id="composer-box">
+          <!-- 첨부 칩 줄 — 내부 공백 없이 완전히 비어 있어야 :empty 가 듣는다 -->
+          <span id="file-chosen"></span>
+          <div class="composer-row">
+            <!-- 파일 첨부 — 카드 t32 결함 D-7. 자리(#file-input)는 REQ-WEBCHAT-001 이 두었으나
+                 그것을 여는 UI 와 전송 결합을 어느 SPEC 도 소유하지 않아 사람이 파일을 올릴 수 없었다.
+                 label[for] 은 스크립트 없이 파일 선택창을 연다 — 여는 코드를 따로 두지 않는다.
+                 button 으로 바꾸면 클릭은 되는데 창이 안 열리고 오류도 안 난다(REQ-WEBUI-010).
+                 multiple 로 한 번에 여러 개를 고를 수 있고, 실제로 보낼 목록은 app.js 의 배열이
+                 소유한다 — input.files 로는 고른 것 하나만 빼는 수단이 없기 때문이다. -->
+            <input id="file-input" type="file" multiple hidden>
+            <label id="attach-btn" for="file-input" role="button" tabindex="0" title="파일 첨부" aria-label="파일 첨부"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5l-8.5 8.5a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg></label>
+            <textarea id="msg-input" rows="1" placeholder="메시지 보내기"></textarea>
+            <!-- 초기값은 index.html 이 싣고 initChat() 이 refreshSendState() 로 상태로 확정한다 (REQ-WEBUI-011).
+                 disabled 속성이 아니라 aria-disabled — 탭 순서에 남는다 -->
+            <button id="send-btn" type="button" aria-disabled="true">보내기</button>
+          </div>
         </div>
-      </form>
-    </section>
+      </footer>
+    </main>
+  </div>
 
-    <aside class="side">
-      <section class="panel" aria-label="승인 카드">
-        <h2>승인 카드</h2>
-        <div id="cards" class="cards"><p class="empty">걸린 요청이 없습니다</p></div>
-      </section>
-      <section id="admin-panel" class="panel" aria-label="과제 열기" hidden>
-        <h2>과제 열기</h2>
-        <form id="open-project" class="open-project">
-          <label>과제 이름 <input name="name" required></label>
-          <label>봇 이름 <input name="bot_name" placeholder="비우면 prodev-과제-bot"></label>
-          <button type="submit">열기</button>
-          <p id="open-error" class="error" role="alert"></p>
-        </form>
-      </section>
-    </aside>
-  </main>
-</section>
+  <!-- 이름 입력 다이얼로그 — 방 생성과 봇 등록이 공유한다. close 시점에 returnValue 를 읽는다 (plan.md §D 3번) -->
+  <dialog id="prompt-dialog">
+    <form id="prompt-form" method="dialog">
+      <label id="prompt-label" for="prompt-input">이름</label>
+      <input id="prompt-input">
+      <button type="submit" value="cancel" formnovalidate>취소</button>
+      <button id="prompt-ok" type="submit" value="ok">확인</button>
+    </form>
+  </dialog>
+
+
+  <!-- 액션 오류 토스트 — 삼켜지는 오류가 없게 한다 (plan.md §D 4번) -->
+  <div id="error-toast" hidden></div>
 </body>
 </html>

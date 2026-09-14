@@ -1,196 +1,966 @@
-/* cockpit 화면 — 저장소의 CSS 를 그대로 서빙한다 (빌드 · CDN 없음, ADR-010) */
+/* 출처 핀: minidiscord web/style.css — 저장소 핀 6633f7b, 이 파일이 마지막으로 바뀐 커밋 a44ecf8 2026-09-11, 원본 sha256 8f0fad8d4166bb0f9a6c9a97c0dd7da57f09c230f409587df083bf4347295545 */
+/*
+ * minidiscord 웹 셸 스타일 (SPEC-WEBSHELL-001)
+ * 색·폰트·간격은 전부 design-tokens.css 의 --md-* 토큰으로 참조한다 (REQ-WEBSHELL-004).
+ * 디자인 토큰 임포트문은 어떤 규칙보다도 앞에 와야 한다 — CSS 사양상 뒤에 오면 무시된다.
+ */
+@import url('./design-tokens.css');
 
-:root {
-  --bg: #f6f7f9;
-  --panel: #ffffff;
-  --text: #1d2330;
-  --muted: #6b7385;
-  --line: #dde1e8;
-  --accent: #2f6fdd;
-  --busy: #c98a12;
-  --wait: #c4462f;
-  --off: #8b93a3;
-  --ok: #2e8b57;
-  --lock-bg: #fff4e5;
-  --marker-bg: #eaf1ff;
-  --radius: 8px;
-  font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
-  font-size: 15px;
-  color: var(--text);
-  background: var(--bg);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #15181e; --panel: #1d2129; --text: #e6e9ef; --muted: #9aa3b5; --line: #2e3440;
-    --accent: #6ea0ff; --lock-bg: #3a2c16; --marker-bg: #1e2b44;
-  }
-}
-
+/* ── 기본 골격 ─────────────────────────────────────────── */
 * { box-sizing: border-box; }
+
+/* hidden 가드 — 이 파일의 display:flex 선언(#auth-view·#main-view 등)은 UA 스타일시트의
+   [hidden]{display:none} 을 항상 이긴다(author 선언 우선). 그러면 el.hidden = true 가
+   시각적으로 무효가 되어 두 뷰가 겹쳐 렌더링된다 (카드 t32 §D 결함 D-3).
+   author 선언을 통째로 이기려면 !important 가 필요하다. */
 [hidden] { display: none !important; }
-body { margin: 0; }
-button, input, textarea { font: inherit; color: inherit; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  font-family: var(--md-font-family);
+  font-size: var(--md-font-size-body);
+  color: var(--md-text-primary);
+  background: var(--md-bg-main);
+}
+
 button {
-  border: 1px solid var(--line); background: var(--panel); border-radius: var(--radius);
-  padding: 6px 12px; cursor: pointer;
+  padding: var(--md-space-2) var(--md-space-3);
+  border: none;
+  border-radius: var(--md-radius-badge);
+  background: var(--md-accent);
+  color: var(--md-text-primary);
+  font: inherit;
+  cursor: pointer;
 }
-button[type=submit] { background: var(--accent); border-color: var(--accent); color: #fff; }
-button:disabled { opacity: .5; cursor: default; }
-button.quiet { background: transparent; }
-input, textarea {
-  border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 8px; background: var(--panel); width: 100%;
+button:hover { filter: brightness(1.15); }
+
+input {
+  padding: var(--md-space-2);
+  border: none;
+  border-radius: var(--md-radius-input);
+  background: var(--md-bg-input);
+  color: var(--md-text-primary);
+  font: inherit;
 }
-.error { color: var(--wait); margin: 4px 0 0; min-height: 1em; }
-.empty { color: var(--muted); }
+input:focus { outline: 1px solid var(--md-accent); }
 
-/* 로그인 */
-.login { display: grid; place-items: center; min-height: 100vh; }
-.login-box {
-  display: grid; gap: 12px; width: min(360px, 90vw); padding: 24px;
-  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+/* ── 인증 화면 — 가장 밝은 배경 위에 패널 카드 하나 ────── */
+#auth-view {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--md-space-5);
+  height: 100vh;
 }
-.login-box h1 { margin: 0 0 8px; font-size: 22px; }
-.login-box label { display: grid; gap: 4px; color: var(--muted); }
 
-/* 머리 */
-.app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
-.topbar {
-  display: flex; align-items: center; gap: 12px; padding: 8px 16px;
-  background: var(--panel); border-bottom: 1px solid var(--line);
+#auth-view form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--md-space-2);
+  width: 280px;
+  padding: var(--md-space-5);
+  border-radius: var(--md-radius-input);
+  background: var(--md-bg-panel);
 }
-.brand { font-size: 17px; }
-.tabs { display: flex; gap: 6px; flex: 1; overflow-x: auto; }
-.tab { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.tab.active { border-color: var(--accent); color: var(--accent); }
-.me { color: var(--muted); white-space: nowrap; }
-.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-.tone-busy { --tone: var(--busy); }
-.tone-wait { --tone: var(--wait); }
-.tone-off { --tone: var(--off); }
-.dot.tone-busy, .dot.tone-wait, .dot.tone-off { background: var(--tone); }
 
-/* 몸 */
-.layout { display: grid; grid-template-columns: 1fr 340px; min-height: 0; }
-.chat { display: grid; grid-template-rows: auto 1fr auto auto; min-height: 0; border-right: 1px solid var(--line); }
-.chat-head { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--line); }
-.rooms { display: flex; gap: 4px; }
-.rooms button.active { border-color: var(--accent); color: var(--accent); }
-.room-name { color: var(--muted); flex: 1; }
-.chip { border: 1px solid var(--tone, var(--line)); color: var(--tone, var(--muted)); border-radius: 999px; padding: 2px 10px; font-size: 13px; }
+#auth-view h1 {
+  margin: 0 0 var(--md-space-2);
+  font-size: 20px;
+}
 
-.messages { list-style: none; margin: 0; padding: 12px 16px; overflow-y: auto; display: grid; gap: 10px; align-content: start; }
-.msg { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 12px; }
-.msg-head { display: flex; gap: 8px; align-items: baseline; margin-bottom: 4px; }
-.msg-author { font-weight: 600; }
-.msg-time { color: var(--muted); font-size: 12px; }
-.msg-bot { border-left: 3px solid var(--accent); }
-.msg-mine { background: color-mix(in srgb, var(--panel) 85%, var(--accent) 15%); }
-.msg-system { background: transparent; border-style: dashed; color: var(--muted); font-size: 14px; }
-.msg-lock { background: var(--lock-bg); color: var(--text); border-style: solid; border-color: var(--wait); }
-.msg-answer-allow { border-color: var(--ok); }
-.msg-answer-deny { border-color: var(--wait); }
-.msg-compact { text-align: center; border: none; border-top: 1px dashed var(--muted); border-radius: 0; }
-.msg-marker-line { background: var(--marker-bg); font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-bottom: 4px; }
-.msg-body { overflow-wrap: anywhere; }
-.msg-files { margin: 6px 0 0; padding-left: 18px; }
+#auth-view h2 {
+  margin: 0 0 var(--md-space-2);
+  font-size: var(--md-font-size-body);
+  color: var(--md-text-muted);
+}
 
-.partial { margin: 0; padding: 6px 16px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); white-space: pre-wrap; max-height: 4.5em; overflow: hidden; }
+/* 서버가 준 오류 문구 — 붉은 상태색 (design DNA §1). 전폭(width: 100%)이라 #auth-view 의
+   flex-wrap 과 함께 첫 줄을 혼자 쓰고 두 패널은 다음 줄에 나란히 온다 (카드 t32 §D 결함 D-2) */
+#auth-error {
+  margin: var(--md-space-2) 0 0;
+  width: 100%;
+  color: var(--md-status-error);
+}
 
-.composer { display: grid; gap: 6px; padding: 10px 16px; border-top: 1px solid var(--line); background: var(--panel); }
-.composer.drop { outline: 2px dashed var(--accent); }
-.composer-row { display: flex; align-items: center; gap: 12px; }
-.composer-row .error { flex: 1; margin: 0; }
-.file-pick { color: var(--muted); white-space: nowrap; }
-.file-pick input { width: auto; border: none; padding: 0; }
-.pending-files { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.pending-files li { display: flex; gap: 4px; align-items: center; border: 1px solid var(--line); border-radius: 999px; padding: 2px 4px 2px 10px; font-size: 13px; }
-.pending-files button { padding: 0 8px; }
+/* ── 메인 화면 — 사이드바 + 채팅 2단 ─────────────────────
+ * 레이어가 왼쪽으로 갈수록 어두운 게 Discord 다크 테마의 핵심이다 (design DNA §1).
+ * 사이드바에 --md-bg-panel(채널 사이드바 값), 채팅에 --md-bg-main(가장 밝은 값).
+ * 서버 아이콘 레일(--md-bg-sidebar)은 minidiscord 에 없는 컬럼이라 쓰지 않는다. */
+#main-view {
+  display: flex;
+  height: 100vh;
+}
 
-/* 옆 */
-.side { overflow-y: auto; padding: 12px; display: grid; gap: 12px; align-content: start; }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
-.panel h2 { font-size: 15px; margin: 0 0 8px; }
-.open-project { display: grid; gap: 8px; }
-.open-project label { display: grid; gap: 4px; color: var(--muted); }
-.cards { display: grid; gap: 10px; }
-.card { border: 1px solid var(--wait); border-radius: var(--radius); padding: 10px; display: grid; gap: 6px; background: var(--lock-bg); }
-.card-head { font-weight: 700; }
-.card-meta { color: var(--muted); font-size: 12px; }
-.card-input { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; max-height: 8em; overflow: auto; }
-.card-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
-.card-buttons button[data-decision=deny] { border-color: var(--wait); color: var(--wait); }
-.card-buttons button[data-decision=allow] { border-color: var(--ok); color: var(--ok); }
-.card-note { color: var(--muted); font-size: 13px; margin: 0; }
+#sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--md-space-2);
+  width: var(--md-sidebar-width);
+  padding: var(--md-space-3);
+  overflow-y: auto;
+  background: var(--md-bg-panel);
+}
 
-/* 마크다운 (web/markdown.js 가 붙이는 이름) */
-.md-p { margin: 0 0 6px; }
+/* 카테고리 라벨("방"·"봇"·"보관된 방") — 작은 대문자 흐린 텍스트 (design DNA §2) */
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sidebar-head h2,
+#archived-box h2 {
+  margin: 0;
+  font-size: var(--md-font-size-label);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--md-text-muted);
+}
+
+.sidebar-head button { font-size: var(--md-font-size-label); }
+
+#archived-box h2 { padding: var(--md-space-1) var(--md-space-2); }
+
+#sidebar ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* 방 항목 — 한 줄 26px, 호버 시 눈에 띄게 밝아진다 (design DNA §1, SPEC-WEBUI-001 REQ-001).
+   26px·아바타 40px 는 리터럴 길이로 적는다(plan.md §B.7) */
+.room-item {
+  display: flex;
+  align-items: center;
+  gap: var(--md-space-1);
+  height: 26px;
+  min-width: 0;
+  padding: 0 var(--md-space-2);
+  border-radius: var(--md-radius-badge);
+  cursor: pointer;
+}
+
+.room-item:hover { background: var(--md-bg-hover); }
+
+/* 현재 방 표시 — 호버와 같은 밝기 계열에 흰 텍스트. 강조 막대는 inset box-shadow 다:
+   border-left 는 26px 고정 높이 안에서 콘텐츠 폭을 2px 밀어 현재 방만 글자 시작점이 어긋난다 (REQ-WEBUI-002) */
+.room-item.active {
+  background: var(--md-bg-hover);
+  color: var(--md-text-primary);
+  font-weight: var(--md-font-weight-name);
+  box-shadow: inset 2px 0 0 var(--md-accent);
+}
+
+/* 보관된 방은 다시 보관할 수 없다 — 버튼이 없고 흐리게 (REQ-WEBSHELL-009, REQ-WEBUI-004) */
+#archived-list .room-item { color: var(--md-text-muted); opacity: 0.55; }
+#archived-list .room-item:hover { background: none; }
+
+/* 보관 버튼 — 20×20 아이콘 버튼. 평소 opacity 0, 호버·초점에서 CSS 로만 되돌아온다 (REQ-WEBUI-003) */
+.archive-btn {
+  flex-shrink: 0;
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  color: var(--md-text-muted);
+  opacity: 0;
+}
+.archive-btn:hover { color: var(--md-text-primary); background: var(--md-bg-input); }
+
+/* 봇 삭제 버튼 — 보관 버튼과 같은 모양·아이콘 체계 (2026-09-08, 2026-09-11 아이콘화) */
+.bot-item { display: flex; align-items: center; justify-content: space-between; }
+.delete-bot-btn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--md-radius-badge);
+  background: none;
+  color: var(--md-text-muted);
+}
+.delete-bot-btn:hover { color: var(--md-status-error); background: var(--md-bg-input); }
+
+/* 봇 목록 — 상태 표시는 각 항목 안쪽에 붙는다(형제 SPEC 계약, spec.md §4.8 계약 4) */
+#bot-list { margin-bottom: var(--md-space-3); }
+
+/* 로그아웃 — 계정 바 안의 조용한 아이콘 버튼 (REQ-WEBUI-012). margin-top:auto 대신
+   .account-bar 의 margin auto 가 사이드바 바닥에 붙인다. id 는 영속 20개 중 하나 — 옮겨졌을 뿐이다 */
+#logout-btn {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  color: var(--md-text-muted);
+}
+
+/* ── 채팅 영역 — 내용물는 형제 SPEC(SPEC-WEBCHAT-001) 이 채운다 ── */
+#chat { flex: 1; }
+
+#placeholder {
+  margin: var(--md-space-4);
+  color: var(--md-text-muted);
+}
+
+/* ── 이름 입력 다이얼로그 (방 생성·봇 등록 공유) ────────── */
+#prompt-dialog {
+  border: none;
+  border-radius: var(--md-radius-input);
+  padding: var(--md-space-5);
+  background: var(--md-bg-panel);
+  color: var(--md-text-primary);
+}
+
+#prompt-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+
+#prompt-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--md-space-2);
+  width: 280px;
+}
+
+#prompt-label {
+  font-size: var(--md-font-size-label);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--md-text-muted);
+}
+
+/* ── 오류 토스트 — 화면 아래에 떠서 삼켜지는 오류가 없게 한다 ── */
+#error-toast {
+  position: fixed;
+  bottom: var(--md-space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: var(--md-space-2) var(--md-space-4);
+  border-radius: var(--md-radius-badge);
+  background: var(--md-bg-panel);
+  color: var(--md-status-error);
+  border-top: 1px solid var(--md-divider);
+}
+
+/* 성공 토스트 — showToast(회원가입 완료)만 붙이는 클래스. 같은 요소를 공유하되
+   상태색만 갈라 쓴다 — 새 색상 값 없이 기존 팔레트의 온라인 녹색 (design DNA §1).
+   #error-toast(1-0-0) 의 오류색을 이기려면 ID 를 결합한 선택자(1-1-0)가 필요하다. */
+#error-toast.toast-success {
+  color: var(--md-status-online);
+}
+
+/* ── SPEC-WEBCHAT-001 채팅 영역 ── */
+/* 방 헤더 + 메시지 목록 + 작성기의 세로 레이아웃. 색은 전부 design-tokens.css 의
+   --md-* 변수로만 쓴다 (REQ-WEBCHAT-015) — 16진수 리터럴을 직접 적지 않는다. */
+#chat {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* 방 헤더 — 제목·봇 칩·초대 버튼 한 줄. 구분선으로 본문과 나눈다 */
+#room-header {
+  display: flex;
+  align-items: center;
+  gap: var(--md-space-3);
+  padding: var(--md-space-3) var(--md-space-4);
+  border-bottom: var(--md-border-width) solid var(--md-divider);
+}
+
+#room-title {
+  margin: 0;
+  font-size: var(--md-font-size-body);
+  font-weight: var(--md-font-weight-name);
+}
+
+#room-bots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--md-space-2);
+}
+
+/* 봇 칩 — 오프라인은 흐리게 (design DNA §1). 아이콘 🟢/⚪ 는 JS 가 넣는다 */
+.bot-chip {
+  padding: var(--md-space-1) var(--md-space-2);
+  border-radius: var(--md-radius-badge);
+  background: var(--md-bg-panel);
+  font-size: var(--md-font-size-label);
+  color: var(--md-text-muted);
+}
+
+.bot-chip.offline { opacity: 0.55; }
+
+/* 초대 버튼 — SPEC-WEBRICH-001 이 모달을 붙인다. 자리만 눈에 들어오게 */
+#invite-btn {
+  margin-left: auto;
+  padding: var(--md-space-1) var(--md-space-2);
+  background: none;
+  color: var(--md-text-muted);
+  font-size: var(--md-font-size-label);
+}
+
+/* 메시지 목록 — 이 영역만 스크롤된다 */
+#messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--md-space-4);
+}
+
+/* 턴 리듬 — 새 턴은 넓은 여백으로 눈에 띄게, 같은 턴 연속(.turn-cont)은 붙이고
+   머리글을 숨긴다. 머리글은 DOM 에 남고 화면에서만 숨겨진다 (2026-09-09 운영자 결정:
+   말풍선 대신 그룹핑. 옛 구분선 border-top 은 SPEC-WEBUI-001 이 걷었다 — 경계는
+   간격과 아바타 기둥이 진다, REQ-WEBUI-005) */
+.message:not(.turn-cont) {
+  margin: var(--md-space-5) 0 var(--md-space-1);
+}
+#messages .message:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.message.turn-cont { margin-top: 0; }
+.message.turn-cont .msg-head { display: none; }
+
+.msg-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--md-space-2);
+  /* 그리드 2열 배치 — 머리글은 본문 열(2열)에 간다 (SPEC-WEBUI-001 §5.2) */
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.msg-head strong { font-weight: var(--md-font-weight-name); }
+
+/* 타임스탬프 — 본문보다 작고 흐리다 (design DNA §2: 12px, muted) */
+.msg-time {
+  font-size: var(--md-font-size-timestamp);
+  color: var(--md-text-muted);
+}
+
+.msg-body {
+  margin: var(--md-space-1) 0 0;
+  overflow-wrap: anywhere;
+  /* 가독성 — 2026-09-09 운영자 피드백(자간·행간이 빽빽하다)으로 지정. 행간이 체감의 대부분 */
+  line-height: 1.7;
+  letter-spacing: 0.02em;
+  /* 그리드 2열 배치 — 본문은 머리글 아래 2열에 간다 (SPEC-WEBUI-001 §5.2) */
+  grid-column: 2;
+  grid-row: 2;
+}
+
+/* 봇 작성자 이름 색 — author_bot_id 로 다섯 색을 순환 배정한다 (design DNA §1) */
+.bot-color-1 { color: var(--md-role-color-1); }
+.bot-color-2 { color: var(--md-role-color-2); }
+.bot-color-3 { color: var(--md-role-color-3); }
+.bot-color-4 { color: var(--md-role-color-4); }
+.bot-color-5 { color: var(--md-role-color-5); }
+
+/* system 메시지(권한 릴레이 등)는 본문도 흐리게 — 장식 없이 구분되게 */
+.message.system .msg-body { color: var(--md-text-muted); }
+
+/* 작성기 — 자동완성 드롭다운은 입력창 바로 위에 뜬다 */
+#composer {
+  position: relative;
+  display: flex;
+  gap: var(--md-space-2);
+  padding: var(--md-space-3) var(--md-space-4);
+}
+
+#autocomplete {
+  position: absolute;
+  bottom: 100%;
+  left: var(--md-space-4);
+  min-width: 240px;
+  padding: var(--md-space-1);
+  border-radius: var(--md-radius-badge);
+  background: var(--md-bg-panel);
+}
+
+.ac-item {
+  padding: var(--md-space-1) var(--md-space-2);
+  border-radius: var(--md-radius-badge);
+  cursor: pointer;
+  font-size: var(--md-font-size-body);
+}
+
+.ac-item:hover { background: var(--md-bg-hover); }
+
+/* 멘션 불가 이름 — 선택할 수 없고 그 이유가 함께 보인다 (REQ-WEBCHAT-011) */
+.ac-item.disabled {
+  color: var(--md-text-muted);
+  cursor: not-allowed;
+}
+
+.ac-item.disabled:hover { background: none; }
+
+/* SPEC-WEBACNAV-001 */
+/* 키보드 이동과 TO/CC 배지 — 색은 design-tokens 의 var(--md-*) 만 쓴다 (REQ-WEBACNAV-008) */
+
+/* 배지와 이름이 한 줄에 나란히 */
+.ac-item {
+  display: flex;
+  align-items: center;
+  gap: var(--md-space-2);
+}
+
+/* 키보드 강조 — :hover 와 별개로, 지금 Enter 가 고를 항목 */
+.ac-item.selected {
+  background: var(--md-bg-hover);
+  outline: 1px solid var(--md-accent);
+}
+
+/* 작은 배지 — 고정 min-width 로 이름이 세로로 정렬된다 */
+.ac-kind {
+  min-width: 2.2em;
+  padding: 0 var(--md-space-1);
+  border-radius: var(--md-radius-badge);
+  font-size: var(--md-font-size-label);
+  font-weight: var(--md-font-weight-name);
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* TO — 채운 블러플 */
+.ac-kind.to {
+  background: var(--md-accent);
+  color: var(--md-text-primary);
+}
+
+/* CC — 흐린 글자에 테두리만 */
+.ac-kind.cc {
+  color: var(--md-text-muted);
+  border: var(--md-border-width) solid var(--md-divider);
+}
+/* /SPEC-WEBACNAV-001 */
+
+/* 입력창 — 배경·테두리를 컨테이너(#composer-box, SPEC-WEBUI-001) 에 넘기고 투명하게 둔다 */
+#msg-input {
+  flex: 1;
+  resize: none;
+  min-height: 44px;
+  background: none;
+  border: none;
+  outline: none;
+  /* textarea 는 input 공통 규칙(색·폰트 상속)에 걸리지 않는다 — 배경을 투명으로 바꾼
+     뒤로는 UA 기본 검은 글자·고정폭 폰트가 어두운 컨테이너 위에 그대로 드러났다(2026-09-11).
+     input 규칙과 같은 값으로 맞춘다. 커서 색도 본문 글자색을 따르게 한다 */
+  color: var(--md-text-primary);
+  caret-color: var(--md-text-primary);
+  font: inherit;
+}
+
+/* #file-input 은 HTML 의 hidden 속성으로 숨겨 둔다 — CSS display:none 을 덮지 않는다.
+   SPEC-WEBRICH-001 이 hidden 을 떼는 순간 바로 보이는 것이 형제와의 약속이다. */
+
+/* 첨부 label — 클립 아이콘을 가운데 정렬한다. 입력 줄(.composer-row)의 align-items 가 정렬을 대신한다 */
+#attach-btn { cursor: pointer; user-select: none; padding: 0 0.4rem; display: inline-flex; align-items: center; }
+/* 고른 파일이 여러 개면 칩이 여러 개 늘어선다 — 좁아지면 다음 줄로 접힌다. 칩 줄은
+   #composer-box 의 첫 칸이다(align-self 는 옛 컴포저 레이아웃의 잔해라 걷었다) */
+#file-chosen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--md-space-1);
+  font-size: 0.85em;
+  opacity: 0.8;
+}
+
+/* 첨부 칩 — 이름 + ✕ 버튼 한 쌍. 이제 --md-bg-input 컨테이너 안에 있어 같은 색이면
+   칩이 안 보인다 — 패널 배경으로 바꾼다 (REQ-WEBUI-009) */
+.file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--md-space-1);
+  padding: var(--md-space-1) var(--md-space-2);
+  background: var(--md-bg-panel);
+  border-radius: var(--md-radius-badge);
+  font-size: 0.85em;
+}
+
+/* ✕ 는 칩 안의 버튼이지만 테두리·배경 없이 글자처럼 보인다 */
+.file-chip-remove {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--md-text-muted);
+  cursor: pointer;
+  line-height: 1;
+}
+.file-chip-remove:hover { color: var(--md-text-primary); }
+
+/* SPEC-WEBRICH-001 */
+/* 리치 표면 — 첨부 칩·권한 버튼·초대 다이얼로그. 색은 design-tokens 의 var(--md-*) 만 쓴다
+   (계약 5-2). 이 블록이 @import 줄보다 앞에 오지 않는다 (계약 5-1). */
+
+/* 첨부 링크 칩 — 채팅 배경(--md-bg-main)보다 어두운 패널 배경에 링크색 글자 (design DNA §4) */
+.message a.attachment {
+  display: inline-block;
+  margin-top: var(--md-space-1);
+  padding: var(--md-space-1) var(--md-space-3);
+  background: var(--md-bg-panel);
+  color: var(--md-text-link);
+  border-radius: var(--md-radius-badge);
+  font-size: var(--md-font-size-body);
+  text-decoration: none;
+}
+
+/* 첨부 이미지 — 그 자리에 펼쳐 보인다 (REQ-WEBRICH-003) */
+.message img.attachment-image {
+  display: block;
+  margin-top: var(--md-space-2);
+  max-width: 100%;
+  border-radius: var(--md-radius-input);
+}
+
+/* 권한 판정 버튼 줄 — 요청 system 메시지 아래에 붙는다 (REQ-WEBRICH-009) */
+.verdict-row {
+  display: flex;
+  gap: var(--md-space-2);
+  margin-top: var(--md-space-2);
+}
+
+.verdict-yes {
+  background: var(--md-status-online);
+  color: var(--md-text-primary);
+  border: none;
+  border-radius: var(--md-radius-badge);
+  padding: var(--md-space-1) var(--md-space-4);
+  font-size: var(--md-font-size-body);
+  cursor: pointer;
+}
+
+.verdict-no {
+  background: var(--md-status-error);
+  color: var(--md-text-primary);
+  border: none;
+  border-radius: var(--md-radius-badge);
+  padding: var(--md-space-1) var(--md-space-4);
+  font-size: var(--md-font-size-body);
+  cursor: pointer;
+}
+
+.verdict-yes:disabled,
+.verdict-no:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 초대 다이얼로그 — 채팅 영역과 같은 층의 배경 (design DNA §2) */
+#invite-dialog {
+  background: var(--md-bg-main);
+  color: var(--md-text-primary);
+  border: var(--md-border-width) solid var(--md-divider);
+  border-radius: var(--md-radius-input);
+  padding: var(--md-space-5);
+  min-width: 320px;
+}
+
+#invite-dialog h2 {
+  margin: 0 0 var(--md-space-3);
+  font-size: var(--md-font-size-body);
+  font-weight: var(--md-font-weight-name);
+}
+
+/* 봇 선택 목록 — 사이드바와 같은 어두운 층에 항목 호버 (design DNA §1) */
+.invite-choices {
+  list-style: none;
+  margin: 0 0 var(--md-space-3);
+  padding: 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.invite-choice {
+  padding: var(--md-space-2) var(--md-space-3);
+  border-radius: var(--md-radius-badge);
+  cursor: pointer;
+  font-size: var(--md-font-size-body);
+}
+
+.invite-choice:hover { background: var(--md-bg-hover); }
+
+/* 명령 상자 — 가장 어두운 사이드바 배경, 줄바꿈 보존(pre) 으로 네 줄 이상 그대로 (REQ-WEBRICH-012) */
+#invite-command {
+  margin: var(--md-space-2) 0;
+  padding: var(--md-space-3);
+  background: var(--md-bg-sidebar);
+  color: var(--md-text-primary);
+  border-radius: var(--md-radius-badge);
+  font-size: var(--md-font-size-timestamp);
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* 지금 복사 경고 — 토큰은 다시 보여지지 않는다 (REQ-WEBRICH-013) */
+.invite-notice {
+  margin: var(--md-space-2) 0 0;
+  color: var(--md-status-idle);
+  font-size: var(--md-font-size-timestamp);
+}
+
+/* 복사·초대 실패 문구 — 조용한 성공의 척이 없게 (REQ-WEBRICH-014) */
+.invite-error {
+  margin: var(--md-space-2) 0 0;
+  color: var(--md-status-error);
+  font-size: var(--md-font-size-timestamp);
+}
+
+#copy-command {
+  margin-top: var(--md-space-2);
+  background: var(--md-accent);
+  color: var(--md-text-primary);
+  border: none;
+  border-radius: var(--md-radius-badge);
+  padding: var(--md-space-2) var(--md-space-4);
+  font-size: var(--md-font-size-body);
+  cursor: pointer;
+}
+/* /SPEC-WEBRICH-001 */
+
+/* SPEC-WEBMD-001 */
+/* 마크다운 본문 — 새 규칙은 전부 이 블록 안에 둔다. 색·간격·모서리는 기존
+   var(--md-*) 토큰으로만 적고 16진수 색 리터럴은 쓰지 않는다 (REQ-WEBMD-014).
+   줄바꿈 책임은 pre-wrap 에서 p/br 노드로 옮겨졌다 (REQ-WEBMD-010). */
+/* 렌더 실패 폴백 — 원문 텍스트이므로 예전 규칙을 국소 복원한다 (REQ-WEBMD-011) */
+.md-fallback { white-space: pre-wrap; }
+
+/* 문단 — 블록 간 간격은 margin 이 진다. 마지막 문단의 바닥 여백은 제거한다 */
+.md-p { margin: 0 0 var(--md-space-2); }
 .md-p:last-child { margin-bottom: 0; }
-.md-h { margin: 8px 0 4px; font-size: 1.05em; }
-.md-hr { border: none; border-top: 1px solid var(--line); }
-.md-quote { margin: 4px 0; padding-left: 10px; border-left: 3px solid var(--line); color: var(--muted); }
-.md-pre { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; overflow-x: auto; font-size: 13px; }
-.md-code { background: var(--bg); border-radius: 4px; padding: 0 4px; font-size: .92em; }
-.md-code-lang { display: block; color: var(--muted); font-size: 11px; }
-.md-ol, .md-ul { margin: 4px 0; padding-left: 22px; }
-.md-table-wrap { overflow-x: auto; }
-.md-table { border-collapse: collapse; font-size: 14px; }
-.md-table th, .md-table td { border: 1px solid var(--line); padding: 2px 8px; }
+
+/* 제목 — 크기는 상대값(em)으로만. h1·h2 에 구분선 */
+.md-h { margin: var(--md-space-3) 0 var(--md-space-1); }
+.md-h:first-child { margin-top: 0; }
+h1.md-h { font-size: 1.4em; border-bottom: var(--md-border-width) solid var(--md-divider); }
+h2.md-h { font-size: 1.25em; border-bottom: var(--md-border-width) solid var(--md-divider); }
+h3.md-h { font-size: 1.15em; }
+h4.md-h { font-size: 1.05em; }
+h5.md-h { font-size: 0.95em; }
+h6.md-h { font-size: 0.9em; color: var(--md-text-muted); }
+
+/* 펜스 코드블록 — #invite-command 선례(패널 배경 + 가로 스크롤)를 따른다 */
+.md-pre {
+  position: relative;
+  background: var(--md-bg-panel);
+  border-radius: var(--md-radius-input);
+  padding: var(--md-space-3);
+  margin: 0 0 var(--md-space-2);
+  overflow-x: auto;
+  white-space: pre;
+}
+.md-pre:last-child { margin-bottom: 0; }
+.md-pre code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+/* 언어 라벨 — 펜스 우상단, 선택되지 않게 */
+.md-code-lang {
+  position: absolute;
+  top: var(--md-space-1);
+  right: var(--md-space-2);
+  font-size: var(--md-font-size-label);
+  color: var(--md-text-muted);
+  user-select: none;
+}
+/* 인라인 코드 스팬 */
+.md-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  background: var(--md-bg-input);
+  border-radius: var(--md-radius-badge);
+  padding: 0 var(--md-space-1);
+}
+
+/* 목록 — 중첩 목록은 간격을 축소한다. 항목 사이 4px — 2026-09-09 가독성 피드백 */
+.md-ul, .md-ol { margin: 0 0 var(--md-space-2); padding-left: var(--md-space-5); }
+.md-ul:last-child, .md-ol:last-child { margin-bottom: 0; }
+.md-li { margin: 0 0 var(--md-space-1); }
+.md-li:last-child { margin-bottom: 0; }
+.md-li .md-ul, .md-li .md-ol { margin: var(--md-space-1) 0 0; }
+
+/* 인용 — 왼쪽 막대와 흐린 글씨 */
+.md-quote {
+  margin: 0 0 var(--md-space-2);
+  padding: var(--md-space-1) var(--md-space-3);
+  border-left: var(--md-space-1) solid var(--md-divider);
+  color: var(--md-text-muted);
+}
+.md-quote:last-child { margin-bottom: 0; }
+
+/* 표 — 컨테이너 폭에 맞추고 긴 셀은 줄바꿈으로 담는다. 2026-09-09 운영자 결정으로 옛
+   max-content 가로 스크롤 계약(REQ-WEBMD-014)을 대체 — 스크롤 원문은 그 이전 의도의 기록.
+   wrap 의 overflow-x:auto 는 안전망으로 남긴다 */
+.md-table-wrap { overflow-x: auto; max-width: 100%; margin: 0 0 var(--md-space-2); }
+.md-table { border-collapse: collapse; width: 100%; }
+.md-table th, .md-table td {
+  border: var(--md-border-width) solid var(--md-divider);
+  padding: var(--md-space-2);
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.md-table th { background: var(--md-bg-panel); }
 .md-al-center { text-align: center; }
 .md-al-right { text-align: right; }
-.md-mention { border-radius: 4px; padding: 0 4px; font-size: .9em; background: var(--marker-bg); }
-.md-mention.cc { background: transparent; border: 1px solid var(--line); }
-.md-link-host { color: var(--muted); font-size: .85em; margin-left: 2px; }
 
-/* 판 셋 (M3.5) — 같은 칸에 하나만 보인다 */
-.app { grid-template-rows: auto auto 1fr; }
-.panes { display: flex; gap: 4px; padding: 6px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
-.panes button.active { border-color: var(--accent); color: var(--accent); }
-.pane { grid-column: 1; grid-row: 1; min-height: 0; border-right: 1px solid var(--line); }
-.side { grid-column: 2; grid-row: 1; }
-.boundary { list-style: none; text-align: center; color: var(--muted); font-size: 13px; border-top: 2px dashed var(--accent); padding-top: 4px; }
+/* 수평선 */
+.md-hr { border: 0; border-top: var(--md-border-width) solid var(--md-divider); margin: var(--md-space-3) 0; }
 
-/* 조종석 판 (M3.2) */
-.cockpit { overflow-y: auto; padding: 12px 16px; }
-.cockpit h3 { font-size: 14px; margin: 14px 0 6px; }
-.cockpit h4 { font-size: 13px; margin: 8px 0 4px; color: var(--muted); }
-.cockpit-head { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 0; }
-.cockpit-head div { display: flex; gap: 6px; align-items: baseline; }
-.cockpit-head dt { color: var(--muted); font-size: 12px; }
-.cockpit-head dd { margin: 0; font-weight: 600; }
-.state-working, .state-starting { color: var(--busy); }
-.state-waiting_approval, .state-error { color: var(--wait); }
-.state-stopped { color: var(--off); }
-.cockpit-warn { color: var(--wait); margin: 6px 0 0; }
-.session-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.tools, .hooks, .tasks { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.tool { display: grid; grid-template-columns: auto auto 1fr; gap: 8px; align-items: baseline; border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; background: var(--panel); }
-.tool-name { font-weight: 600; }
-.tool-status { color: var(--muted); font-size: 12px; white-space: nowrap; }
-.tool-input { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; color: var(--muted); }
-.tool-running { border-color: var(--busy); }
-.tool-red { border-color: var(--wait); background: var(--lock-bg); }
-.tool-red .tool-status { color: var(--wait); font-weight: 600; }
-.tool-result { grid-column: 1 / -1; color: var(--wait); font-size: 13px; }
-.helper { border-left: 3px solid var(--line); padding-left: 8px; margin-top: 6px; }
-.hook-blocked { color: var(--wait); font-weight: 600; }
-.task { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+/* 링크와 진짜 호스트 힌트 */
+.msg-body a { color: var(--md-text-link); }
+.md-link-host { color: var(--md-text-muted); font-size: var(--md-font-size-label); }
 
-/* 파일 판 (M3.4) */
-.files { display: grid; grid-template-columns: minmax(200px, 320px) 1fr; }
-.files-tree { overflow-y: auto; padding: 10px; border-right: 1px solid var(--line); }
-.files-preview { overflow: auto; padding: 10px 16px; }
-.files-preview img { max-width: 100%; }
-.crumbs { display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 6px; }
-.crumbs button { padding: 2px 6px; }
-.entries { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.entries li { display: flex; justify-content: space-between; gap: 6px; align-items: center; }
-.entry { border: none; background: transparent; padding: 2px 4px; text-align: left; overflow-wrap: anywhere; }
-.entry-dir { font-weight: 600; }
-.entry-size { color: var(--muted); font-size: 12px; white-space: nowrap; }
+/* system 메시지 안 코드블록 — system 패널 배경과 겹치지 않게 밝은 표면으로 */
+.message.system .md-pre { background: var(--md-bg-input); }
+/* /SPEC-WEBMD-001 */
 
-@media (max-width: 800px) {
-  .layout { grid-template-columns: 1fr; }
-  .side { grid-column: 1; grid-row: 2; border-top: 1px solid var(--line); }
-  .files { grid-template-columns: 1fr; }
+/* SPEC-WEBUI-001 */
+/* 웹 UI 개선 — 방 목록·메시지·작성기·계정 바. 이 블록에는 «새 선택자» 만 들어간다:
+   이미 style.css 에 있던 선택자는 제자리에서 고친다(plan.md §B.6 [HARD] — cssRuleBlock 이
+   첫 매치를 돌려주므로 끝 블록 재정의는 올바른 구현을 옛 블록 읽기로 떨어뜨린다).
+   색은 design-tokens 의 var(--md-*) 만 쓰고 폰트 크기는 세 토큰만 쓴다(REQ-WEBUI-016).
+   이 블록이 @import 줄보다 앞에 오지 않는다(§4.8 계약 5-1). */
+
+/* C2 — 메시지: 구분선 대신 아바타 기둥. 아바타 40px 은 리터럴 길이로 적는다
+   (plan.md §B.7 — design-tokens 은 색·타이포·간격 체계의 집이다) */
+.message {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  column-gap: var(--md-space-4);
+  padding: var(--md-space-1) var(--md-space-2);
+  border-radius: var(--md-radius-badge);
+}
+.message:hover { background: var(--md-bg-hover); }
+
+/* [감사 F5] 형제 SPEC(SPEC-WEBRICH-001)의 장식 노드는 .message 의 «직계 자식»으로 온다
+   (web/rich.js 의 el.appendChild 두 자리). 명시 배치가 없으면 넷째 이후 직계 자식이
+   40px 아바타 칸으로 자동 배치돼 첨부·권한 버튼이 뭉개진다 — 형제 시험은 개수만 세므로
+   초록으로 지나친다. 이 한 줄이 그 침묵을 메운다(REQ-WEBUI-005) */
+.message > :not(.msg-avatar) { grid-column: 2; }
+
+.msg-avatar {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--md-radius-avatar);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--md-font-size-body);
+  font-weight: var(--md-font-weight-name);
+  color: var(--md-text-primary);
+}
+
+/* system 아바타는 역할색을 쓰지 않는다 — 패널 배경에 흐린 글자(REQ-WEBUI-006) */
+.message.system .msg-avatar { background: var(--md-bg-panel); color: var(--md-text-muted); }
+
+/* 이어짐 행 — 아바타는 DOM 에 남고 시각적으로만 감춘다(REQ-WEBUI-008).
+   display:none 은 40px 기둥을 무너뜨려 본문 정렬을 어긋나게 한다 */
+.turn-cont .msg-avatar { visibility: hidden; }
+
+/* 봇 배지 — 색에 기대지 않는 두 번째 단서(REQ-WEBUI-007). 강조색 넷 중 하나 */
+.bot-badge {
+  background: var(--md-accent);
+  color: var(--md-text-primary);
+  font-size: var(--md-font-size-label);
+  font-weight: var(--md-font-weight-name);
+  border-radius: var(--md-radius-badge);
+  padding: 0 var(--md-space-1);
+  line-height: 1.6;
+}
+
+/* 아바타 배경색 — 다섯 역할색을 소비만 한다. 새 색을 만들지 않는다(REQ-WEBUI-006) */
+.avatar-color-1 { background: var(--md-role-color-1); }
+.avatar-color-2 { background: var(--md-role-color-2); }
+.avatar-color-3 { background: var(--md-role-color-3); }
+.avatar-color-4 { background: var(--md-role-color-4); }
+.avatar-color-5 { background: var(--md-role-color-5); }
+
+/* C1 — 방 행: # + 앞머리 + 꼬리 세 span (REQ-WEBUI-001). [HARD] 줄어드는 것은
+   앞머리뿐이다 — 폭이 모자라면 앞머리에 생략기호가 붙고 꼬리는 결코 잘리지 않는다.
+   2026-09-11 정정: 앞머리가 없는(슬래시 없는) 긴 이름은 줄일 대상이 없어 행을 넘치고
+   보관 버튼을 화면 밖으로 밀었다. shrink 가중치(앞머리 100 : 꼬리 1)로 앞머리 우선은
+   그대로 두고, 앞머리를 다 줄여도 모자랄 때만 꼬리도 행 안에서 말린다 — 넘침보다 낫다 */
+.room-hash { flex-shrink: 0; }
+.room-prefix {
+  flex-shrink: 100;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--md-font-size-label);
+  color: var(--md-text-muted);
+}
+.room-name {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--md-font-size-body);
+}
+/* 현재 방(REQ-WEBUI-002)과 행 호버(REQ-WEBUI-003)에서 꼬리를 밝힌다 */
+.room-item.active .room-name { color: var(--md-text-primary); font-weight: var(--md-font-weight-name); }
+.room-item:hover .room-name { color: var(--md-text-primary); }
+/* 보관 버튼은 호버·키보드 초점에서만 보인다 — opacity 외의 감춤은 탭 순서에서 빼 버린다 */
+.room-item:hover .archive-btn { opacity: 1; }
+.archive-btn:focus-visible { opacity: 1; }
+
+/* C4 — 계정 바 (REQ-WEBUI-012). margin auto 가 바닥에 밀어 붙이고 음수 좌우·아래 여백이
+   사이드바 패딩을 상쇄해 바닥에 꽉 붙는다. 이 앱에서 가장 어두운 층(--md-bg-sidebar) */
+.account-bar {
+  margin: auto calc(-1 * var(--md-space-3)) calc(-1 * var(--md-space-3));
+  padding: var(--md-space-2) var(--md-space-3);
+  background: var(--md-bg-sidebar);
+  display: flex;
+  align-items: center;
+  gap: var(--md-space-2);
+}
+.account-avatar {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--md-radius-avatar);
+  background: var(--md-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--md-font-size-timestamp);
+  font-weight: var(--md-font-weight-name);
+  color: var(--md-text-primary);
+}
+.account-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--md-font-size-body);
+  font-weight: var(--md-font-weight-name);
+  color: var(--md-text-primary);
+}
+#logout-btn:hover { color: var(--md-status-error); }
+
+/* 사이드바의 두 생성 버튼 — 강조색을 버리고 조용한 아이콘이 된다 (REQ-WEBUI-004).
+   [HARD] 두 버튼은 공동 규칙 하나로 쓴다 — 선택자 문자열 `#new-room-btn, #new-bot-btn`
+   의 이 순서·이 형태가 규범이다(두 규칙으로 쪼개지 않는다) */
+#new-room-btn, #new-bot-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: none;
+  color: var(--md-text-muted);
+}
+#new-room-btn:hover, #new-bot-btn:hover { color: var(--md-text-primary); }
+
+/* C3 — 작성기 컨테이너 (REQ-WEBUI-009). 테두리는 inset box-shadow 로 그린다 — border 와
+   달리 콘텐츠 폭을 먹지 않고 초점 시 색만 바꾸면 레이아웃이 흔들리지 않는다.
+   flex:1 + min-width:0 이 «채팅 열의 폭을 그대로 쓴다»다 — 이 선언 없이는 컨테이너가
+   내용 폭까지만 늘어난다(감사 F11). 세로 두 칸: 위 첨부 칩 줄, 아래 입력 줄 */
+#composer-box {
+  flex: 1;
+  min-width: 0;
+  background: var(--md-bg-input);
+  border-radius: var(--md-radius-input);
+  box-shadow: inset 0 0 0 var(--md-border-width) var(--md-divider);
+  padding: var(--md-space-2) var(--md-space-2) var(--md-space-2) var(--md-space-4);
+  display: flex;
+  flex-direction: column;
+}
+/* 초점 테두리 — 강조색 넷 중 «지금 여기에 쓰는 중» 자리 (REQ-WEBUI-009) */
+#composer-box:focus-within {
+  box-shadow: inset 0 0 0 var(--md-border-width) var(--md-accent);
+}
+/* 입력 줄 — 첨부 label + #msg-input + #send-btn */
+.composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--md-space-2);
+  min-width: 0;
+}
+/* 첨부 칩 줄 — 칩이 하나도 없으면 자리를 차지하지 않는다 */
+#file-chosen:empty { display: none; }
+/* 보낼 것이 없을 때의 보내기 버튼 — 상태 표시일 뿐, disabled 속성이 아니다(REQ-WEBUI-011).
+   있으면 기본 button 규칙(강조 배경)이 그대로 돌아온다 */
+#send-btn[aria-disabled="true"] {
+  background: var(--md-bg-panel);
+  color: var(--md-text-muted);
+}
+/* /SPEC-WEBUI-001 */
+
+/* SPEC-WEBMD-002 */
+/* 본문 @TO/@CC 배지 — 색 언어는 자동완성 배지(.ac-kind, SPEC-WEBACNAV-001)가 쓰는
+   토큰만 쓴다(REQ-WEBMD2-006). .ac-kind 세 규칙은 소비만 하고 한 글자도 고치지
+   않는다 — 칩의 비색 속성(min-width·간격·모서리·타이포)을 같은 토큰으로 미러한다 */
+
+/* 종류 칩 — 본문 안 인라인 문맥이므로 inline-block 으로 칩 폭을 갖는다.
+   vertical-align 없이는 인라인 baseline 규칙대로 칩이 줄에서 비스듬히 뜨고(2026-09-11
+   화면 확인), margin 없이는 칩이 뒤따르는 봇 이름에 바짝 붙는다 — 두 속성이 인라인 배치의 본체다 */
+.md-mention {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 var(--md-space-1);
+  min-width: 2.2em;
+  padding: 0 var(--md-space-1);
+  border-radius: var(--md-radius-badge);
+  font-size: var(--md-font-size-label);
+  font-weight: var(--md-font-weight-name);
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* TO — 채운 강조색 배경 (자동완성 배지 .ac-kind.to 와 같은 색) */
+.md-mention.to {
+  background: var(--md-accent);
+  color: var(--md-text-primary);
+}
+
+/* CC — 흐린 글자에 가는 테두리 (자동완성 배지 .ac-kind.cc 와 같은 색) */
+.md-mention.cc {
+  color: var(--md-text-muted);
+  border: var(--md-border-width) solid var(--md-divider);
+}
+/* /SPEC-WEBMD-002 */
+
+/* SPEC-WEBATTACH-001 */
+/* 이 구획의 주석은 사람이 읽는 표지일 뿐이다 — 관측은 셀렉터로 한다.
+   cssRuleBlock 이 본문 첫 줄에서 주석을 전부 벗기므로 주석 표지로는 잡히지 않는다
+   (server/test/css-rule.ts). 그리고 세 규칙은 각각 «단독 규칙» 이어야 한다 —
+   쉼표로 묶으면 셀렉터 바로 뒤에 { 가 오지 않아 같은 헬퍼가 찾지 못한다. */
+
+/* 파일을 실은 끌기가 작성기 위에 있는 동안의 표시 — 떨어뜨릴 자리를 눈으로 알린다 */
+#composer-box.drop-target {
+  outline: var(--md-border-width) dashed var(--md-accent);
+  outline-offset: var(--md-space-1);
+}
+
+/* 이미지 항목의 칩 — 이름 대신 썸네일을 담는다. .file-chip 을 달지 않으므로 그 규칙의
+   배경·여백을 상속하지 않고, 그림과 ✕ 만 나란히 둔다 */
+.file-chip-image {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--md-space-1);
+  padding: var(--md-space-1);
+  background: var(--md-bg-panel);
+  border-radius: var(--md-radius-badge);
+}
+
+/* 썸네일 자체 — 작은 정사각. #file-chosen 의 opacity: 0.8 을 상속하면 흐려 보이므로
+   자기 불투명도를 1 로 되돌린다 */
+.file-chip-thumb {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: var(--md-radius-badge);
+  opacity: 1;
 }
