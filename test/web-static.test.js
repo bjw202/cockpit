@@ -190,6 +190,17 @@ test('style.css 의 cockpit 덩이는 색을 var(--md-…) 로만 쓴다(# 색 �
   assert.deepEqual([...used].filter(v => !defined.has(v)), [], '없는 토큰을 부르지 않는다');
 });
 
+// (M6 N17) 좁은 판에서 도구 입력 요약이 한 글자씩 세로로 떨어졌다 — 입력 칸이 긴 도구 이름 옆 1fr 칸에서 min-width:auto 로 눌렸다
+test('도구 호출 줄의 입력 요약은 둘째 줄을 통째로 쓰고 격자 칸이 min-width:auto 로 눌리지 않는다', () => {
+  const css = read('style.css');
+  const block = css.slice(css.indexOf('/* ── cockpit 더함 (v2)')).replace(/\/\*[\s\S]*?\*\//g, '');
+  const rule = sel => [...block.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(m => m[1].split(',').some(s => s.trim() === sel)).map(m => m[2]).join(';');
+  assert.match(rule('#cockpit-panel .tool-input'), /grid-column\s*:\s*1\s*\/\s*-1/, '입력 요약은 한 줄을 통째로');
+  const cols = /grid-template-columns\s*:\s*([^;]+)/.exec(rule('#cockpit-panel .tool'))?.[1] ?? '';
+  assert.doesNotMatch(cols.replace(/minmax\([^)]*\)/g, ''), /\b\d*fr\b/, `맨 1fr 칸이 없다 — minmax(0, …) 로 감싼다: ${cols}`);
+  assert.match(rule('#cockpit-panel .tool > *'), /min-width\s*:\s*0/, '격자 자식은 min-width:0');
+});
+
 test('로그인 폼에 type=password 칸 하나', () => {
   const form = /<form id="login-form">([\s\S]*?)<\/form>/.exec(read('index.html'));
   assert.ok(form, '로그인 폼이 없다');
