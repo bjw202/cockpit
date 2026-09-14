@@ -208,6 +208,9 @@ export class SessionManager extends EventEmitter {
     s.gotResult = false;
     s.toolStarted.clear();
     s.tasks.clear();   // background_tasks_changed 는 CLI 프로세스마다의 값이다 — 새 프로세스면 빈 집합에서 (SDK 주석)
+    // result.total_cost_usd 도 CLI 프로세스마다 0 에서 다시 쌓인다 (m3-restart: 앞 프로세스 $0.0319 → resume 뒤 $0.0102 로 덮였다).
+    // 켤 때 적힌 값을 바닥으로 두고 그 위에 이 프로세스의 누적값을 얹는다
+    s.costBase = Number(this.cockpitDb.agentSession(s.project)?.cost_usd) || 0;
     const tools = createCockpitTools({
       chatDb: this.chatDb, bot: s.bot, rooms: s.rooms,
       projectsDir: this.config.projectsDir, uploadsDir: this.config.uploadsDir,
@@ -359,7 +362,7 @@ export class SessionManager extends EventEmitter {
       case 'result':
         s.gotResult = true;
         s.compacting = false;
-        this.cockpitDb.recordResult(s.project, m.total_cost_usd);
+        this.cockpitDb.recordResult(s.project, s.costBase + (Number(m.total_cost_usd) || 0));
         this.#event(s, 'result', { subtype: m.subtype, num_turns: m.num_turns, duration_ms: m.duration_ms, total_cost_usd: m.total_cost_usd, permission_denials: (m.permission_denials ?? []).length });
         if (s.state !== 'stopped' && s.state !== 'error') {
           this.#setState(s, 'idle');

@@ -316,6 +316,29 @@ test('result 셋(0.1 · 0.25 · 0.4) 뒤 cost_usd 는 0.4', async () => {
   await mgr.stop('시험');
 });
 
+test('CLI 프로세스가 바뀌어도 cost_usd 는 앞 프로세스 값 위에 쌓인다', async () => {
+  // SDK 의 total_cost_usd 는 프로세스마다의 누적값이다 — m3-restart 에서 resume 뒤 $0.0319 가 $0.0102 로 덮였다
+  const w = world();
+  const qa = makeFakeQueryFn({ turns: [[{ result: true, cost: 0.03 }], [{ result: true, cost: 0.05 }]] });
+  const a = manager(w, qa); const { main } = open(a, w);
+  await a.start('시험');
+  for (const [i, body] of ['하나', '둘'].entries()) {
+    a.postUserMessage({ roomId: main.id, username: '김과제', body });
+    await waitFor(() => a.cockpitDb.eventsAfter('시험').filter(e => e.type === 'result').length === i + 1 && a.state('시험') === 'idle');
+  }
+  assert.ok(Math.abs(a.cockpitDb.agentSession('시험').cost_usd - 0.05) < 1e-9, '한 프로세스 안에서는 마지막 누적값');
+  await a.release('시험');
+
+  const qb = makeFakeQueryFn({ turns: [[{ result: true, cost: 0.01 }]] });
+  const b = manager(w, qb);
+  await b.bootResume();
+  b.postUserMessage({ roomId: main.id, username: '김과제', body: '재기동 뒤' });
+  await waitFor(() => b.cockpitDb.eventsAfter('시험').filter(e => e.type === 'result').length === 3 && b.state('시험') === 'idle');
+  assert.ok(Math.abs(b.cockpitDb.agentSession('시험').cost_usd - 0.06) < 1e-9, `0.05 + 0.01: ${b.cockpitDb.agentSession('시험').cost_usd}`);
+  assert.equal(b.cockpitDb.eventsAfter('시험').filter(e => e.type === 'result').at(-1).data.total_cost_usd, 0.01, 'result 행에는 SDK 값 그대로');
+  await b.stop('시험');
+});
+
 test('CLI 가 죽으면 state error 와 까닭', async () => {
   const w = world();
   const q = makeFakeQueryFn({ turns: [[{ throw: 'spawn claude ENOENT' }]] });
