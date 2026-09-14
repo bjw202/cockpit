@@ -11,6 +11,7 @@ import path from 'node:path';
 import { HttpError, readJson, sendJson } from './respond.js';
 
 export const NAME_MAX = 64;
+export const EVENTS_LIMIT = 500;
 // 과제 이름은 방 이름의 첫 '/' 앞이다 — '/' 가 들어가면 갈래가 틀어진다
 const BAD_PROJECT_CHARS = /[/\\()\s\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
 // 봇 이름은 봉투 정규식 @(TO|CC)\(([^()\s]+)\) 에 실려야 한다
@@ -36,13 +37,14 @@ export function projectView(ctx, row, { admin = false } = {}) {
   const { main, files } = ctx.chatDb.projectRooms(row.project);
   const pick = r => (r ? { id: r.id, name: r.name } : null);
   const bot = ctx.chatDb.botById(row.bot_id);
+  const { model, context_pct } = ctx.manager.sessionInfo(row.project);
   return {
     name: row.project,
     bot: bot ? { id: bot.id, name: bot.name } : null,
     rooms: { main: pick(main), files: pick(files) },
     session: {
       state: ctx.manager.state(row.project) ?? row.state, session_id: row.session_id, cost_usd: row.cost_usd,
-      last_result_at: row.last_result_at, model: null, context_pct: null,   // 모델 · 문맥 사용률은 조종석 판(M3)이 채운다
+      last_result_at: row.last_result_at, model, context_pct,   // session_events 의 마지막 init(model) · context(percentage) — M3.1
     },
     ...(admin ? { bot_dir: row.bot_dir, bot_dir_exists: fs.existsSync(row.bot_dir) } : {}),
   };
@@ -52,6 +54,14 @@ export function registerProjectRoutes(route, ctx) {
   route('GET', '/api/projects', ({ user }) => ({
     projects: ctx.cockpitDb.agentSessions().map(row => projectView(ctx, row, { admin: user.role === 'admin' })),
   }));
+
+  // 조종석 판 되그리기 — session_events 오름차순 최대 EVENTS_LIMIT. 더 있으면 마지막 id 를 after 로 다시 부른다
+  route('GET', '/api/projects/:name/events', ({ url, params }) => {
+    if (!ctx.cockpitDb.agentSession(params.name)) throw new HttpError(404, { error: `과제가 없습니다: ${params.name}` });
+    const after = Number(url.searchParams.get('after'));
+    const rows = ctx.cockpitDb.eventsAfter(params.name, Number.isFinite(after) && after > 0 ? after : 0, EVENTS_LIMIT);
+    return { events: rows.map(r => ({ id: r.id, at: r.at, type: r.type, data: r.data })) };
+  });
 
   route('POST', '/api/projects', async ({ req, res }) => {
     const { name, bot_name: botName, bot_dir: botDirIn } = await readJson(req);

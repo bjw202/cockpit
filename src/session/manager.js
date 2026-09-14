@@ -28,6 +28,11 @@ const summarize = v => {
   return s.length > SUMMARY_CHARS ? `${s.slice(0, SUMMARY_CHARS)}…` : s;
 };
 
+// 머리 경고로 쓰는 SDK 메시지(rate_limit_event · auth_status …)에서 작은 칸만 옮긴다 — 통째로 적지 않는다
+const statusFields = m => Object.fromEntries(Object.entries(m)
+  .filter(([k, v]) => !['type', 'session_id', 'uuid', 'message'].includes(k) && (v == null || typeof v !== 'object'))
+  .map(([k, v]) => [k, typeof v === 'string' ? summarize(v) : v]));
+
 // 승인 중계가 붙기 전(M2)의 기본 — 묻는 것은 전부 거부한다
 const denyAll = async ({ toolName }) => ({ behavior: 'deny', message: `승인 중계가 없다 — ${toolName} 거부` });
 
@@ -64,6 +69,13 @@ export class SessionManager extends EventEmitter {
   state(project) { return this.sessions.get(project)?.state ?? this.cockpitDb.agentSession(project)?.state ?? null; }
   runningCount() { return [...this.sessions.values()].filter(s => RUNNING.has(s.state)).length; }
 
+  // 조종석 머리의 모델 · 문맥 사용률. 서버를 다시 켜도 보이게 session_events 의 마지막 값에서 푼다
+  sessionInfo(project) {
+    const model = this.cockpitDb.lastEvents(project, 'init', 10).map(e => e.data.model).find(Boolean) ?? null;
+    const ctx = this.cockpitDb.lastEvents(project, 'context', 1)[0]?.data ?? null;
+    return { model, context_pct: Number.isFinite(ctx?.percentage) ? ctx.percentage : null };
+  }
+
   // ── 사람 글 ────────────────────────────────────────────
   // userId 또는 username 하나. 글 · 첨부 · 대상은 chat.db 한 트랜잭션, 큐는 그 뒤 cockpit.db (ADR-003 결과)
   postUserMessage({ roomId, userId, username, body, files = [] }) {
@@ -91,6 +103,7 @@ export class SessionManager extends EventEmitter {
       project, bot, rooms, botDir: row.bot_dir, state: 'stopped', sessionId: row.session_id ?? null,
       input: null, q: null, options: null, lastToRoom: null, pendingCompact: false, pendingPermissions: 0,
       compactNoticed: false, closing: false, initialized: false, gotResult: false, stderr: [],
+      toolStarted: new Map(), tasks: new Map(),
     };
     s.ready = new Promise(r => { s.resolveReady = r; });
     this.sessions.set(project, s);
@@ -157,6 +170,8 @@ export class SessionManager extends EventEmitter {
     s.input = new InputStream();
     s.initialized = false;
     s.gotResult = false;
+    s.toolStarted.clear();
+    s.tasks.clear();   // background_tasks_changed 는 CLI 프로세스마다의 값이다 — 새 프로세스면 빈 집합에서 (SDK 주석)
     const tools = createCockpitTools({
       chatDb: this.chatDb, bot: s.bot, rooms: s.rooms,
       projectsDir: this.config.projectsDir, uploadsDir: this.config.uploadsDir,
@@ -288,13 +303,21 @@ export class SessionManager extends EventEmitter {
         return;
       case 'assistant':
         for (const b of m.message?.content ?? []) {
+          if (b.type !== 'tool_use') continue;
+          s.toolStarted.set(b.id, Date.now());
           // file_path 는 요약에서 잘리지 않게 따로 적는다 — 긴 첨부 경로가 200자 요약 밖으로 밀린다 (m1-envelope 에서 봤다)
-          if (b.type === 'tool_use') this.#event(s, 'tool_use', { id: b.id, name: b.name, input: summarize(b.input), file_path: b.input?.file_path ?? null, parent_tool_use_id: m.parent_tool_use_id ?? null });
+          this.#event(s, 'tool_use', { id: b.id, name: b.name, input: summarize(b.input), file_path: b.input?.file_path ?? null, parent_tool_use_id: m.parent_tool_use_id ?? null });
         }
         return;
       case 'user':
         for (const b of Array.isArray(m.message?.content) ? m.message.content : []) {
-          if (b.type === 'tool_result') this.#event(s, 'tool_result', { tool_use_id: b.tool_use_id, is_error: !!b.is_error, content: summarize(b.content), parent_tool_use_id: m.parent_tool_use_id ?? null });
+          if (b.type !== 'tool_result') continue;
+          const started = s.toolStarted.get(b.tool_use_id);
+          s.toolStarted.delete(b.tool_use_id);
+          this.#event(s, 'tool_result', {
+            tool_use_id: b.tool_use_id, is_error: !!b.is_error, content: summarize(b.content),
+            duration_ms: started == null ? null : Date.now() - started, parent_tool_use_id: m.parent_tool_use_id ?? null,
+          });
         }
         return;
       case 'result':
@@ -306,11 +329,13 @@ export class SessionManager extends EventEmitter {
           this.#setState(s, 'idle');
           this.#kick(s);
         }
+        this.#contextUsage(s);
         return;
       case 'system':
         return this.#onSystem(s, m);
       default:
-        this.#event(s, 'status', { type: m.type });
+        // rate_limit_event · auth_status 는 머리 경고의 재료 (5.3). 그 밖의 모르는 메시지도 이름만은 남긴다
+        this.#event(s, 'status', { type: m.type, ...statusFields(m) });
     }
   }
 
@@ -333,10 +358,33 @@ export class SessionManager extends EventEmitter {
       case 'init':
         this.#event(s, 'init', { model: m.model ?? null, permissionMode: m.permissionMode ?? null, mcp_servers: m.mcp_servers ?? [] });
         return;
+      case 'background_tasks_changed':
+        // 수준 신호 — 받을 때마다 집합을 통째로 바꾼다 (SDK 주석: 시작 · 끝 짝을 맞추지 말 것)
+        s.tasks = new Map((m.tasks ?? []).map(t => [t.task_id, { task_id: t.task_id, task_type: t.task_type ?? null, description: summarize(t.description ?? ''), ambient: !!t.ambient }]));
+        this.#event(s, 'task', { subtype: m.subtype, tasks: [...s.tasks.values()] });
+        return;
       default:
-        if (String(m.subtype).startsWith('task_') || m.subtype === 'background_tasks_changed') this.#event(s, 'task', { subtype: m.subtype, task_id: m.task_id ?? null, description: summarize(m.description ?? m.summary ?? '') });
-        else this.#event(s, 'system', { subtype: m.subtype });
+        if (String(m.subtype).startsWith('task_')) {
+          this.#event(s, 'task', {
+            subtype: m.subtype, task_id: m.task_id ?? null, tool_use_id: m.tool_use_id ?? null,
+            description: summarize(m.description ?? m.summary ?? m.patch?.description ?? ''),
+            status: m.status ?? m.patch?.status ?? null, is_backgrounded: m.is_backgrounded ?? m.patch?.is_backgrounded ?? null,
+            subagent_type: m.subagent_type ?? null, last_tool_name: m.last_tool_name ?? null,
+          });
+        } else this.#event(s, 'system', { subtype: m.subtype });
     }
+  }
+
+  // result 뒤마다 문맥 사용률 (5.3 context). 머리 표시일 뿐이라 실패해도 세션을 건드리지 않는다
+  async #contextUsage(s) {
+    const q = s.q;
+    if (typeof q?.getContextUsage !== 'function') return;
+    try {
+      const u = await q.getContextUsage({ detail: 'summary' });
+      if (s.closing || q !== s.q) return;
+      const pct = Number.isFinite(u?.percentage) ? u.percentage : (u?.maxTokens ? (100 * u.totalTokens) / u.maxTokens : null);
+      this.#event(s, 'context', { percentage: pct, total_tokens: u?.totalTokens ?? null, max_tokens: u?.maxTokens ?? null, model: u?.model ?? null });
+    } catch { /* 문맥 사용률을 못 받으면 머리에 빈칸 */ }
   }
 
   #system(s, text) {

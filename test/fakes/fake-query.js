@@ -39,6 +39,12 @@ class FakeQuery {
     return { account: { apiKeySource: 'none', subscriptionType: 'Claude Max' }, commands: [{ name: 'find' }], agents: [{ name: 'reviewer' }], models: [], ...this.init };
   }
 
+  // 진짜 SDK 의 SDKControlGetContextUsageResponse 에서 조종석이 쓰는 칸만. init.contextUsage 로 바꾼다
+  async getContextUsage() {
+    this.contextCalls = (this.contextCalls ?? 0) + 1;
+    return { percentage: 12.5, totalTokens: 25000, maxTokens: 200000, model: 'fake', ...(this.init.contextUsage ?? {}) };
+  }
+
   async interrupt() { this.interrupts++; }
   async stopTask(id) { this.stopped.push(id); }
   close() { this.closed = true; this.abort.abort(); }

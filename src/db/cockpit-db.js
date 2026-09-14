@@ -131,6 +131,11 @@ export class CockpitDb {
     return this.db.prepare('SELECT id, project, at, type, json FROM session_events WHERE project = ? AND id > ? ORDER BY id LIMIT ?')
       .all(project, Number(after) || 0, limit).map(r => ({ ...r, data: JSON.parse(r.json) }));
   }
+  // 그 type 의 새것부터 limit 개 (조종석 머리의 모델 · 문맥 사용률)
+  lastEvents(project, type, limit = 1) {
+    return this.db.prepare('SELECT id, project, at, type, json FROM session_events WHERE project = ? AND type = ? ORDER BY id DESC LIMIT ?')
+      .all(project, type, limit).map(r => ({ ...r, data: JSON.parse(r.json) }));
+  }
 
   // ── 승인 ───────────────────────────────────────────────
   insertPermission({ toolUseId, agentId, project, tool, input, card }) {
