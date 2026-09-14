@@ -124,8 +124,17 @@ export class SessionManager extends EventEmitter {
     return out;
   }
 
+  // 끄기는 언제나 된다: 살아 있는 세션(error 로 멈춘 것 포함)은 닫고, 없으면(재기동 뒤 resume 전 · 이미 꺼짐) 적힌 상태만 stopped 로
   async stop(project) {
-    const s = this.#running(project);
+    const s = this.sessions.get(project);
+    if (!s) {
+      this.projectInfo(project);
+      if (this.cockpitDb.agentSession(project).state !== 'stopped') {
+        this.cockpitDb.setState(project, 'stopped');
+        this.emit('state', { project, state: 'stopped' });
+      }
+      return;
+    }
     s.closing = true;
     s.input?.end();
     try { s.q?.close?.(); } catch { /* 이미 끝났다 */ }
@@ -151,12 +160,39 @@ export class SessionManager extends EventEmitter {
     await s.q?.interrupt?.();
   }
 
-  // 걸어 두었다가 다음 idle 에 밀린 글보다 먼저 넣는다
+  // 걸어 두었다가 다음 idle 에 밀린 글보다 먼저 넣는다. 돌려주는 것: 걸어 두었나(true) · 곧바로 넣었나(false)
   compact(project) {
     const s = this.#running(project);
+    const queued = s.state !== 'idle';
     s.pendingCompact = true;
-    this.#event(s, 'command', { command: '/compact', queued: s.state !== 'idle' });
+    this.#event(s, 'command', { command: '/compact', queued });
     this.#kick(s);
+    return queued;
+  }
+
+  // 돌고 있는 백그라운드 도우미 — background_tasks_changed 의 마지막 집합에서 ambient(활동 아님)를 뺀 것
+  backgroundTasks(project) {
+    const s = this.sessions.get(project);
+    return s ? [...s.tasks.values()].filter(t => !t.ambient) : [];
+  }
+
+  async stopTask(project, taskId) {
+    const s = this.#running(project);
+    this.#event(s, 'command', { command: 'stop_task', task_id: taskId });
+    await s.q?.stopTask?.(taskId);
+  }
+
+  // 다시 켜기: 지금 프로세스를 닫고 같은 session_id 로 resume. error 로 멈춘 세션을 되살리는 길이기도 하다
+  async restart(project) {
+    const s = this.sessions.get(project);
+    if (s) {
+      s.closing = true;
+      s.input?.end();
+      try { s.q?.close?.(); } catch { /* 이미 끝났다 */ }
+      this.sessions.delete(project);
+      this.#event(s, 'command', { command: 'restart' });
+    }
+    return this.start(project, { resume: true });
   }
 
   #running(project) {

@@ -101,6 +101,14 @@ export class PermissionRelay extends EventEmitter {
     return stale.length;
   }
 
+  // 멈춤 · 끄기 · 다시 켜기: 그 과제의 걸린 요청을 거둬 감으로 닫는다. SDK 가 signal 로 먼저 거뒀으면 이미 닫혀 0 이다
+  cancelProject(project) {
+    const rows = this.cockpitDb.pendingPermissions(project);
+    let n = 0;
+    for (const r of rows) if (this.#settle(r.tool_use_id, { behavior: 'cancelled' })) n++;
+    return n;
+  }
+
   #settle(toolUseId, { behavior, by = null, reason }) {
     if (!this.cockpitDb.answerPermission(toolUseId, { behavior, answeredBy: by })) return false;
     const row = this.cockpitDb.permission(toolUseId);
