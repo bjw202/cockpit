@@ -2,6 +2,8 @@
 // 재료는 session_events 한 줄기다: GET /api/projects/:name/events?after= 로 되그리고 SSE session_event 로 잇는다.
 // 순수 함수는 DOM 없이 시험한다 (test/web-cockpit.test.js). DOM 을 만드는 함수는 doc 을 받고 textContent 로만 채운다.
 
+import { toolLabel, toolSummary } from './glue.js';
+
 export const COST_NOTE = '추정치';
 export const EVENTS_KEEP = 2000;   // 화면이 들고 있는 사건 수 — 넘치면 오래된 것부터 버린다 (되그리기는 서버에서)
 
@@ -52,13 +54,15 @@ export function currentTurnTools(events) {
 }
 
 // is_error 는 빨강 — 훅이 막은 reply 도 여기서만 보인다 (실증 3 걸림 3)
-export function toolRowView(row) {
+// (M6 N17) label 은 mcp__cockpit__ 를 뗀 이름 · summary 는 도구별 한 줄 · detail 은 서버가 준 입력 요약(누르면 펼친다)
+export function toolRowView(row, project = null) {
   const tone = row.isError ? 'red' : row.done ? 'done' : 'running';
   const secs = row.durationMs == null ? '' : ` · ${(row.durationMs / 1000).toFixed(1)}초`;
   return {
     id: row.id, tone,
     className: ['tool', `tool-${tone}`].join(' '),
-    label: row.name,
+    label: toolLabel(row.name),
+    summary: toolSummary(row.name, row.input, project),
     detail: row.input,
     status: row.isError ? `오류${secs}` : row.done ? `끝${secs}` : '도는 중',
     result: row.isError ? row.result : null,
@@ -155,12 +159,18 @@ const el = (doc, tag, cls, text) => {
   return n;
 };
 
-function toolList(doc, rows) {
+// 한 줄: 이름 · 상태 / 요약(제 줄 통째로 · 넘치면 줄임표). 요약을 누르면 서버가 준 입력 요약이 펼쳐진다 (meta M6 3.1)
+function toolList(doc, rows, project) {
   const ul = el(doc, 'ul', 'tools');
   for (const r of rows) {
-    const v = toolRowView(r);
+    const v = toolRowView(r, project);
     const li = el(doc, 'li', v.className);
-    li.append(el(doc, 'span', 'tool-name', v.label), el(doc, 'span', 'tool-status', v.status), el(doc, 'code', 'tool-input', v.detail));
+    li.append(el(doc, 'span', 'tool-name', v.label), el(doc, 'span', 'tool-status', v.status));
+    const more = el(doc, 'details', 'tool-more');
+    const line = el(doc, 'summary', 'tool-input', v.summary || v.detail);
+    line.title = v.detail;
+    more.append(line, el(doc, 'pre', 'tool-raw', v.detail));
+    li.append(more);
     if (v.result) li.append(el(doc, 'div', 'tool-result', v.result));
     ul.append(li);
   }
@@ -196,10 +206,10 @@ export function renderCockpit({ project, events, role }, doc, handlers = {}) {
 
   const { main, helpers } = groupByParent(currentTurnTools(events));
   box.append(el(doc, 'h3', null, '이번 턴 도구 호출'));
-  box.append(main.length ? toolList(doc, main) : el(doc, 'p', 'empty', '이번 턴에 부른 도구가 없습니다'));
+  box.append(main.length ? toolList(doc, main, project?.name) : el(doc, 'p', 'empty', '이번 턴에 부른 도구가 없습니다'));
   for (const h of helpers) {
     const sec = el(doc, 'section', 'helper');
-    sec.append(el(doc, 'h4', null, h.title), toolList(doc, h.rows));
+    sec.append(el(doc, 'h4', null, h.title), toolList(doc, h.rows, project?.name));
     box.append(sec);
   }
 

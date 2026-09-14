@@ -53,3 +53,81 @@ export function panelOpenByDefault(role, saved) {
 
 // 접힌 판 단추에 붙이는 걸린 승인 수
 export const pendingBadge = count => (Number(count) > 0 ? `(${Number(count)})` : '');
+
+// ── (M6 N17) 조종석 판 "이번 턴 도구 호출" 의 한 줄 — JSON 대신 도구별 사람 말 (meta M6 3.1) ──
+const COCKPIT_TOOL_PREFIX = 'mcp__cockpit__';
+export const toolLabel = name => {
+  const s = String(name ?? '');
+  return s.startsWith(COCKPIT_TOOL_PREFIX) ? s.slice(COCKPIT_TOOL_PREFIX.length) : s;
+};
+
+const cut = (s, n) => {
+  const t = String(s ?? '').replace(/\s+/g, ' ').trim();
+  return t.length > n ? `${t.slice(0, n)}…` : t;
+};
+const tailPath = (p, n) => String(p).split(/[\\/]+/).filter(Boolean).slice(-n).join('/');
+
+// 서버가 준 입력은 JSON 글자이고 200자를 넘으면 잘려 `…` 가 붙는다 — 잘려서 JSON.parse 가 안 되면 앞부분에서 칸을 찾는다
+function parsed(input) {
+  if (input && typeof input === 'object') return input;
+  try { const o = JSON.parse(String(input ?? '')); return o && typeof o === 'object' ? o : null; } catch { return null; }
+}
+function inputField(input, key) {
+  const o = parsed(input);
+  if (o) return o[key];
+  const m = new RegExp(`"${key}"\\s*:\\s*(?:"((?:[^"\\\\]|\\\\.)*)"?|(-?\\d+(?:\\.\\d+)?))`).exec(String(input ?? ''));
+  if (!m) return undefined;
+  if (m[2] != null) return Number(m[2]);
+  try { return JSON.parse(`"${m[1].replace(/\\+$/, '')}"`); } catch { return m[1]; }
+}
+function inputKeys(input) {
+  const o = parsed(input);
+  if (o) return Object.keys(o);
+  return [...new Set([...String(input ?? '').matchAll(/"([^"\\]+)"\s*:/g)].map(m => m[1]))];
+}
+
+// 과제 폴더(<projectsDir>/<과제>/) 안이면 그 뒤 경로, 아니면 끝 두 마디
+function projectPath(p, project) {
+  const s = String(p ?? '').replaceAll('\\', '/');
+  if (project) {
+    const i = s.lastIndexOf(`/${project}/`);
+    if (i >= 0) return s.slice(i + project.length + 2);
+  }
+  return /^(?:\/|[A-Za-z]:\/)/.test(s) ? tailPath(s, 2) : s;
+}
+
+// Bash — 첫 낱말 + 마지막 경로는 끝 세 마디(폴더 둘 · 파일). 경로가 없으면 명령 앞 60자
+function bashSummary(command) {
+  const words = String(command ?? '').trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return '';
+  const last = words.slice(1).filter(w => /[\\/]/.test(w)).at(-1);
+  if (!last) return cut(words.join(' '), 60);
+  const p = tailPath(last.replace(/^["']|["';]+$/g, ''), 3);
+  return words.length > 2 ? `${words[0]} … ${p}` : `${words[0]} ${p}`;
+}
+
+// name: SDK 도구 이름 · input: tool_use 사건의 input(JSON 글자, 잘릴 수 있다) · project: 과제 이름(상대 경로용)
+export function toolSummary(name, input, project = null) {
+  const f = key => inputField(input, key);
+  switch (toolLabel(name)) {
+    case 'Bash': return bashSummary(f('command'));
+    case 'Read': case 'Write': case 'Edit': case 'NotebookEdit': return projectPath(f('file_path') ?? f('notebook_path') ?? '', project);
+    case 'reply': {
+      const room = f('chat_id') == null ? '마지막 방' : `방 ${f('chat_id')}`;
+      return `${room} · ${cut(f('text'), 40)}`;
+    }
+    case 'fetch_history': {
+      const room = f('chat_id') == null ? '마지막 방' : `방 ${f('chat_id')}`;
+      const since = f('since_id') == null ? '' : `#${f('since_id')} 뒤`;
+      const limit = f('limit') == null ? '' : `${f('limit')}건`;
+      const range = [since, limit].filter(Boolean).join(' ');
+      return range ? `${room} · ${range}` : room;
+    }
+    case 'Agent': case 'Task': return cut(f('description'), 40);
+    case 'WebFetch': {
+      const url = String(f('url') ?? '');
+      try { return new URL(url).host; } catch { return cut(url, 40); }
+    }
+    default: return inputKeys(input).join(' · ');
+  }
+}

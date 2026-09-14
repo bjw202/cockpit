@@ -3,8 +3,55 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  botMark, composerDefault, composerHint, HINT_DEFAULT, HINT_NO_BOT, messageForRoom, prefillValue, projectOfRoom, roomBotsOf,
+  botMark, composerDefault, composerHint, HINT_DEFAULT, HINT_NO_BOT, messageForRoom, prefillValue, projectOfRoom, roomBotsOf, toolLabel, toolSummary,
 } from '../web/glue.js';
+import { currentTurnTools, toolRowView } from '../web/cockpit.js';
+
+// ── (M6 N17) 도구 호출 한 줄 요약 (meta M6 3.1) — 입력은 tool_use 사건의 input(JSON 글자, 200자 넘으면 잘리고 …) ──
+test('toolSummary Bash: 첫 낱말 + 마지막 경로는 끝 세 마디 (grep … design/v2/ARCHITECTURE.md)', () => {
+  assert.equal(toolSummary('Bash', JSON.stringify({ command: 'grep -rn "ARCHITECTURE" /Users/pl/work/prodev/design/v2/ARCHITECTURE.md' })), 'grep … design/v2/ARCHITECTURE.md');
+  assert.equal(toolSummary('Bash', JSON.stringify({ command: 'cat C:\\work\\projects\\수율\\charter.md' })), 'cat projects/수율/charter.md');
+  assert.equal(toolSummary('Bash', JSON.stringify({ command: 'npm test' })), 'npm test', '경로가 없으면 명령 그대로');
+  const long = `{"command":"find /a/b/c/d -name '*.md' ${'x'.repeat(200)}`.slice(0, 200) + '…';
+  assert.equal(toolSummary('Bash', long).startsWith('find … b/c/d'), true, `잘린 JSON 도: ${toolSummary('Bash', long)}`);
+});
+
+test('toolSummary Read · Write · Edit: 과제 폴더 기준 상대 경로', () => {
+  assert.equal(toolSummary('Read', '{"file_path":"/w/projects/수율/cards/E-0001.md"}', '수율'), 'cards/E-0001.md');
+  assert.equal(toolSummary('Write', '{"file_path":"C:\\\\w\\\\projects\\\\수율\\\\wiki\\\\공정.md","content":"…"}', '수율'), 'wiki/공정.md');
+  assert.equal(toolSummary('Edit', '{"file_path":"/w/prodev/bots/prodev-수율-bot/journal.md","old_string":"a"}', '수율'), 'prodev-수율-bot/journal.md', '과제 폴더 밖이면 끝 두 마디');
+});
+
+test('toolSummary reply: 방 N · 텍스트 앞 40자 — 잘린 JSON 도', () => {
+  assert.equal(toolSummary('mcp__cockpit__reply', JSON.stringify({ chat_id: '1', text: '파일 첫 줄은\nlot,yield 입니다' })), '방 1 · 파일 첫 줄은 lot,yield 입니다');
+  const cutInput = `{"chat_id":"7","text":"${'가'.repeat(300)}`.slice(0, 200) + '…';
+  assert.equal(toolSummary('mcp__cockpit__reply', cutInput), `방 7 · ${'가'.repeat(40)}…`);
+  assert.equal(toolSummary('mcp__cockpit__reply', '{"text":"안녕"}'), '마지막 방 · 안녕', 'chat_id 가 없으면 마지막 to 방');
+});
+
+test('toolSummary fetch_history: 방 N · #since_id 뒤 limit건', () => {
+  assert.equal(toolSummary('mcp__cockpit__fetch_history', '{"chat_id":"1","since_id":115,"limit":30}'), '방 1 · #115 뒤 30건');
+  assert.equal(toolSummary('mcp__cockpit__fetch_history', '{"chat_id":"1"}'), '방 1');
+});
+
+test('toolSummary Agent: description 앞 40자', () => {
+  const description = '카드 없는 첨부를 찾아 journal 절에 옮기고 R14 계측이 읽을 수 있게 정리하기';
+  assert.equal(toolSummary('Agent', JSON.stringify({ description, prompt: '…', subagent_type: 'general-purpose' })), `${description.slice(0, 40)}…`);
+  assert.equal(toolSummary('Task', '{"description":"리서치"}'), '리서치');
+});
+
+test('toolSummary WebFetch: 호스트', () => {
+  assert.equal(toolSummary('WebFetch', '{"url":"https://docs.example.com/a/b?x=1","prompt":"요약"}'), 'docs.example.com');
+});
+
+test('toolSummary 그 밖: 키 이름 나열 · toolLabel 은 mcp__cockpit__ 접두를 뗀다 · toolRowView 가 둘을 싣는다', () => {
+  assert.equal(toolSummary('Glob', '{"pattern":"**/*.md","path":"/w"}'), 'pattern · path');
+  assert.equal(toolSummary('TodoWrite', `{"todos":[{"content":"${'x'.repeat(250)}`.slice(0, 200) + '…'), 'todos · content', '잘린 JSON 은 보이는 키만');
+  assert.deepEqual([toolLabel('mcp__cockpit__reply'), toolLabel('mcp__cockpit__fetch_history'), toolLabel('Bash'), toolLabel('mcp__other__x')], ['reply', 'fetch_history', 'Bash', 'mcp__other__x']);
+  const [row] = currentTurnTools([{ id: 1, at: '', type: 'tool_use', data: { id: 'u1', name: 'mcp__cockpit__fetch_history', input: '{"chat_id":"1","since_id":115,"limit":30}' } }]);
+  const v = toolRowView(row);
+  assert.deepEqual([v.label, v.summary, v.detail], ['fetch_history', '방 1 · #115 뒤 30건', '{"chat_id":"1","since_id":115,"limit":30}']);
+});
 import { permissionRequestId } from '../web/rich.js';
 
 const projects = [

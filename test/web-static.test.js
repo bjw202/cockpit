@@ -190,15 +190,25 @@ test('style.css 의 cockpit 덩이는 색을 var(--md-…) 로만 쓴다(# 색 �
   assert.deepEqual([...used].filter(v => !defined.has(v)), [], '없는 토큰을 부르지 않는다');
 });
 
-// (M6 N17) 좁은 판에서 도구 입력 요약이 한 글자씩 세로로 떨어졌다 — 입력 칸이 긴 도구 이름 옆 1fr 칸에서 min-width:auto 로 눌렸다
-test('도구 호출 줄의 입력 요약은 둘째 줄을 통째로 쓰고 격자 칸이 min-width:auto 로 눌리지 않는다', () => {
+// (M6 N17) 좁은 판에서 도구 입력 요약이 한 글자씩 세로로 떨어졌다. 원인: 격자 auto auto 1fr — 띄어쓸 자리 없는 긴 도구 이름
+// (mcp__cockpit__fetch_history)이 auto 칸을 제 폭만큼 먹고, 1fr 칸의 요약(overflow-wrap:anywhere 단독)이 한 글자 폭까지 눌렸다 (as-built 5절)
+test('도구 호출 줄의 요약은 제 줄 하나 · 한 줄 · 넘치면 줄임표 — 맨 fr 칸 · 글자마다 줄바꿈이 없다', () => {
   const css = read('style.css');
   const block = css.slice(css.indexOf('/* ── cockpit 더함 (v2)')).replace(/\/\*[\s\S]*?\*\//g, '');
   const rule = sel => [...block.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(m => m[1].split(',').some(s => s.trim() === sel)).map(m => m[2]).join(';');
-  assert.match(rule('#cockpit-panel .tool-input'), /grid-column\s*:\s*1\s*\/\s*-1/, '입력 요약은 한 줄을 통째로');
   const cols = /grid-template-columns\s*:\s*([^;]+)/.exec(rule('#cockpit-panel .tool'))?.[1] ?? '';
-  assert.doesNotMatch(cols.replace(/minmax\([^)]*\)/g, ''), /\b\d*fr\b/, `맨 1fr 칸이 없다 — minmax(0, …) 로 감싼다: ${cols}`);
+  assert.doesNotMatch(cols.replace(/minmax\([^)]*\)/g, ''), /\b\d*fr\b/, `맨 fr 칸이 없다 — minmax(0, …) 로 감싼다: ${cols}`);
   assert.match(rule('#cockpit-panel .tool > *'), /min-width\s*:\s*0/, '격자 자식은 min-width:0');
+  assert.match(rule('#cockpit-panel .tool-more'), /grid-column\s*:\s*1\s*\/\s*-1/, '요약은 제 줄 하나를 통째로');
+  const line = rule('#cockpit-panel .tool-more > summary.tool-input');
+  for (const want of [/display\s*:\s*block/, /min-width\s*:\s*0/, /white-space\s*:\s*nowrap/, /overflow\s*:\s*hidden/, /text-overflow\s*:\s*ellipsis/]) assert.match(line, want, String(want));
+  assert.doesNotMatch(line, /overflow-wrap/, '한 줄에는 글자마다 줄바꿈을 걸지 않는다');
+  assert.doesNotMatch(block, /[^{}]*\.tool-input\s*\{[^}]*grid-column/, '요약 칸 자체가 아니라 details 가 줄을 차지한다');
+  assert.match(rule('#cockpit-panel .tool-raw'), /white-space\s*:\s*pre-wrap/, '펼친 입력 요약은 pre-wrap');
+  const js = read('cockpit.js');
+  assert.match(js, /el\(doc, 'details', 'tool-more'\)/, '누르면 펼치는 details');
+  assert.match(js, /el\(doc, 'summary', 'tool-input', v\.summary/, '한 줄은 도구별 요약');
+  assert.match(js, /\.title = v\.detail/, 'title 에 전문');
 });
 
 test('로그인 폼에 type=password 칸 하나', () => {

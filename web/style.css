@@ -1011,12 +1011,16 @@ h6.md-h { font-size: 0.9em; color: var(--md-text-muted); }
 #cockpit-panel .cockpit-warn { color: var(--md-status-error); margin: var(--md-space-1) 0 0; }
 #cockpit-panel .session-buttons { display: flex; flex-wrap: wrap; gap: var(--md-space-1); margin-top: var(--md-space-2); }
 #cockpit-panel .tools, #cockpit-panel .hooks, #cockpit-panel .tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--md-space-1); }
-/* (M6 N17) 이름 · 상태가 첫 줄, 입력 요약은 둘째 줄을 통째로 — 긴 도구 이름 옆 1fr 칸이 min-width:auto 로 한 글자 폭까지 눌리던 것 */
+/* (M6 N17) 이름 · 상태가 첫 줄, 요약은 둘째 줄을 통째로 · 한 줄 · 넘치면 줄임표. 옛 격자(auto auto 1fr)는 띄어쓸 자리 없는 긴 도구 이름이
+   auto 칸을 제 폭만큼 먹어 1fr 칸의 입력 요약(overflow-wrap:anywhere)이 한 글자 폭까지 눌렸다 (meta M6 3.1) */
 #cockpit-panel .tool { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--md-space-1) var(--md-space-2); align-items: baseline; border: var(--md-border-width) solid var(--md-divider); border-radius: var(--md-radius-badge); padding: var(--md-space-1) var(--md-space-2); }
 #cockpit-panel .tool > * { min-width: 0; }
 #cockpit-panel .tool-name { font-weight: var(--md-font-weight-name); overflow-wrap: anywhere; }
 #cockpit-panel .tool-status { color: var(--md-text-muted); font-size: var(--md-font-size-timestamp); white-space: nowrap; }
-#cockpit-panel .tool-input { grid-column: 1 / -1; font-size: var(--md-font-size-timestamp); overflow-wrap: anywhere; color: var(--md-text-muted); }
+#cockpit-panel .tool-more { grid-column: 1 / -1; min-width: 0; }
+#cockpit-panel .tool-more > summary.tool-input { display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; list-style: none; margin: 0; font-weight: normal; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: var(--md-font-size-timestamp); color: var(--md-text-muted); }
+#cockpit-panel .tool-more > summary.tool-input::-webkit-details-marker { display: none; }
+#cockpit-panel .tool-raw { white-space: pre-wrap; overflow-wrap: anywhere; margin: var(--md-space-1) 0 0; font-size: var(--md-font-size-timestamp); color: var(--md-text-muted); }
 #cockpit-panel .tool-running { border-color: var(--md-status-idle); }
 #cockpit-panel .tool-red { border-color: var(--md-status-error); }
 #cockpit-panel .tool-red .tool-status, #cockpit-panel .tool-result, #cockpit-panel .hook-blocked { color: var(--md-status-error); }
