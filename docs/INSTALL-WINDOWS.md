@@ -10,6 +10,8 @@
 
 한글이 `?` 로 깨져 보이면 그 창에서 먼저 `chcp 65001` 을 한 번 친다.
 
+**(v2) 달라진 것.** 과제는 명령으로 열지 않는다 — 서버를 띄운 뒤 **화면의 `+` 로 방(과제)을 만들면 cockpit 이 prodev `setup.js` 까지 불러 봇 폴더를 만든다.** 방은 과제마다 하나(`prodev-<과제>`)이고, 오른쪽 조종석 판은 접었다 편다.
+
 ---
 
 ## 걸음
@@ -41,46 +43,55 @@
 
 6. **설정 한 장(`cockpit.json`)을 쓰고 검사한다.**
    - 친다: `Copy-Item cockpit.example.json cockpit.json`
-   - 친다: `notepad cockpit.json` — `botsDir` = `C:/work/crew-workspace/prodev/bots` · `projectsDir` = `C:/work/crew-workspace/projects` · `uploadsDir` = `C:/cockpit-data/uploads` · `dataDir` = `C:/cockpit-data` · `claudePath` = 3번에서 적은 경로. 슬래시(`/`)로 적어도 된다. JSON 안에서 역슬래시를 쓰면 두 번(`\\`) 쓴다.
-   - 확인: `node bin/cockpit.js check --config cockpit.json` 이 **`✗` 줄 없이** 셋을 낸다:
+   - 친다: `notepad cockpit.json` — `prodevDir` = `C:/work/crew-workspace/prodev` · `botsDir` = `C:/work/crew-workspace/prodev/bots` (**반드시 `<prodevDir>/bots`**) · `projectsDir` = `C:/work/crew-workspace/projects` · `uploadsDir` = `C:/cockpit-data/uploads` · `dataDir` = `C:/cockpit-data` · `claudePath` = 3번에서 적은 경로. 슬래시(`/`)로 적어도 된다. JSON 안에서 역슬래시를 쓰면 두 번(`\\`) 쓴다.
+   - 확인: `node bin/cockpit.js check --config cockpit.json` 이 **`✗` 줄 없이** 넷을 낸다:
      - `✓ node v… (>= 22.13)`
      - `✓ claudePath <판> — <경로>` (예 `✓ claudePath 2.1.270 (Claude Code) — C:/Users/…/claude.exe`)
      - `✓ 경로 공백 없음`
-   - `✗ claudePath 없다` 면 경로 오타, `✗ claudePath 실행이 안 된다` 면 로그인 · 설치를 3번부터 다시 본다. `✗ <키> … 공백` 이면 그 자리를 공백 없는 곳으로 옮긴다.
+     - `✓ prodevDir C:/work/crew-workspace/prodev — setup.js 있음`
+   - `✗ claudePath 없다` 면 경로 오타, `✗ claudePath 실행이 안 된다` 면 로그인 · 설치를 3번부터 다시 본다. `✗ <키> … 공백` 이면 그 자리를 공백 없는 곳으로 옮긴다. `✗ prodevDir … scripts/setup.js 가 없다` 면 `prodevDir` 오타 — 이대로 두면 10번의 방 만들기가 502 로 실패한다.
    - 회사망이 프록시를 거치면 `extraEnvKeys` 에 `HTTPS_PROXY` · `HTTP_PROXY` · `NO_PROXY` 를 넣는다 (예 `"extraEnvKeys": ["HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY"]`). 봇 세션 env 는 화이트리스트라 이 키들이 기본으로는 안 실린다 — 넣을지는 W1.3 에서 사람이 잰 결과로 정한다 (meta N14).
 
-7. **봇 폴더를 만든다 (prodev `setup.js`).** 과제 폴더 · 봇 폴더 · 설정 두 장이 생긴다. 과제 이름은 예로 `수율개선`.
-   - 친다: `node C:\work\crew-workspace\prodev\scripts\setup.js --project 수율개선 --cockpit C:\work\crew-workspace\cockpit\cockpit.json`
-   - 확인: 출력에 `씀  bots/prodev-수율개선-bot/.claude/settings.local.json  (허용 N건 · 거부 N건 · 바깥 폴더 N개)` 줄이 있다.
-   - 확인: `Test-Path C:\work\crew-workspace\prodev\bots\prodev-수율개선-bot\.claude\settings.local.json` → `True`
-   - 확인: `(Get-Content C:\work\crew-workspace\prodev\bots\prodev-수율개선-bot\.claude\settings.local.json -Raw | ConvertFrom-Json).permissions.allow.Count` → 7번 출력의 허용 건수와 같다.
-   - **허용 · 거부 목록의 자리는 `settings.local.json` 이다.** SDK 세션은 `settings.json` 의 `permissions.allow` 를 읽지 않는다. 손으로 규칙을 더했으면 `setup.js` 를 다시 돌릴 때 사라진다 (prodev ADR-038).
+7. **방(과제)은 화면의 `+` 로 만든다 — setup 까지 한다.** 여기서는 봇 폴더를 손으로 만들지 않는다(v1 의 `setup.js` 걸음은 없어졌다). 10번에서 `+` 를 누르면 과제 폴더 · 봇 폴더 · 설정 두 장이 한꺼번에 생긴다. 이 걸음에서는 v1 에서 쓰던 DB 를 이어 쓸 때만 옛 방을 정리한다.
+   - 새로 세우는 자리(`C:\cockpit-data` 가 비어 있다)면 **친 것 없이 8번으로 간다.**
+   - v1 의 `chat.db` 를 이어 쓰면 먼저 보기만 한다: `node bin/cockpit.js migrate-v2 --config cockpit.json`
+   - 확인: 옛 files 방마다 한 줄, 끝에 `보이기만 했다 — 적용하려면 --apply` (없으면 `보관할 옛 files 방이 없다`).
+   - 친다 (옛 방이 있을 때): `node bin/cockpit.js migrate-v2 --apply --config cockpit.json`
+   - 확인: `보관 <N>` 한 줄. 다시 보기만 돌리면 그 방들이 `→ 이미 보관` 으로 나온다.
 
-8. **봇 폴더를 한 번 신뢰한다.** 안 하면 봇 세션이 허용 목록을 통째로 무시해 파일을 하나도 못 쓴다 (작업판 `WINDOWS.md` 5.2).
-   - 친다: `cd C:\work\crew-workspace\prodev\bots\prodev-수율개선-bot`
-   - 친다: `claude` — 이 폴더를 신뢰하느냐고 물으면 예, 그다음 `/exit`.
-   - 확인: 같은 자리에서 `claude` 를 다시 켜면 신뢰를 묻지 않는다. `/exit` 로 나오고 `cd C:\work\crew-workspace\cockpit` 로 돌아온다.
-
-9. **계정 둘을 만든다.** 이름은 과제 헌장(`charter.md`)의 `PL:` 과 글자 그대로.
+8. **계정 둘을 만든다.** 이름은 과제 헌장(`charter.md`)의 `PL:` 과 글자 그대로.
    - 친다: `node bin/cockpit.js init-admin 김피엘 --config cockpit.json` — 비밀번호(8자 이상)를 화면에 안 보이게 두 번 묻는다.
    - 친다: `node bin/cockpit.js add-user 김과제 --config cockpit.json`
    - 확인: `node bin/cockpit.js session-token 김피엘 --config cockpit.json` 이 64자 한 줄을 낸다.
 
-10. **과제를 연다.** 봇 한 줄 · 방 둘 · 세션 한 줄.
-    - 친다: `node bin/cockpit.js open-project 수율개선 --config cockpit.json`
-    - 확인: `과제 수율개선 · 봇 prodev-수율개선-bot (id …) · 본방 prodev-수율개선 (id …) · 파일방 prodev-수율개선/files (id …)` 한 줄.
+9. **서버를 띄운다.** 이 창은 켜 둔다. 끌 때는 Ctrl-C — 세션 상태를 그대로 두고 다음 기동에 이어 붙는다.
+   - 친다: `node bin/cockpit.js serve --config cockpit.json`
+   - 확인: `cockpit 듣는 중 http://127.0.0.1:3000` 줄.
+   - 확인 (**새 PowerShell 창**에서): `Invoke-RestMethod http://127.0.0.1:3000/api/health` → `ok` 가 `True`.
 
-11. **서버를 띄운다.** 이 창은 켜 둔다. 끌 때는 Ctrl-C — 세션 상태를 그대로 두고 다음 기동에 이어 붙는다.
-    - 친다: `node bin/cockpit.js serve --config cockpit.json`
-    - 확인: `cockpit 듣는 중 http://127.0.0.1:3000` 줄.
-    - 확인 (**새 PowerShell 창**에서): `Invoke-RestMethod http://127.0.0.1:3000/api/health` → `ok` 가 `True`.
-
-12. **브라우저로 열어 판 셋을 눌러 보고 보이는 것을 적는다.** 화면은 이 걸음에서 처음 사람 눈으로 본다 (meta N13).
+10. **브라우저에서 방(과제)을 만든다.** 과제 이름은 예로 `수율개선`.
     - 연다: `http://127.0.0.1:3000` → 김피엘로 들어간다.
+    - 누른다: 사이드바 머리의 `+` → 이름 칸에 `수율개선` → 확인.
+    - 확인: 사이드바에 방 `prodev-수율개선` 이 생기고 연다. 실패하면 오류 글자(예 `setup 실패: …`)를 그대로 적는다 — 이때 만든 것은 되돌려진다.
+    - 확인 (새 PowerShell 창): `Test-Path C:\work\crew-workspace\prodev\bots\prodev-수율개선-bot\.claude\settings.local.json` → `True`
+    - 확인: `(Get-Content C:\work\crew-workspace\prodev\bots\prodev-수율개선-bot\.claude\settings.local.json -Raw | ConvertFrom-Json).permissions.allow.Count` → 0 보다 큰 수.
+    - **허용 · 거부 목록의 자리는 `settings.local.json` 이다.** SDK 세션은 `settings.json` 의 `permissions.allow` 를 읽지 않는다. 손으로 규칙을 더했으면 setup 이 다시 돌 때 사라진다 (prodev ADR-038).
+    - 판을 새로 올린 뒤라도 강력 새로고침(Ctrl+Shift+R)은 필요 없다. 옛 화면이 보이거나 로그인이 안 되면 그 모양을 적는다.
+
+11. **봇 폴더를 한 번 신뢰한다.** 안 하면 봇 세션이 허용 목록을 통째로 무시해 파일을 하나도 못 쓴다 (작업판 `WINDOWS.md` 5.2).
+    - 친다 (새 PowerShell 창): `cd C:\work\crew-workspace\prodev\bots\prodev-수율개선-bot`
+    - 친다: `claude` — 이 폴더를 신뢰하느냐고 물으면 예, 그다음 `/exit`.
+    - 확인: 같은 자리에서 `claude` 를 다시 켜면 신뢰를 묻지 않는다. `/exit` 로 나온다.
+
+12. **브라우저로 판을 눌러 보고 보이는 것을 적는다.**
     - 누른다 · 적는다 (칸마다 **무엇이 보였나** 한두 줄, 안 되면 오류 글자 그대로):
-      - **과제 탭** — `수율개선` 탭이 하나 보이는가. 채팅 판에 본방 · 파일방이 있고 입력칸에 `@TO(prodev-수율개선-bot) ` 가 채워져 있는가.
-      - **조종석 판** — 머리(상태 · 모델 · 계정 · 값 `추정치` · 문맥)가 보이는가. `켜기` 를 누르면 상태가 `켜는 중` → `대기` 로 바뀌는가. 본방에 `@TO(prodev-수율개선-bot) 안녕` 을 보내고 조종석 판에 도구 호출 줄이 생기는가.
-      - **파일 판** — 과제 폴더의 폴더들(`cards/` · `wiki/` …)이 보이고, `charter.md` 를 누르면 글이 보이는가.
+      - **방** — 입력칸에 `@TO(prodev-수율개선-bot) ` 가 채워져 있는가. 봇 칩이 `⚪` 인가.
+      - **조종석 판** — 머리의 `조종석` 단추로 판이 접히고 펴지는가. 머리(상태 · 모델 · 계정 · 값 `추정치` · 문맥)가 보이는가. `켜기` 를 누르면 상태가 `켜는 중` → `대기` 로, 봇 칩이 `🟢` 로 바뀌는가.
+      - **봇 부르기** — `@TO(prodev-수율개선-bot) 안녕` 을 보내고, 판의 "이번 턴 도구 호출" 에 도구마다 한 줄 요약(예 `reply` · `방 1 · …`)이 판 폭 안에 한 줄로 보이는가. 줄을 누르면 입력 요약이 펼쳐지는가.
+      - **판 접기** — 판을 접은 채 새로고침해도 접힌 채인가. 승인이 걸리면 접힌 단추에 `(1)` 같은 수가 붙는가.
+      - **사람끼리 글** — 김과제로 들어가 입력칸의 `@TO(…)` 봉투를 **지운다.** 칸이 비었을 때 안내 글자가 `봇에게 가지 않습니다 — 부르려면 @` 인가. 그대로 글과 파일 하나(예 `yield.csv`)를 올리고, 조종석 판에 새 턴이 **안** 생기는가.
+      - **따라잡기** — 이어서 `@TO(prodev-수율개선-bot) 위 파일 봐 줘` 를 보낸다. 판에 `fetch_history` 줄이 생기고, 봇 답이 앞의 글 · 파일 내용을 말하는가.
+      - **파일** — 판의 파일 접이에서 과제 폴더의 폴더들(`cards/` · `wiki/` …)이 보이고, `charter.md` 를 누르면 글이 보이는가.
     - 적은 것을 meta 에 준다.
 
 ---
