@@ -1,0 +1,14 @@
+{
+  "botsDir": "C:/work/crew-workspace/prodev/bots",
+  "projectsDir": "C:/work/crew-workspace/projects",
+  "uploadsDir": "C:/cockpit-data/uploads",
+  "claudePath": "C:/Users/pl/.local/bin/claude.exe",
+  "maxSessions": 3,
+
+  "dataDir": "C:/cockpit-data",
+  "host": "127.0.0.1",
+  "port": 3000,
+  "approvalTimeoutMin": 10,
+  "extraEnvKeys": [],
+  "tls": null
+}

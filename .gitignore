@@ -1,0 +1,9 @@
+node_modules/
+# 저장소 둘과 WAL 짝. 데이터는 설정의 dataDir 에 둔다
+*.db
+*.db-wal
+*.db-shm
+data/
+# 기계마다 다른 설정. 틀은 cockpit.example.json
+cockpit.json
+.DS_Store
