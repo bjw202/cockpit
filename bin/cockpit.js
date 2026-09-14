@@ -20,6 +20,7 @@
 // 설정 파일은 --config 가 없으면 현재 폴더의 cockpit.json 이다.
 
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, PATH_KEYS } from '../src/config.js';
 import { openRuntime, waitForBotMessage } from '../src/runtime.js';
@@ -60,8 +61,20 @@ function check(opt) {
   const { config, errors } = loadConfig(configFile(opt));
   const badKeys = new Set(errors.map(e => e.key));
   for (const e of errors) console.log(`✗ ${e.key} ${e.reason}`);
-  for (const key of [...PATH_KEYS, 'claudePath']) {
+  for (const key of PATH_KEYS) {
     if (!badKeys.has(key) && config[key]) console.log(`✓ ${key} ${config[key]}`);
+  }
+  // claudePath 는 있다는 것만으로 모자란다 — 불러서 판이 나와야 SDK 가 띄울 수 있다 (M4.2 · 윈도우는 필수)
+  if (config.claudePath && !badKeys.has('claudePath')) {
+    try {
+      const out = execFileSync(config.claudePath, ['--version'], { encoding: 'utf8', timeout: 30_000, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+      console.log(`✓ claudePath ${out.trim().split(/\r?\n/)[0]} — ${config.claudePath}`);
+    } catch (e) {
+      console.log(`✗ claudePath 실행이 안 된다 (--version) — ${String(e.message).split(/\r?\n/)[0]}`);
+      failed = true;
+    }
+  } else if (!config.claudePath && !badKeys.has('claudePath')) {
+    console.log('· claudePath 없음 — 맥 · 리눅스는 SDK 동봉 CLI 를 쓴다');
   }
   if (!errors.length) console.log('✓ 경로 공백 없음');
   return failed || errors.length ? 1 : 0;
