@@ -88,7 +88,11 @@ export class CockpitDb {
     return this.account(userId);
   }
   account(userId) { return this.db.prepare('SELECT user_id, role, pw_hash, created_at FROM accounts WHERE user_id = ?').get(userId); }
+  accounts() { return this.db.prepare('SELECT user_id, role, created_at FROM accounts ORDER BY user_id').all(); }
   hasAdmin() { return !!this.db.prepare("SELECT 1 FROM accounts WHERE role = 'admin' LIMIT 1").get(); }
+  deleteAccount(userId) { this.db.prepare('DELETE FROM accounts WHERE user_id = ?').run(userId); }
+  setPasswordHash(userId, pwHash) { this.db.prepare('UPDATE accounts SET pw_hash = ? WHERE user_id = ?').run(pwHash, userId); }
+  deleteWebSessionsOf(userId) { this.db.prepare('DELETE FROM web_sessions WHERE user_id = ?').run(userId); }
 
   // 쿠키 값 원문은 돌려주기만 하고 저장하지 않는다
   createWebSession(userId, { ttlMs = 7 * 24 * 3600 * 1000, now = Date.now() } = {}) {

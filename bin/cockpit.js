@@ -7,6 +7,12 @@
 //       chat.db 에 봇 한 줄 · 방 둘, cockpit.db 에 세션 한 줄. 봇 이름 기본은 prodev-<과제>-bot
 //   node bin/cockpit.js chat <과제> "<글>" [--room main|files] [--as <이름>] [--timeout <초>] [--model <모델>] [--config <파일>]
 //       진짜 SDK 로 세션을 켜고(있으면 resume) 글 하나를 넣고 봇 답 하나를 기다려 찍는다. 승인 요청은 전부 거부한다 (M1)
+//   node bin/cockpit.js init-admin <이름> [--config <파일>]
+//       첫 admin. 비밀번호는 표준입력에서 (터미널이면 화면에 안 보이게 두 번, 파이프면 첫 줄). admin 이 있으면 거절
+//   node bin/cockpit.js add-user <이름> [--role member|admin] [--config <파일>]
+//       계정 하나 더. 비밀번호는 init-admin 과 같이 받는다
+//   node bin/cockpit.js session-token <이름> [--days <일>] [--config <파일>]
+//       그 계정의 쿠키 md_session 값을 한 줄로 낸다 (서버 PC 에서만 되는 발급 — meta 의 replay.js 토큰)
 //
 // 설정 파일은 --config 가 없으면 현재 폴더의 cockpit.json 이다.
 
@@ -14,6 +20,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, PATH_KEYS } from '../src/config.js';
 import { openRuntime, waitForBotMessage } from '../src/runtime.js';
+import { createAccount, initAdmin, issueToken } from '../src/auth/sessions.js';
 
 export function parseArgs(argv) {
   const pos = []; const opt = {};
@@ -104,7 +111,73 @@ async function chat(opt, [project, body]) {
   } finally { await rt.close(); }
 }
 
-const COMMANDS = { check, 'open-project': openProject, chat };
+// 비밀번호 받기 — 터미널이면 되울림 없이 두 번 받아 맞대고, 파이프면 첫 줄 하나
+async function readPassword() {
+  const stdin = process.stdin;
+  if (!stdin.isTTY) {
+    let all = '';
+    for await (const chunk of stdin) all += chunk;
+    return all.split(/\r?\n/)[0];
+  }
+  const ask = prompt => new Promise((resolve, reject) => {
+    process.stderr.write(prompt);
+    let buf = '';
+    const done = () => { stdin.setRawMode(false); stdin.pause(); stdin.off('data', onData); process.stderr.write('\n'); };
+    const onData = s => {
+      for (const ch of s) {
+        if (ch === '\r' || ch === '\n') { done(); resolve(buf); return; }
+        if (ch === '\u0003') { done(); reject(new Error('취소했다')); return; }
+        if (ch === '\u007f' || ch === '\b') buf = [...buf].slice(0, -1).join('');
+        else buf += ch;
+      }
+    };
+    stdin.setRawMode(true); stdin.setEncoding('utf8'); stdin.resume(); stdin.on('data', onData);
+  });
+  const first = await ask('비밀번호: ');
+  if (first !== await ask('한 번 더: ')) throw new Error('두 비밀번호가 다르다');
+  return first;
+}
+
+async function withStores(opt, fn) {
+  const config = loadOrDie(opt);
+  if (!config) return 1;
+  const rt = openRuntime(config);
+  try { return await fn(rt); } finally { await rt.close(); }
+}
+
+async function initAdminCmd(opt, [username]) {
+  if (!username) { console.error('쓰는 법: init-admin <이름>   (비밀번호는 표준입력)'); return 1; }
+  return withStores(opt, async rt => {
+    if (rt.cockpitDb.hasAdmin()) { console.error('✗ admin 이 이미 있다 — 계정은 add-user 로 더한다'); return 1; }
+    const acc = await initAdmin({ ...rt, username, password: await readPassword() });
+    console.log(`admin ${acc.username} (id ${acc.id}) 을 만들었다`);
+    return 0;
+  });
+}
+
+async function addUserCmd(opt, [username]) {
+  const role = typeof opt.role === 'string' ? opt.role : 'member';
+  if (!username) { console.error('쓰는 법: add-user <이름> [--role member|admin]   (비밀번호는 표준입력)'); return 1; }
+  return withStores(opt, async rt => {
+    const acc = await createAccount({ ...rt, username, password: await readPassword(), role });
+    console.log(`${acc.role} ${acc.username} (id ${acc.id}) 을 만들었다`);
+    return 0;
+  });
+}
+
+async function sessionTokenCmd(opt, [username]) {
+  if (!username) { console.error('쓰는 법: session-token <이름> [--days <일>]'); return 1; }
+  const days = Number(opt.days) > 0 ? Number(opt.days) : 7;
+  return withStores(opt, async rt => {
+    console.log(issueToken(rt, username, { ttlMs: days * 24 * 3600 * 1000 }));
+    return 0;
+  });
+}
+
+const COMMANDS = {
+  check, 'open-project': openProject, chat,
+  'init-admin': initAdminCmd, 'add-user': addUserCmd, 'session-token': sessionTokenCmd,
+};
 
 async function main() {
   const { pos, opt } = parseArgs(process.argv.slice(2));
