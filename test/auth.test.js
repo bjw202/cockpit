@@ -11,6 +11,7 @@ import { hashPassword, verifyPassword, SCRYPT } from '../src/auth/password.js';
 import {
   COOKIE_NAME, sessionCookie, clearSessionCookie, createAccount, initAdmin, login, issueToken, authenticateRequest,
 } from '../src/auth/sessions.js';
+import { httpWorld } from './fakes/http-world.js';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CLI = path.join(REPO, 'bin', 'cockpit.js');
@@ -112,6 +113,30 @@ test('users.username 과 accounts 가 한 트랜잭션으로 생긴다', async (
   // 이름 규칙은 minidiscord 와 같다
   await assert.rejects(() => createAccount({ ...deps, username: ' 김과제', password: 'correct-horse' }), e => e.status === 400);
   await assert.rejects(() => createAccount({ ...deps, username: '새사람', password: 'short' }), e => e.status === 400);
+});
+
+test('session-token 이 낸 값으로 GET /api/rooms 200', async t => {
+  const w = await httpWorld();
+  t.after(() => w.close());
+  await createAccount({ chatDb: w.chatDb, cockpitDb: w.cockpitDb, username: '김피엘', password: 'pl-password-1', role: 'admin' });
+  const token = execFileSync(process.execPath, [CLI, 'session-token', '김피엘', '--config', w.configFile], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  const rooms = await fetch(`${w.base}/api/rooms`, { headers: { cookie: `md_session=${token}` } });
+  assert.equal(rooms.status, 200);
+  assert.deepEqual(Object.keys(await rooms.json()), ['active', 'archived']);
+
+  // 브라우저 길도 같은 쿠키다: 로그인 → 나 → 로그아웃 → 401
+  const bad = await fetch(`${w.base}/api/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: '김피엘', password: 'wrong-password' }) });
+  assert.equal(bad.status, 401);
+  const login = await fetch(`${w.base}/api/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: '김피엘', password: 'pl-password-1' }) });
+  assert.equal(login.status, 200);
+  const setCookie = login.headers.get('set-cookie');
+  assert.match(setCookie, /^md_session=[0-9a-f]{64}; HttpOnly; SameSite=Lax; Path=\//);
+  const cookie = setCookie.split(';')[0];
+  assert.deepEqual(await (await fetch(`${w.base}/api/auth/me`, { headers: { cookie } })).json(), { id: 1, username: '김피엘', role: 'admin' });
+  const out = await fetch(`${w.base}/api/auth/logout`, { method: 'POST', headers: { cookie } });
+  assert.match(out.headers.get('set-cookie'), /^md_session=; .*Max-Age=0/);
+  assert.equal((await fetch(`${w.base}/api/auth/me`, { headers: { cookie } })).status, 401);
+  assert.equal((await fetch(`${w.base}/api/rooms`, { headers: { cookie: `md_session=${token}` } })).status, 200, '다른 세션은 그대로');
 });
 
 test('session-token 은 계정이 있어야 낸다 — 한 줄 · 쿠키로 풀린다', async () => {

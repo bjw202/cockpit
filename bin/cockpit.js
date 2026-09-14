@@ -13,6 +13,9 @@
 //       계정 하나 더. 비밀번호는 init-admin 과 같이 받는다
 //   node bin/cockpit.js session-token <이름> [--days <일>] [--config <파일>]
 //       그 계정의 쿠키 md_session 값을 한 줄로 낸다 (서버 PC 에서만 되는 발급 — meta 의 replay.js 토큰)
+//   node bin/cockpit.js serve [--start <과제>[,<과제>…]] [--model <모델>] [--config <파일>]
+//       서버를 띄운다. stopped 가 아닌 세션은 resume 으로 되살리고, --start 로 준 과제는 켠다.
+//       Ctrl-C 로 끈다 — 세션 상태는 적힌 그대로 두어 다음 기동이 resume 한다. --model 은 스모크 · 개발용
 //
 // 설정 파일은 --config 가 없으면 현재 폴더의 cockpit.json 이다.
 
@@ -174,9 +177,49 @@ async function sessionTokenCmd(opt, [username]) {
   });
 }
 
+async function serve(opt) {
+  const config = loadOrDie(opt);
+  if (!config) return 1;
+  const { sdkBinding } = await import('../src/session/sdk-query.js');
+  const { createServer } = await import('../src/http/server.js');
+  const rt = openRuntime(config, { binding: sdkBinding, model: typeof opt.model === 'string' ? opt.model : undefined });
+  const server = createServer({ ...rt, config });
+  try {
+    await new Promise((resolve, reject) => { server.once('error', reject); server.listen(config.port, config.host, resolve); });
+  } catch (e) {
+    console.error(`✗ ${config.host}:${config.port} 에서 듣지 못했다 — ${e.message}`);
+    await rt.close({ keepState: true });
+    return 1;
+  }
+  console.log(`cockpit 듣는 중 ${config.tls ? 'https' : 'http'}://${config.host}:${server.address().port}`);
+
+  let closing = false;
+  const shutdown = async () => {
+    if (closing) return;
+    closing = true;
+    console.log('끄는 중 — 세션 상태는 그대로 두고 다음 기동에 resume 한다');
+    server.closeAllConnections();
+    server.close();
+    await rt.close({ keepState: true });
+    process.exit(0);
+  };
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+
+  for (const r of await rt.manager.bootResume()) {
+    console.log(r.error ? `✗ resume ${r.project} — ${r.error}` : `resume ${r.project} → ${r.state}`);
+  }
+  const starts = typeof opt.start === 'string' ? opt.start.split(',').map(s => s.trim()).filter(Boolean) : [];
+  for (const project of starts) {
+    try { console.log(`켬 ${project} → ${(await rt.manager.start(project, { resume: true })).state}`); }
+    catch (e) { console.log(`✗ 켜기 ${project} — ${e.message}`); }
+  }
+  return new Promise(() => {});   // Ctrl-C 까지
+}
+
 const COMMANDS = {
   check, 'open-project': openProject, chat,
-  'init-admin': initAdminCmd, 'add-user': addUserCmd, 'session-token': sessionTokenCmd,
+  'init-admin': initAdminCmd, 'add-user': addUserCmd, 'session-token': sessionTokenCmd, serve,
 };
 
 async function main() {

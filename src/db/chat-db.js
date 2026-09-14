@@ -229,6 +229,10 @@ export class ChatDb {
     return rows.map(r => ({ ...r, attachments: att.all(r.id) }));
   }
 
+  attachmentById(id) {
+    return this.db.prepare('SELECT id, message_id, filename, stored_path, size, mime FROM attachments WHERE id = ?').get(Number(id));
+  }
+
   // 첨부의 절대 경로 — 봇에게 주는 봉투 · 받기 길이 쓴다
   attachmentsOf(messageId) {
     return this.db.prepare('SELECT id, filename, stored_path, size, mime FROM attachments WHERE message_id = ? ORDER BY id').all(Number(messageId))

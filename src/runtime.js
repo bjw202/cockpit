@@ -17,9 +17,10 @@ export function openRuntime(config, { binding = {}, permissionHandler, model, or
     chatDb, cockpitDb, config, queryFn: binding.queryFn, makeMcpServer: binding.makeMcpServer,
     ...(permissionHandler ? { permissionHandler } : {}), model, origin, processEnv,
   });
-  const close = async () => {
+  // keepState: 서버가 꺼질 때 — 세션을 닫되 적힌 상태를 그대로 두어 다음 기동이 resume 한다 (ARCHITECTURE 5.1)
+  const close = async ({ keepState = false } = {}) => {
     for (const project of [...manager.sessions.keys()]) {
-      try { await manager.stop(project); } catch { /* 이미 꺼졌다 */ }
+      try { await (keepState ? manager.release(project) : manager.stop(project)); } catch { /* 이미 꺼졌다 */ }
     }
     chatDb.close();
     cockpitDb.close();

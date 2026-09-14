@@ -120,6 +120,16 @@ export class SessionManager extends EventEmitter {
     this.#event(s, 'command', { command: 'stop' });
   }
 
+  // 서버가 꺼질 때: 세션을 닫되 적힌 상태는 그대로 둔다 — 다음 기동의 bootResume 이 되살린다 (ARCHITECTURE 5.1)
+  async release(project) {
+    const s = this.sessions.get(project);
+    if (!s) return;
+    s.closing = true;
+    s.input?.end();
+    try { s.q?.close?.(); } catch { /* 이미 끝났다 */ }
+    this.sessions.delete(project);
+  }
+
   // 큐를 거치지 않는 유일한 조작
   async interrupt(project) {
     const s = this.#running(project);
