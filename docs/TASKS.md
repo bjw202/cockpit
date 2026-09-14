@@ -148,6 +148,10 @@ meta 의 관문과의 짝: **M1 · M2 = W2(서버 뼈대)**, **M3 = W3(조종석
 
 ## M3 — 조종석 판 · 파일 판 · 세션 조작 · 재기동
 
+### M3.0 W2 재측정 뒤 둘 (meta 지시 `instructions/M3.md` 3절, 2026-09-14)
+- ① 봇이 일하는 동안 `session.state` 가 `idle` 로 보이던 것. 끝 조건: `test/session-manager.test.js` — `result 뒤에 이어 온 봇 메시지는 state 를 working 으로 되돌린다`
+- ② `find.log` · 인수인계서를 봇 폴더에. cockpit 은 봇 env 에 `PRODEV_BOT_DIR` 을 이미 넣는다 — 끝 조건: `test/session-manager.test.js` — `봇 세션 env 의 PRODEV_BOT_DIR 은 그 과제의 봇 폴더`. 새던 자리는 prodev `find.js` 라서 prodev PR(#18)이 고친다
+
 ### M3.1 사건 접기와 되그리기
 - 산출: 세션 관리자의 사건 접기 · `GET /api/projects/:name/events`
 - 끝 조건: `test/events.test.js` — `ARCHITECTURE 5.3 표의 메시지마다 type 이 맞다` · `tool_use 입력 요약은 200자` · `stream_event 0행` · `result 마다 cost_usd 누적` · `after=N 이면 N 뒤만`
@@ -175,6 +179,12 @@ meta 의 관문과의 짝: **M1 · M2 = W2(서버 뼈대)**, **M3 = W3(조종석
   BOT_REPLIES_AFTER_RESTART <N>
   ```
 - 끝 조건(파일): 스크립트가 있다. 판정은 meta
+- (M3.M 준비로 더함) 진짜 CLI `serve` 를 자식 프로세스 묶음으로 띄워 묶음째 SIGKILL 하고, 끝에 admin API 로 `stop` · `start` 를 쳐 `STOP_API` · `START_API_AGAIN … same_session=` 을 낸다
+
+### M3.M 준비 — 대본의 손 걸음을 admin API 로 (meta 지시 3절)
+- `smoke/m2-compact.mjs` · `smoke/m3-restart.mjs` 가 serve + admin API(`POST /api/projects/:name/session/{start,compact,stop}`)로 돈다. 공용은 `smoke/server.mjs`
+- API 모양은 `docs/ARCHITECTURE.md` 8.3. `replay.js` 의 `manual` 걸음(`.manual-<id>.ok`)은 meta 가 길을 치고 파일을 만든다
+- 끝 조건(파일): 두 스크립트가 `START_API` · `STOP_API` 줄을 낸다 · ARCHITECTURE 8.3 이 있다
 
 ### M3.M 관문 청하기 (W3)
 

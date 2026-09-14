@@ -201,7 +201,7 @@ stateDiagram-v2
 | 승인 | 6절 |
 | 압축 | 자동은 SDK 가 한다(봇 설정 `autoCompactWindow`). 수동은 admin 이 걸고 다음 `idle` 에 들어간다. `system/status` 가 압축 시작을 알리면 본방에 "문맥을 정리 중입니다. 곧 이어서 합니다." system 글, `compact_boundary` 가 오면 "정리가 끝났습니다. 이어서 하려면 말을 걸어 주세요." system 글과 채팅 판 경계 표시 |
 | 멈춤 (admin) | `interrupt()`. 걸린 승인 요청은 `cancelled` |
-| 끄기 (admin) | 백그라운드 도우미가 있으면 `backgroundTasks()` 목록을 먼저 보이고, 확인 뒤 `close()`. state `stopped` |
+| 끄기 (admin) | 백그라운드 도우미가 있으면 그 목록을 먼저 보이고, 확인(`confirm=1`) 뒤 `close()`. state `stopped`. 목록은 `system/background_tasks_changed` 의 마지막 집합(`ambient` 뺌)이다 — SDK 의 `backgroundTasks()` 는 목록이 아니라 앞 작업을 뒤로 보내는 호출이다 (M3.3 에서 바로잡음) |
 | 도우미 멈춤 (admin) | `stopTask(taskId)` |
 | 서버 재기동 | `agent_sessions` 에서 `stopped` 가 아닌 줄마다 같은 옵션 + `resume: session_id`. SessionStart(resume) 훅이 되살린다. `resume` 이 실패하면(기록 파일 없음) 새 세션으로 켜고 `session_events` 에 까닭 한 줄 |
 | 되감기 | 첫 판은 체크포인트(`enableFileCheckpointing`)만 켠다. 화면은 2판 |
@@ -311,18 +311,44 @@ canUseTool(toolName, input, { toolUseID, agentID, title, displayName, descriptio
 | `POST /api/auth/login` | 누구나 | `{ username, password }` → `Set-Cookie: md_session=…; HttpOnly; SameSite=Lax; Path=/` |
 | `POST /api/auth/logout` · `GET /api/auth/me` | 로그인 | 끝내기 · `{ id, username, role }` |
 | `GET /api/accounts` · `POST /api/accounts` · `POST /api/accounts/:id/password` | admin | 계정 목록 · 만들기 `{username, password, role}` · 비밀번호 바꾸기 |
-| `GET /api/projects` | 로그인 | 과제마다 `{ name, bot, rooms:{main, files}, session:{ state, model, cost_usd, context_pct } }` |
+| `GET /api/projects` | 로그인 | 과제마다 `{ name, bot, rooms:{main, files}, session:{ state, session_id, cost_usd, last_result_at, model, context_pct } }`. `model` · `context_pct` 는 `session_events` 의 마지막 `init`(model) · `context`(percentage) |
 | `POST /api/projects` | admin | `{ name }` → 봇 한 줄 · 방 둘 · `agent_sessions` 한 줄 |
-| `POST /api/projects/:name/session/{start,stop,interrupt,compact,restart}` | admin | 5.2. 상한 넘으면 409 |
-| `POST /api/projects/:name/tasks/:taskId/stop` | admin | `stopTask` |
-| `GET /api/projects/:name/events?after=N` | 로그인 | `session_events` 오름차순 최대 500 |
+| `POST /api/projects/:name/session/{start,stop,interrupt,compact,restart}` | admin | 5.2. 모양은 8.3 |
+| `POST /api/projects/:name/tasks/:taskId/stop` | admin | `stopTask`. 모양은 8.3 |
+| `GET /api/projects/:name/events?after=N` | 로그인 | `{ events:[{ id, at, type, data }] }` 오름차순 최대 500. 500 이 차면 마지막 id 로 다시. 없는 과제 404 |
 | `GET /api/permissions?pending=1` | 로그인 | 걸린 요청 목록(카드 되그리기) |
 | `POST /api/permissions/:toolUseId` | admin | `{ decision:'allow'|'allow_session'|'deny', reason? }` → 200 · 409 이미 답 · 403 member |
-| `GET /api/projects/:name/files?path=` | 로그인 | 폴더 한 층 목록 `{ entries:[{name, dir, size, mtime}] }` |
-| `GET /api/projects/:name/file?path=` | 로그인 | 미리보기(7절). 과제 폴더 밖(실경로 대조)이면 404 |
+| `GET /api/projects/:name/files?path=` | 로그인 | 폴더 한 층 목록 `{ path, entries:[{name, dir, size, mtime}] }` 폴더 먼저 · 점 이름 뺌 |
+| `GET /api/projects/:name/file?path=` | 로그인 | 미리보기(7절): 글 `{ path, kind:'text', size, text, truncated }`(앞 256KB) · `.csv` `{ kind:'csv', rows(앞 50행), truncated }` · 그림 바이트(`image/…`) · 그 밖 `{ kind:'other', size }`. 과제 폴더(`<projectsDir>/<과제>`) 밖(실경로 대조)이면 404. 두 주소의 쓰기 메서드는 405 |
 | `GET /api/stream` | 로그인 | **SSE 하나**. 사건: `message` · `bot_status` · `session_event` · `partial`(살아 있는 글자, id 없음) · `permission_request` · `permission_resolved` · `session_state`. `Last-Event-ID` 로 이어 받기 |
 
 `POST /api/notify` 는 첫 판에 없다 (ADR-014).
+
+### 8.3 세션 조작 길의 모양 — 대본 재생의 손 걸음을 대신한다 (M3.M)
+
+meta 의 `replay.js` 대본에서 사람이 손으로 하던 걸음(압축 · 끄기 · 켜기)은 이 길로 친다. `replay.js` 의 `manual` 걸음은 `<기록.jsonl>.manual-<id>.ok` 파일이 생길 때까지 기다리므로, 재생하는 쪽이 **길을 치고 · 끝남을 확인하고 · 그 파일을 만든다.** `smoke/m2-compact.mjs` · `smoke/m3-restart.mjs` 가 같은 길을 먼저 밟는다 (`smoke/server.mjs` 의 `httpClient`).
+
+- 쿠키: `node bin/cockpit.js session-token <admin 이름>` 이 낸 값을 `md_session` 으로. member 쿠키면 403.
+- 본문은 받지 않는다. 확인은 질의 문자열 `?confirm=1`. `Origin` 머리는 싣지 않거나 서버 주소와 같게.
+- 과제 이름은 주소에 넣을 때 인코딩한다(한글 과제).
+
+| 걸음 | 요청 | 성공 | 끝났다고 볼 것 |
+|---|---|---|---|
+| 켜기 | `POST /api/projects/<과제>/session/start` | 200 `{ ok:true, project, state:'idle', session_id }` — `initializationResult` 뒤에 응답한다. 이미 켜져 있으면 그대로 200. 적힌 `session_id` 가 있으면 resume | 응답이 곧 끝 |
+| 압축 | `POST …/session/compact` | 200 `{ ok, project, state, session_id, queued }` — `queued:true` 면 지금 턴이 끝난 뒤(idle) 들어간다 | `GET …/events?after=<치기 전 마지막 id>` 에 `type:'compact'` 와 `type:'result'` 가 있고 `GET /api/projects` 의 그 과제 `session.state` 가 `idle` |
+| 끄기 | `POST …/session/stop` | 200 `{ …, state:'stopped' }`. 이미 꺼졌거나 error 여도 200 | 응답이 곧 끝 |
+| 끄기 (도우미가 돌 때) | 같은 길 | 409 `{ error, code:'TASKS_RUNNING', tasks:[{ task_id, task_type, description, ambient:false }] }` → 확인했으면 `POST …/session/stop?confirm=1` | 같음 |
+| 다시 켜기 | `POST …/session/restart` (`?confirm=1` 규칙 같음) | 200 `{ …, state, session_id, resumed }` — 프로세스를 닫고 같은 `session_id` 로 resume | 응답이 곧 끝 |
+| 멈춤 | `POST …/session/interrupt` | 200 `{ …, state }`. 걸린 승인 요청은 거둬 감(⛔) | `events` 에 다음 `result` |
+| 도우미 멈춤 | `POST /api/projects/<과제>/tasks/<task_id>/stop` | 200 `{ ok, project, task_id }` | `events` 의 `task` 사건 `status:'stopped'` |
+
+오류: 401 쿠키 없음 · 403 member · 404 과제 없음 · 409 동시 세션 상한(`start`) · 꺼진 세션(`interrupt` · `compact` · `tasks/…/stop`) · `TASKS_RUNNING` · 502 못 켬(`{ error:<까닭 첫 줄>, state:'error' }`).
+
+셸 한 줄 예 (R5 의 s3 압축):
+
+```
+curl -s -X POST -b "md_session=$REPLAY_TOKEN_PL" "http://127.0.0.1:3000/api/projects/worktogether/session/compact"
+```
 
 ## 9. 폴더 나무
 

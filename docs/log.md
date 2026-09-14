@@ -81,4 +81,36 @@ W2 관문에 필요하다고 한 넷: `serve --config` 로 서버가 뜬다 · `
 
 알고 두는 것: 화면은 브라우저에서 눌러 보지 않았다 (순수 함수 · 정적 검사 · 서버가 파일을 내는 것까지). `m2-compact` 에서 PreCompact 훅은 hook 사건으로 안 보였지만 인수인계서는 생겼다. 스모크 값 합 약 $0.32 (haiku 셋).
 
-**세션 끝 (2026-09-14)**: W2 재측정 조건부 통과(meta — cockpit 10/10 · 옛 대본 넷 27/33 · PR #17 검수 통과, 머지는 사람). 이 세션의 마지막 상태는 cockpit 커밋 5293a4b · 작업 트리 깨끗 · prodev PR #17 열림(머지 전). 다음 세션은 `meta/prodev-review/plans/2026-09-14-web-cockpit/instructions/M3.md` 부터 읽는다.
+**세션 끝 (2026-09-14, W2r)**: W2 재측정 조건부 통과(meta — cockpit 10/10 · 옛 대본 넷 27/33 · PR #17 검수 통과, 머지는 사람). 이 세션의 마지막 상태는 cockpit 커밋 5293a4b · 작업 트리 깨끗 · prodev PR #17 열림(머지 전). 다음 세션은 `meta/prodev-review/plans/2026-09-14-web-cockpit/instructions/M3.md` 부터 읽는다.
+
+## 2026-09-14 — M3 조종석 판 · 파일 판 · 세션 조작 · 재기동 (W3 관문 전)
+
+새 세션이 `instructions/M3.md` 를 읽고 이어받았다. 그 6절대로 prodev PR #17 은 머지됐지만(origin/main ac3ecc9) 본 체크아웃이 안 당겨져 있어 스크래치 · 계약 시험은 `COCKPIT_PRODEV_DIR=../prodev-wt-cockpit` 로 돌렸다.
+
+커밋: M3.0 21f73ca · M3.1 22cada0 · M3.4 4c893ad · M3.3 b794f21 · M3.2 bdd6a77 · M3.5 c273740 · M3.6 발견(값 바닥) ea0de0d · M3.6 스모크 · M3.M 준비 d0c1aa5 · 문서(이 절). `npm test` 154건 실패 0 건너뜀 0. prodev 두 번째 PR **#18** (`cockpit-m3`, worktree `../prodev-wt-cockpit/`).
+
+- **M3.0 ①** 즉시 배달 뒤 `idle` 로 보이던 것: 턴 도중 넣은 글을 SDK 가 result 뒤 새 턴으로 이어 돌면 큐가 비어 상태가 안 바뀌었다. `idle` 에서 `assistant` · `stream_event` · `tool_result` 가 오면 `working`.
+- **M3.0 ②** `PRODEV_BOT_DIR` 은 cockpit 이 M1 부터 봇 env 에 넣고 있었다(시험을 세션 관리자 층에 하나 더). 새던 자리는 prodev `find.js` — `<__dirname>/../bots/<PRODEV_BOT>/find.log` 라 링크된 `scripts/` 에서 worktree 로 갔다. PR #18 이 `PRODEV_FIND_LOG > PRODEV_BOT_DIR > <repo>/bots/<PRODEV_BOT>` 로 고친다. 인수인계서는 훅 `places.js` 가 그 키를 먼저 보아 스크래치에 생긴다(`m2-compact` `HANDOFF_AT scratch`).
+- **M3.0 ③** `smoke/README` 의 `LOCAL_SETTINGS_CHANGED no` 는 그대로 두었다.
+- **M3.1** 사건 칸을 채웠다(걸린 시간 · 도우미 집합 · 문맥 사용률 · 경고) · `GET /api/projects/:name/events` · 머리 두 칸(`model` · `context_pct`).
+- **M3.3** 다섯 길 + 도우미 멈춤. 설계 5.2 의 "`backgroundTasks()` 목록" 은 SDK 에서 목록이 아니라 앞 작업을 뒤로 보내는 호출이었다 — 목록은 `background_tasks_changed` 의 마지막 집합으로, 확인은 `?confirm=1` · 409 `TASKS_RUNNING`. ARCHITECTURE 5.2 를 고쳤다.
+- **M3.4** 파일 판 길 두 개와 화면 조각. **M3.2 · M3.5** 조종석 판 · 탭 · 판 셋 · 압축 경계, `app.js` 에 이었다.
+- **M3.6** `smoke/m3-restart.mjs` — serve 를 자식 프로세스 묶음으로 띄워 묶음째 SIGKILL.
+- **M3.M 준비** `m2-compact` · `m3-restart` 가 serve + admin API 로 돈다(`smoke/server.mjs`). API 모양은 ARCHITECTURE 8.3.
+
+막힌 것 · 고친 것:
+- 시험 셋이 내 기대값 실수로 처음에 빨갛다(사건 순번 · 바이트 크기) — 시험을 고쳤다. 코드 쪽 고칠 것은 없었다.
+- 스모크 재판 하나가 셸 작업 폴더가 `crew-workspace` 로 돌아가 `MODULE_NOT_FOUND` 로 곧바로 끝났다(세션을 안 띄움). 절대 경로로 다시 돌렸다.
+- **값이 프로세스마다 누적이었다.** `m3-restart` 첫 판에서 `COST_USD 0.0102` 가 너무 작아 스크래치 `session_events` 를 열었다: 앞 프로세스 `result` $0.0319(3턴) → resume 뒤 새 프로세스 `result` $0.0102, `agent_sessions.cost_usd` $0.0102. SDK `total_cost_usd` 는 CLI 프로세스마다 0 에서 다시 쌓인다. 켤 때 적힌 값을 바닥으로 얹게 고쳤다(ea0de0d, 시험 `CLI 프로세스가 바뀌어도 cost_usd 는 앞 프로세스 값 위에 쌓인다`). **meta 확인 필요** — W2r.2 규칙은 한 프로세스 안에서 그대로다.
+
+스모크 (haiku · 스크래치 · 판정 아님, 요지는 as-built 4절 — 두 스크립트 모두 두 판씩, 재판은 커밋 d0c1aa5 판):
+- `m3-restart` 재판: `RESUMED session_id=<같은 uuid>` · `REDELIVERED 2` · `BOT_REPLIES_AFTER_RESTART 2` · `STOP_API 200 stopped` · `START_API_AGAIN 200 idle same_session=yes` · `CONTEXT_PCT 13` · 값 $0.0231 (스크래치 `result` 두 행 $0.0135935 + $0.0095309 와 같다 — 값 바닥이 먹는다) · exit 0.
+- `m2-compact` (serve + admin API) 재판: `COMPACT_API 200 queued=false` · `COMPACTED yes` · `SYSTEM_MESSAGES 2` · `HANDOFF 정상` · `HANDOFF_AT scratch` · `STOP_API 200 stopped` · 값 $0.0544 · exit 0.
+- 스모크 값 합 약 $0.17 (haiku 넷).
+
+스스로 정한 것 (as-built 5절에 까닭): `stop` 은 언제나 200 · `start` 못 켜면 502 · 멈춤 · 끄기 · 다시 켜기가 조종석 쪽에서도 걸린 승인 요청을 거둬 감 · `duration_ms` 는 조종석이 잰다 · 파일 판은 점 이름을 뺀다 · 압축 경계는 방 글에서 그린다 · `serve --no-origin`.
+
+새 질문 (meta 에):
+- **N11 값 바닥.** 위 고침(켤 때 적힌 값 + 프로세스 누적)이 meta 의 값 계측 뜻과 맞는가. 맞지 않으면 되돌리고 "프로세스마다 누적" 을 as-built 에 걸림으로만 둔다.
+- **N12 prodev PR #18** 머지 전에는 W3 재생 스크래치의 `COCKPIT_PRODEV_DIR` 을 `../prodev-wt-cockpit`(가지 `cockpit-m3`)로 둘지. worktree 가 이제 #17 가지가 아니라 #18 가지다.
+- **N13 화면 확인.** 조종석 판 · 파일 판은 브라우저에서 눌러 보지 않았다. W3 채점표에 화면 칸이 있으면 사람이 한 번 눌러 볼 자리가 필요하다.
