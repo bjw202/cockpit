@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { CAN_SYMLINK } from './fakes/platform.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -169,7 +170,7 @@ test('정적 파일 경로 탈출(../) 404', async t => {
   fs.writeFileSync(path.join(webDir, 'index.html'), '<!doctype html><title>조종석</title>');
   fs.writeFileSync(path.join(webDir, 'app.js'), 'export {};\n');
   fs.writeFileSync(path.join(outer, 'secret.txt'), 'SECRET');
-  fs.symlinkSync(path.join(outer, 'secret.txt'), path.join(webDir, 'link.txt'));
+  if (CAN_SYMLINK) fs.symlinkSync(path.join(outer, 'secret.txt'), path.join(webDir, 'link.txt'));   // 못 만드는 기계에서는 /link.txt 칸이 없는 파일 404 로 돈다 — as-built 4절
   const { w } = await world(t, { webDir });
 
   const index = await w.raw('/');

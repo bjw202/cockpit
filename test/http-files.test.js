@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { httpWorld } from './fakes/http-world.js';
 import { parseCsv } from '../src/http/routes-files.js';
+import { CAN_SYMLINK, SKIP_NO_SYMLINK } from './fakes/platform.js';
 
 // 1×1 투명 PNG
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
@@ -27,9 +28,11 @@ async function world(t) {
   fs.writeFileSync(path.join(root, 'report.pptx'), Buffer.alloc(1234));
   // 과제 폴더 밖
   fs.writeFileSync(path.join(w.dir, 'outside.txt'), '밖의 비밀');
-  fs.symlinkSync(path.join(w.dir, 'outside.txt'), path.join(root, 'cards', 'link-out.md'));
-  fs.symlinkSync(w.dir, path.join(root, 'escape'), 'dir');
-  fs.symlinkSync(path.join(root, 'charter.md'), path.join(root, 'wiki', 'link-in.md'));   // 안을 가리키는 링크는 된다
+  if (CAN_SYMLINK) {   // 링크를 못 만드는 기계에서는 링크 시험 하나가 통째로 건너뛰고, 나머지는 링크 없이 돈다 — as-built 4절
+    fs.symlinkSync(path.join(w.dir, 'outside.txt'), path.join(root, 'cards', 'link-out.md'));
+    fs.symlinkSync(w.dir, path.join(root, 'escape'), 'dir');
+    fs.symlinkSync(path.join(root, 'charter.md'), path.join(root, 'wiki', 'link-in.md'));   // 안을 가리키는 링크는 된다
+  }
   return { w, root };
 }
 const q = rel => encodeURIComponent(rel);
@@ -40,7 +43,7 @@ test('폴더 한 층 목록 — 폴더 먼저 · 점 이름 뺌 · member 도 �
   assert.equal(r.status, 200);
   assert.equal(r.body.path, '');
   const names = r.body.entries.map(e => `${e.dir ? 'd' : 'f'}:${e.name}`);
-  assert.deepEqual(names.filter(n => n.startsWith('d:')), ['d:cards', 'd:escape', 'd:inbox', 'd:wiki'].sort((a, b) => a.localeCompare(b)));
+  assert.deepEqual(names.filter(n => n.startsWith('d:')), ['d:cards', ...(CAN_SYMLINK ? ['d:escape'] : []), 'd:inbox', 'd:wiki'].sort((a, b) => a.localeCompare(b)));
   assert.ok(names.indexOf('f:charter.md') > names.indexOf('d:wiki'), '폴더 먼저');
   assert.ok(!names.some(n => n.includes('.secret')), '점 이름은 뺀다');
   const charter = r.body.entries.find(e => e.name === 'charter.md');
@@ -71,7 +74,7 @@ test('../ 탈출 404', async t => {
   assert.equal((await w.json('김과제', `/api/projects/${P}/file?path=${q('../수율/charter.md')}`)).status, 200, '돌아 들어와 안이면 된다');
 });
 
-test('과제 폴더 밖을 가리키는 심볼릭 링크 404', async t => {
+test('과제 폴더 밖을 가리키는 심볼릭 링크 404', { skip: SKIP_NO_SYMLINK }, async t => {
   const { w } = await world(t);
   assert.equal((await w.json('김과제', `/api/projects/${P}/file?path=${q('cards/link-out.md')}`)).status, 404);
   assert.equal((await w.json('김과제', `/api/projects/${P}/files?path=escape`)).status, 404);

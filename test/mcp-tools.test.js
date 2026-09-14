@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { CAN_SYMLINK } from './fakes/platform.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -55,8 +56,8 @@ test('reply files: 과제 폴더 뿌리 안은 첨부 · 밖은 조용히 뺀다
   const outside = path.join(dir, 'secret.txt');
   fs.writeFileSync(outside, 'secret');
   const link = path.join(projectsDir, '시험', 'tmp', 'link.txt');
-  fs.symlinkSync(outside, link);
-  const r = await tools.reply({ chat_id: String(main.id), text: '그림', files: [inside, outside, link, path.join(projectsDir, '없음.png')] });
+  if (CAN_SYMLINK) fs.symlinkSync(outside, link);   // 링크를 못 만드는 기계(윈도우 개발자 모드 꺼짐)에서는 링크 칸만 빠진다 — as-built 4절
+  const r = await tools.reply({ chat_id: String(main.id), text: '그림', files: [inside, outside, ...(CAN_SYMLINK ? [link] : []), path.join(projectsDir, '없음.png')] });
   assert.equal(r.isError, undefined);
   const [m] = botMessages(chatDb, main.id);
   const atts = chatDb.attachmentsOf(m.id);
