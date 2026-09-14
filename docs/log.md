@@ -80,3 +80,5 @@ W2 관문에 필요하다고 한 넷: `serve --config` 로 서버가 뜬다 · `
 새 질문: 없음. 알릴 것 — PR 뒤 `setup.js` 를 다시 돌리면 `settings.local.json` 을 통째로 덮어써 손으로 더한 규칙이 사라진다(ADR-038 에 적힘).
 
 알고 두는 것: 화면은 브라우저에서 눌러 보지 않았다 (순수 함수 · 정적 검사 · 서버가 파일을 내는 것까지). `m2-compact` 에서 PreCompact 훅은 hook 사건으로 안 보였지만 인수인계서는 생겼다. 스모크 값 합 약 $0.32 (haiku 셋).
+
+**세션 끝 (2026-09-14)**: W2 재측정 조건부 통과(meta — cockpit 10/10 · 옛 대본 넷 27/33 · PR #17 검수 통과, 머지는 사람). 이 세션의 마지막 상태는 cockpit 커밋 5293a4b · 작업 트리 깨끗 · prodev PR #17 열림(머지 전). 다음 세션은 `meta/prodev-review/plans/2026-09-14-web-cockpit/instructions/M3.md` 부터 읽는다.
