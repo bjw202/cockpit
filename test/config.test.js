@@ -45,3 +45,21 @@ test('없는 경로와 쓸 수 없는 데이터 폴더를 거절한다', () => {
   const { errors } = validateConfig(ok, { platform: 'darwin', exists: p => p !== '/w/prodev/bots', writable: p => p !== '/d' });
   assert.deepEqual(errors.map(e => e.key).sort(), ['botsDir', 'dataDir']);
 });
+
+test('prodevDir 가 없으면 botsDir 의 부모로 본다', () => {
+  const { config, errors } = validateConfig(ok, always);
+  assert.equal(errors.length, 0);
+  assert.equal(config.prodevDir, '/w/prodev');
+  assert.equal(config.prodevDirDerived, true);
+});
+
+test('botsDir 가 <prodevDir>/bots 가 아니면 키 이름과 함께 거절한다', () => {
+  const bad = validateConfig({ ...ok, prodevDir: '/w/other' }, always);
+  assert.deepEqual(bad.errors.map(e => e.key), ['botsDir']);
+  assert.match(bad.errors[0].reason, /<prodevDir>\/bots/);
+  const good = validateConfig({ ...ok, prodevDir: '/w/prodev' }, always);
+  assert.equal(good.errors.length, 0);
+  assert.equal(good.config.prodevDirDerived, false);
+  // prodevDir 도 경로 검사를 받는다
+  assert.deepEqual(validateConfig({ ...ok, prodevDir: 'prodev' }, always).errors.map(e => e.key), ['prodevDir']);
+});

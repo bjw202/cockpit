@@ -42,6 +42,19 @@ export function validateConfig(raw, { platform = process.platform, exists = p =>
 
   for (const key of PATH_KEYS) checkPath(key, config[key], WRITABLE_KEYS.has(key));
 
+  // (v2) 방 만들기가 <prodevDir>/scripts/setup.js 를 부른다. setup.js 는 봇 폴더를 자기 저장소 bots/ 에 만들므로
+  // botsDir 가 <prodevDir>/bots 가 아니면 세션이 엉뚱한 폴더로 뜬다 — 기동하지 않는다 (ARCHITECTURE 10절 · ADR-017)
+  if (config.prodevDir) {
+    config.prodevDirDerived = false;
+    if (checkPath('prodevDir', config.prodevDir, false) && typeof config.botsDir === 'string'
+      && P.resolve(config.botsDir) !== P.resolve(config.prodevDir, 'bots')) {
+      bad('botsDir', `<prodevDir>/bots 가 아니다: ${config.botsDir} (prodevDir ${config.prodevDir})`);
+    }
+  } else if (typeof config.botsDir === 'string' && config.botsDir) {
+    config.prodevDir = P.dirname(config.botsDir);
+    config.prodevDirDerived = true;
+  }
+
   if (config.claudePath) checkPath('claudePath', config.claudePath, false);
   else if (platform === 'win32') bad('claudePath', '윈도우에서는 반드시 준다 (pathToClaudeCodeExecutable)');
 

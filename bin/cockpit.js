@@ -19,6 +19,7 @@
 //
 // 설정 파일은 --config 가 없으면 현재 폴더의 cockpit.json 이다.
 
+import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -26,6 +27,7 @@ import { loadConfig, PATH_KEYS } from '../src/config.js';
 import { openRuntime, waitForBotMessage } from '../src/runtime.js';
 import { createAccount, initAdmin, issueToken } from '../src/auth/sessions.js';
 import { botNameProblem, defaultBotDir, projectNameProblem } from '../src/http/routes-projects.js';
+import { applyMigration, describeLegacy, legacyFilesRooms, legacyWarning } from '../src/rooms/migrate.js';
 
 export function parseArgs(argv) {
   const pos = []; const opt = {};
@@ -63,6 +65,13 @@ function check(opt) {
   for (const e of errors) console.log(`✗ ${e.key} ${e.reason}`);
   for (const key of PATH_KEYS) {
     if (!badKeys.has(key) && config[key]) console.log(`✓ ${key} ${config[key]}`);
+  }
+  // (v2) 방 만들기가 부르는 setup.js. 적어 준 prodevDir 에 없으면 ✗, botsDir 의 부모로 짐작한 자리면 알리기만 한다 (ARCHITECTURE 10절)
+  if (config.prodevDir && !badKeys.has('prodevDir') && !badKeys.has('botsDir')) {
+    const has = fs.existsSync(path.join(config.prodevDir, 'scripts', 'setup.js'));
+    if (config.prodevDirDerived) console.log(`· prodevDir ${config.prodevDir} (botsDir 의 부모) — setup.js ${has ? '있음' : '없음 — 방 만들기가 502'}`);
+    else if (has) console.log(`✓ prodevDir ${config.prodevDir} — setup.js 있음`);
+    else { console.log(`✗ prodevDir ${config.prodevDir} — scripts/setup.js 가 없다`); failed = true; }
   }
   // claudePath 는 있다는 것만으로 모자란다 — 불러서 판이 나와야 SDK 가 띄울 수 있다 (M4.2 · 윈도우는 필수)
   if (config.claudePath && !badKeys.has('claudePath')) {
@@ -225,6 +234,8 @@ async function serve(opt) {
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
 
+  const legacy = legacyWarning(rt);   // (v2) 막지 않는다 — 회사 PC 의 v1 과제가 멈추면 안 된다 (ARCHITECTURE 4.7)
+  if (legacy) console.log(legacy);
   const stale = rt.relay.cancelStale();
   if (stale) console.log(`앞 프로세스에서 답을 못 받은 승인 요청 ${stale} 건을 거둬 감으로 닫았다`);
   for (const r of await rt.manager.bootResume()) {
@@ -238,8 +249,22 @@ async function serve(opt) {
   return new Promise(() => {});   // Ctrl-C 까지
 }
 
+// (v2) 옛 files 방 이관 — 기본은 보이기만, --apply 로 보관 (ARCHITECTURE 4.7)
+async function migrateV2(opt) {
+  return withStores(opt, async rt => {
+    const rows = legacyFilesRooms(rt);
+    for (const r of rows) console.log(describeLegacy(r));
+    if (!opt.apply) {
+      console.log(rows.some(r => r.room.status === 'active') ? '보이기만 했다 — 적용하려면 --apply' : '보관할 옛 files 방이 없다 (--apply 로 돌려도 같다)');
+      return 0;
+    }
+    console.log(`보관 ${applyMigration(rt)}`);
+    return 0;
+  });
+}
+
 const COMMANDS = {
-  check, 'open-project': openProject, chat,
+  check, 'open-project': openProject, chat, 'migrate-v2': migrateV2,
   'init-admin': initAdminCmd, 'add-user': addUserCmd, 'session-token': sessionTokenCmd, serve,
 };
 
