@@ -59,7 +59,7 @@
 
 | # | 요구 | 값 |
 |---|---|---|
-| N1 | 실행 | Node ≥ 22 한 프로세스(`node bin/cockpit.js serve`). **네이티브 모듈 0** — 회사 PC 에 빌드 도구가 없다 |
+| N1 | 실행 | Node ≥ 22.13(`node:sqlite` 무플래그 첫 판) 한 프로세스(`node bin/cockpit.js serve`). **네이티브 모듈 0** — 회사 PC 에 빌드 도구가 없다 |
 | N2 | 저장소 | `node:sqlite` 파일 둘. `chat.db`(minidiscord 표 여섯, 이름 · 열 그대로, 봇은 읽기만) · `cockpit.db`(표 여섯, 봇 설정에서 deny) |
 | N3 | 웹 | 빌드 없음. 순수 ES 모듈과 CSS 를 저장소에 둔 그대로 서빙. **외부 CDN 0** (사내망) |
 | N4 | 의존성 | 런타임 npm 의존성은 `@anthropic-ai/claude-agent-sdk`(≥ 0.3.270) 와 그 도구 스키마용 `zod` 둘 |

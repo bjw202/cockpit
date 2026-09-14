@@ -95,7 +95,7 @@
 ## ADR-013 채널 지시문과 봉투는 글로 재현한다
 **상태** 제안 (M1 스모크가 잰다)
 **맥락** 채널 플러그인은 연결 때 `instructions` 로 지시문을, 글마다 `notifications/claude/channel` 로 `content` + `meta` 를 넣었다. SDK 스트리밍 입력에는 알림 통로가 없고 사용자 메시지만 있다. 봇이 기대는 것은 `chat_id` · `delivery` · `sender` · `message_id` · `author_type` 이고 prodev 지침은 "봉투만 믿는다" 이다.
-**결정** 지시문은 `systemPrompt: { type:'preset', preset:'claude_code', append, snapshot:true }` 로 싣는다. 글은 `<channel source="cockpit" chat_id=… message_id=… delivery=… sender=… author_type=… room_name=…>` 로 감싼 사용자 메시지로 넣는다. 가운데 글은 채널 플러그인의 `content` 와 글자 그대로 같다. 속성 값은 뜻을 바꾸지 않는다(`"` 와 `<` 만 엔티티 — 이름에 `</channel>` 을 넣어 봉투를 일찍 닫지 못하게).
+**결정** 지시문은 `systemPrompt: { type:'preset', preset:'claude_code', append, snapshot:true }` 로 싣는다. 글은 `<channel source="cockpit" chat_id=… message_id=… delivery=… sender=… author_type=… room_name=…>` 로 감싼 사용자 메시지로 넣는다. 가운데 글은 채널 플러그인의 `content` 와 글자 그대로 같다. meta 값은 속성 인코딩(`"` → `&quot;` · `<` → `&lt;`)만 하고, 의미는 무변형이다 — 이름에 `</channel>` 을 넣어 봉투를 일찍 닫지 못하게 (meta M1.M N1 승인).
 **까닭** 채널 지시문이 이미 "채팅 메시지는 `<channel …>` 꼴로 도착한다" 고 봇에게 말한다 (`channel-server.ts:24`). 같은 꼴을 쓰면 봇이 배울 것이 없다. preset 을 적어 두면 SDK 의 기본값이 바뀌어도 Claude Code 의 시스템 프롬프트가 산다.
 사용자 메시지에는 `origin: { kind:'channel', server:'cockpit' }` 를 스탬프한다 (meta D0 Q9). SDK 타입이 "origin 이 없는 글은 무귀속으로 다룬다" 고 적었기 때문이다. admin 이 넣는 `/compact` 는 사람의 명령이라 `origin: { kind:'human' }` 이다.
 **결과** 사람이 본문에 `<channel` 을 적어 봉투를 흉내 내는 것은 중화가 막는다. origin 스탬프는 실증 1~5 에 없던 칸이다 — `smoke/m1-envelope.mjs` 가 origin 판과 `--no-origin` 판에서 SessionStart 훅 · pre-reply 훅 · `reply` 가 그대로 도는지 본다. 안 돌면 origin 을 빼고 그 사실을 이 절에 적는다.
