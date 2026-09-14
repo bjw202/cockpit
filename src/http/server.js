@@ -11,6 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { authenticateRequest, UNAUTHORIZED } from '../auth/sessions.js';
 import { HttpError, sendJson } from './respond.js';
+import { SseHub, connectHub } from './sse.js';
 import { registerAuthRoutes } from './routes-auth.js';
 import { registerRoomRoutes } from './routes-rooms.js';
 import { registerMessageRoutes } from './routes-messages.js';
@@ -57,8 +58,10 @@ function serveStatic(req, res, url, webDir) {
   fs.createReadStream(real).pipe(res);
 }
 
-// ctx: { config, chatDb, cockpitDb, manager, webDir?, hub?, relay? }
-export function createApp(ctx) {
+// ctx: { config, chatDb, cockpitDb, manager, relay?, webDir?, hub? } — hub 를 안 주면 여기서 만들고 manager · relay 사건에 잇는다
+export function createApp(baseCtx) {
+  const ctx = { ...baseCtx, hub: baseCtx.hub ?? new SseHub() };
+  if (!baseCtx.hub) connectHub(ctx.hub, ctx);
   const routes = [];
   const route = (method, pattern, handler, { auth = 'user' } = {}) => {
     const keys = [];
@@ -66,6 +69,9 @@ export function createApp(ctx) {
     routes.push({ method, re, keys, handler, auth });
   };
   route('GET', '/api/health', () => ({ ok: true }), { auth: 'none' });
+  route('GET', '/api/stream', ({ req, res, url, user, token }) => {
+    ctx.hub.subscribe(res, { user, token, lastEventId: req.headers['last-event-id'] ?? url.searchParams.get('lastEventId') });
+  });
   registerAuthRoutes(route, ctx);
   registerRoomRoutes(route, ctx);
   registerMessageRoutes(route, ctx);
@@ -73,7 +79,7 @@ export function createApp(ctx) {
   const webDir = ctx.webDir ?? DEFAULT_WEB_DIR;
   const secure = !!ctx.config?.tls;
 
-  return async function handle(req, res) {
+  async function handle(req, res) {
     let url;
     try { url = new URL(req.url, 'http://cockpit.local'); } catch { req.resume(); return sendJson(res, 400, { error: '주소를 읽지 못했습니다' }); }
     try {
@@ -103,13 +109,18 @@ export function createApp(ctx) {
       console.error('cockpit http 오류:', e);
       sendJson(res, 500, { error: '서버 오류' });
     }
-  };
+  }
+  handle.hub = ctx.hub;
+  return handle;
 }
 
 export function createServer(ctx) {
   const handler = createApp(ctx);
   const tls = ctx.config?.tls;
-  return tls
+  const server = tls
     ? https.createServer({ cert: fs.readFileSync(tls.cert), key: fs.readFileSync(tls.key) }, handler)
     : http.createServer(handler);
+  server.hub = handler.hub;
+  server.on('close', () => handler.hub.closeAll());
+  return server;
 }
