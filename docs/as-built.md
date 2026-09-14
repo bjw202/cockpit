@@ -1,7 +1,7 @@
 # 지금 코드가 어떻게 생겼나 (as-built)
 
 설계는 `ARCHITECTURE.md` 다. **여기는 실제로 만들어진 것**을 적는다. 둘이 다르면 5절에 그 자리가 있다.
-마일스톤이 끝날 때마다 갱신한다 (`TASKS.md` 0절). 마지막 갱신 2026-09-14, M2(웹 · 계정 · 채팅 판 · 승인 카드) 끝 — M2.M(= W2) 관문 전.
+마일스톤이 끝날 때마다 갱신한다 (`TASKS.md` 0절). 마지막 갱신 2026-09-14, M2 끝 · W2 반려 뒤 고침 셋(W2r.1~3)과 N7 — W2 재측정 전.
 
 ---
 
@@ -40,11 +40,11 @@ cockpit/
   web/chat.js · card.js        채팅 판 · 승인 카드의 순수 함수와 DOM 조각          (M2.5 · M2.6)
   web/markdown.js              minidiscord 사본 (머리에 출처 핀 · sha256)          (M2.5)
   web/style.css
-  test/*.test.js               단위 · 모의 SDK · HTTP(임시 포트) · 화면 순수 함수 시험 열여섯 파일
+  test/*.test.js               단위 · 모의 SDK · HTTP(임시 포트) · 화면 순수 함수 · 스크래치 시험 열일곱 파일
   test/contract/*.test.js      형제 저장소의 진짜 파일에 붙이는 계약 시험 세 파일
   test/fakes/fake-query.js     모의 SDK
   test/fakes/http-world.js     임시 폴더 · 설정 · 저장소 · 모의 SDK · 임시 포트 서버
-  smoke/                       진짜 SDK 스모크 다섯 + lib.mjs + README.md
+  smoke/                       진짜 SDK 스모크 다섯 + lib.mjs + scratch.mjs(스크래치 자리 — SDK 없음, W2r.3) + README.md
   docs/                        PRD · ARCHITECTURE · ADR · TASKS · VERIFICATION · as-built(이 파일) · log
 ```
 
@@ -85,7 +85,7 @@ M3 이후의 것(조종석 판 `web/cockpit.js` · 파일 판 · 세션 조작 �
 
 공통: 쿠키 `md_session` 하나만 본다(Bearer 401). GET · HEAD 밖의 요청은 `Origin` 머리가 있으면 `Host` 와 같아야 한다(403). JSON 길은 `content-type: application/json` 만(415).
 
-## 3. 시험 묶음 — `npm test` 118건 · 실패 0 · 건너뜀 0 (2026-09-14, 이 맥 · Node 24.12.0, 제작 세션이 돌림)
+## 3. 시험 묶음 — `npm test` 123건 · 실패 0 · 건너뜀 0 (2026-09-14, 이 맥 · Node 24.12.0, 제작 세션이 돌림. W2 판정 사본 f22af98 은 118건)
 
 | 파일 | 건수 | 층 |
 |---|---:|---|
@@ -94,17 +94,18 @@ M3 이후의 것(조종석 판 `web/cockpit.js` · 파일 판 · 세션 조작 �
 | `test/cockpit-db.test.js` | 5 | A |
 | `test/envelope.test.js` | 7 | A |
 | `test/mcp-tools.test.js` | 10 | A |
-| `test/session-manager.test.js` | 13 | B (모의 SDK) |
+| `test/session-manager.test.js` | 14 | B (모의 SDK) — W2r.1 에서 큐 시험 셋을 새 규칙으로, W2r.2 에서 값 시험 하나 |
 | `test/sdk-options.test.js` | 4 | A |
 | `test/no-sdk-import.test.js` | 1 | A |
 | `test/auth.test.js` | 8 | A (+ 임시 포트 HTTP 한 건 · CLI 자식 프로세스) |
 | `test/http-rooms.test.js` | 11 | A (임시 포트 HTTP) |
 | `test/sse.test.js` | 4 | A (임시 포트 HTTP) |
-| `test/permissions.test.js` | 11 | B (모의 SDK 의 canUseTool 자리 + HTTP 답) |
+| `test/permissions.test.js` | 12 | B (모의 SDK 의 canUseTool 자리 + HTTP 답) — N7 에서 destination=session 시험 하나 |
 | `test/http-projects.test.js` | 3 | A (임시 포트 HTTP) |
 | `test/web-static.test.js` | 4 | A (정적 검사) |
 | `test/web-chat.test.js` | 5 | A (화면 순수 함수) |
 | `test/web-card.test.js` | 5 | A (화면 순수 함수) |
+| `test/smoke-scratch.test.js` | 3 | A — 형제 prodev 의 파일로 스크래치를 만든다(없으면 건너뜀) |
 | `test/contract/chat-js.test.js` | 3 | C — 형제 `prodev/scripts/chat.js` |
 | `test/contract/truncate-ts.test.js` | 2 | C — 형제 `minidiscord/channel/src/truncate.ts` |
 | `test/contract/replay-js.test.js` | 5 | C — 형제 `prodev/scripts/replay.js` 를 cockpit 서버(모의 SDK 봇)에 붙인다 |
@@ -122,6 +123,7 @@ TASKS 에 적은 시험 이름은 모두 이 이름 그대로 있다 (TASKS M2 �
 | `m1-hello` · `m1-envelope` | M1 에서 돌린 그대로 (M2 에서 다시 안 돌림) |
 | `m1-guard` (1000자 직접 판) | `GIVEN_BODY_CHARS 1000` · `REPLY_CALLS 2` · `REPLY_ATTEMPT_CHARS [947,31]` · `ATTEMPTED_OVER_900 yes` · `HOOK_BLOCKED yes` · `ROOM_MESSAGES_FROM_BOT 1` · `LONG_BOT_MESSAGES 0` · 값 $0.063 |
 | `m2-approval` | 판 1 거부 `ANSWER deny 200` → 봇 "거부됨" · 판 2 `ANSWER allow 200` → curl 첫 줄 · 판 3 `ANSWER allow_session 200` · 판 4 `REASKED_AFTER_SESSION_ALLOW 0` · `BASH_RAN_AFTER_SESSION_ALLOW yes` · `LOCK_MESSAGES 3` · `ANSWER_MESSAGES 2 1` · 카드 `title=null displayName="Bash" description="Check curl version" suggestions=[{addRules … destination:"localSettings"}]` · 값 $0.185 |
+| `m2-approval` 재판 (N7 · W2r.3 뒤) | 판 1~3 `ANSWER deny/allow/allow_session 200` · 판 4 `REASKED_AFTER_SESSION_ALLOW 0` · `BASH_RAN_AFTER_SESSION_ALLOW yes` · **`LOCAL_SETTINGS_CHANGED no []`** · `LOCK_MESSAGES 3` · `ANSWER_MESSAGES 2 1` · SDK 는 여전히 `destination:"localSettings"` 를 준다 · 값 $0.071 — 이번 세션 허용이 봇 폴더에 규칙을 안 남기고도 재요청 0 |
 | `m2-compact` | `COMPACTED yes` · `COMPACT_BOUNDARY pre=24657 trigger=manual`(post_tokens 1776) · `SYSTEM_MESSAGES 2` · `HANDOFF 정상` · `FIRST_TEXT_AFTER "현재 방의 이름이 prodev-smoke임을 확인해 드렸습니다."` · `HOOKS` 에 SessionStart 둘(켜짐 · 압축 뒤) · 값 $0.073 |
 | `serve` (진짜 CLI, 세션 없이) | 스크래치 설정으로 `check` → `open-project worktogether --bot-name prodev-worktogether-비서` → `init-admin` · `add-user` · `session-token` → `serve` 에 curl: health · rooms · multipart POST(첨부 · 봉투) · list · 첨부 받기 머리 · JSON 406 · 정적 파일 여섯 200 · `/../package.json` 404 · 로그인 → Ctrl-C exit 0 · `agent_sessions.state` 그대로 |
 
@@ -151,10 +153,15 @@ TASKS 에 적은 시험 이름은 모두 이 이름 그대로 있다 (TASKS M2 �
 | 커밋 순서가 M2.7 → M2.5 → M2.6 | 화면이 과제 목록 · 봇 이름을 `GET /api/projects` 에서 받는다 |
 | 카드에서 `defaultToNo` 면 **거부 단추를 맨 앞에** 둔다 — 카드가 뜰 때 초점을 옮기지는 않는다 | 사람이 입력칸에 쓰는 중에 카드가 초점을 뺏으면 Enter 가 엉뚱한 곳에 간다. 카드에 들어온 첫 Tab · Enter 가 거부가 되게 했다 |
 | M1 의 CLI `chat` 은 승인 요청을 전부 거부하는 채로 둔다 | 명령줄 도구다. 서버(`serve`) 의 기본 처리기가 중계다 |
+| **(W2r.1)** 글은 `idle` · `working` · `waiting_approval` 에서 곧바로 배달, `/compact` 만 `idle` 대기 · 그 압축 턴 동안 글을 붙잡는다 | meta W2 반려 — "idle 에서만" 이 R4 에서 본방 질문을 6분 붙잡았다. ADR-008 되돌림 절 · PRD F8 · ARCHITECTURE 4.5 를 함께 고쳤다. 모의 SDK 도 턴 도중의 글을 그 턴에 접는다 |
+| **(W2r.2)** `agent_sessions.cost_usd` = 마지막 `result.total_cost_usd` (덮어쓰기) | SDK 값은 세션 누적값이다. 더해서 $51.57 로 보인 것의 실제는 $2.72 |
+| **(W2r.3)** 스크래치 봇 폴더를 `<스크래치>/prodev/bots/<봇>` 에 · `scripts` · `common` 은 실제 prodev 로 링크 · permissions 는 `settings.local.json` | 봇이 `../../scripts/find.js` 를 찾게. SDK 세션은 `settings.json` 의 `permissions.allow` 를 안 읽는다(meta 판정) |
+| **(N7)** "이번 세션 허용" 은 `updatedPermissions` 의 `destination` 을 전부 `session` 으로 바꿔 돌려준다 | SDK 가 `localSettings` 를 주어 봇 폴더에 영구 규칙이 남았다. ADR-009 바뀐 자리 |
 
 ## 6. 알고 두는 것
 
-- **"이번 세션 허용" 이 봇 폴더에 영구 규칙을 쓴다.** `m2-approval` 판 3 에서 SDK 가 준 `suggestions` 의 `destination` 이 `localSettings` 였고, 그대로 `updatedPermissions` 로 돌려주자 스크래치 봇 폴더에 `.claude/settings.local.json` 이 생겼다: `{"permissions":{"allow":["Bash(curl --version)"]}}`. 이름은 "이번 세션" 인데 세션이 끝나도 남는다. meta N7 답 (나)에 따라 돌려줄 때 `destination` 을 전부 `session` 으로 바꿔 넣는다 (M2.M 뒤 커밋 · ADR-009 바뀐 자리 · 시험 `allow_session 의 updatedPermissions 는 전부 destination=session`). W2 판정 사본(f22af98)에는 들어 있지 않다.
+- **headless/SDK 세션은 프로젝트 `.claude/settings.json` 의 `permissions.allow` 를 읽지 않는다** (meta 가 W2 재생 중에 갈랐다). `settings.local.json` 의 규칙은 먹는다. 스크래치는 그렇게 쓰고(W2r.3), 실제 봇 폴더는 prodev PR(W2.9)이 그렇게 쓴다.
+- **(고침 전 기록) "이번 세션 허용" 이 봇 폴더에 영구 규칙을 썼다.** `m2-approval` 판 3 에서 SDK 가 준 `suggestions` 의 `destination` 이 `localSettings` 였고, 그대로 `updatedPermissions` 로 돌려주자 스크래치 봇 폴더에 `.claude/settings.local.json` 이 생겼다: `{"permissions":{"allow":["Bash(curl --version)"]}}`. 이름은 "이번 세션" 인데 세션이 끝나도 남는다. meta N7 답 (나)에 따라 돌려줄 때 `destination` 을 전부 `session` 으로 바꿔 넣는다 (M2.M 뒤 커밋 · ADR-009 바뀐 자리 · 시험 `allow_session 의 updatedPermissions 는 전부 destination=session`). W2 판정 사본(f22af98)에는 들어 있지 않다.
 - SDK 가 카드 `title` 을 **null** 로 줬다(haiku · Bash). 카드는 `displayName`("Bash") 을 쓴다.
 - 화면은 **브라우저에서 눌러 보지 않았다.** 확인한 것은 순수 함수 시험 · 정적 검사 · 진짜 서버가 파일 여섯을 200 과 CSP 로 내는 것 · 모듈 문법 검사(`node --check`)까지다.
 - SSE 흐름은 연 뒤에 쿠키가 만료돼도 스스로 닫지 않는다. 로그아웃은 닫는다.

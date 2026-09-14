@@ -65,4 +65,18 @@ W2 관문에 필요하다고 한 넷: `serve --config` 로 서버가 뜬다 · `
 
 **M2.M 뒤 (W2 재생 중, meta 알림 — 기록만, 코드는 판정 뒤 M3 지시로)**: N7 답 (나)를 b7b6263 으로 넣었다. meta 가 재생 중에 가른 사실: headless/SDK 세션은 프로젝트 `.claude/settings.json` 의 `permissions.allow` 를 읽지 않고(Bash 접두 · Edit/Write 경로 · `Write(**)` 모두 거부), 같은 규칙을 `.claude/settings.local.json` 에 두면 먹는다. 훅 · env 는 `settings.json` 에서도 실린다. 그래서 prodev 허용 목록 22건(setup.js 가 settings.json 에 씀)이 조종석에서 안 먹고, W2 재생의 과제 폴더 Read · Write 가 카드로 왔으며, M1 N2(uploads Read 콜백)도 같은 원인이다. 실증 4e · 4j 의 "규칙이 먹는다" 는 규칙 없이도 통과하는 안전 명령을 본 것이었다. 고칠 자리는 prodev PR(W2.9: 허용 · 거부를 settings.local.json 에). cockpit 쪽(`smoke/lib.mjs` makeScratch · `check` 가 그 파일을 보기)은 판정 뒤 지시를 기다린다. 덧: M2 `m2-approval` 판 4 에서 재요청이 0 이었던 것은 판 3 의 답이 바로 그 `settings.local.json` 에 규칙을 써서였을 수도 있다 — b7b6263 뒤(session 으로 돌려줌)에도 재요청 0 인지는 다시 재야 한다.
 
+## 2026-09-14 — W2 반려 · 고침 셋(W2r) · prodev PR #17 (W2 재측정 전)
+
+**W2 판정 반려** (meta 기록). cockpit 자체 열 칸은 전부 ○, 옛 대본 재생 21/33(옛 관문 26/33). 지시 `instructions/W2-refix.md`. 답: N7 (나) · N8 스크래치 사본으로 재생 · N9 괜찮음 · N10 ADR-012 채택.
+
+커밋: N7 · N10 b7b6263 · W2r.1 df5e76a · W2r.3 1ca9db1 · W2r.2 1c60e03. `npm test` 123건 실패 0 건너뜀 0.
+- W2r.1 큐: 글은 `idle` · `working` · `waiting_approval` 에서 곧바로 배달, `/compact` 만 `idle` 대기. 압축 턴 동안은 글을 붙잡는다(제작 세션이 정함 — 턴 중 압축은 미실증이라). 모의 SDK 도 턴 도중의 글을 그 턴에 접게 고쳤다. 재기동 시험은 "턴 도중 글이 큐에 남는다" 에 기대고 있어, 서버가 죽은 뒤 글을 넣게 바꿨다.
+- W2r.2 값: 덮어쓰기.
+- W2r.3 스크래치: `smoke/scratch.mjs`(SDK 없음)로 갈라 `<스크래치>/prodev/bots/<봇>` 배치. permissions 는 `settings.local.json`. prodev 에 `settings.local.template.json` 이 있으면 그것을 쓴다 — PR #17 worktree 로 `COCKPIT_PRODEV_DIR` 를 돌려 스크래치 · 계약 시험이 도는 것을 봤다.
+- `m2-approval` 재판: `LOCAL_SETTINGS_CHANGED no []` · `REASKED_AFTER_SESSION_ALLOW 0` · `BASH_RAN_AFTER_SESSION_ALLOW yes`. 지시의 "settings.local.json 이 없어야 한다" 는 스크래치(와 PR 뒤 setup.js)가 그 파일에 허용 목록을 쓰므로 "스모크 동안 바뀌지 않아야 한다" 로 옮겼다 (smoke/README).
+
+**prodev PR #17** (`cockpit-w2`, worktree `../prodev-wt-cockpit/`, 제작 세션의 도우미가 만들었다): 권한은 `settings.local.template.json` → `settings.local.json` · 도구 이름 `mcp__cockpit__*` · `.mcp.json` 안 만듦 · 토큰 없앰 · `MINIDISCORD_URL` 빈 값 · `setup.js` 가 `cockpit.json`(`--cockpit` → `COCKPIT_CONFIG` → `<루트>/cockpit/cockpit.json`)에서 `chat.db` · `cockpit.db` · `uploadsDir` 를 읽음 · deny 에 cockpit.db 셋과 `settings.local.json` Edit · `rooms`/`archive` 는 cockpit 안내 뒤 exit 1 · `cron` 지움 · charter/close 스킬이 없는 명령을 안 부르게 · ADR-038 · launch 4절. 그 worktree 에서 `npm test` 140/140 · `test:server` 18/18 (133 · 25 에서 달라진 까닭은 PR 본문).
+
+새 질문: 없음. 알릴 것 — PR 뒤 `setup.js` 를 다시 돌리면 `settings.local.json` 을 통째로 덮어써 손으로 더한 규칙이 사라진다(ADR-038 에 적힘).
+
 알고 두는 것: 화면은 브라우저에서 눌러 보지 않았다 (순수 함수 · 정적 검사 · 서버가 파일을 내는 것까지). `m2-compact` 에서 PreCompact 훅은 hook 사건으로 안 보였지만 인수인계서는 생겼다. 스모크 값 합 약 $0.32 (haiku 셋).
