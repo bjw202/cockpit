@@ -282,3 +282,15 @@ W2 관문에 필요하다고 한 넷: `serve --config` 로 서버가 뜬다 · `
 **세션 끝 상태 (2026-09-15, M6)**
 - cockpit 작업 트리: M6.6 docs 커밋 뒤 깨끗. prodev worktree `../prodev-wt-cockpit-v2` 는 가지 `cockpit-v2b`(PR #20 열림, 머지 전).
 - 다음 세션이 읽을 파일: meta 의 M6 판정 → 이 절 → `docs/as-built.md` 4.2 M6 판 · 5절 M6 줄 · 6절 → `docs/INSTALL-WINDOWS.md`.
+
+## 2026-09-15 — M6.M 통과 뒤 마무리 (after-M6) · 멈춤
+
+**M6.M 통과 8/8** (meta: N16 은 `~/cockpit-try-v2` 를 M6 판으로 다시 띄워 `curl -I` 로 etag · 304 실측). prodev PR #20 은 사람이 먼저 머지했다(8f0870b, meta 사후 검수 통과) — 본 체크아웃 `../prodev` 도 8f0870b. 지시 `instructions/after-M6.md`. 답: **Q5** 사람이 보통 새로고침으로 새 도구 요약이 보이는지 본다(cockpit 할 일 없음) · **Q6** 고친다 · **Q7** 설치 걸음이 아니라 INSTALL 끝 "판 올리기" 절.
+
+- 98a2650 M6.7 INSTALL "판 올리기" 절 — 서버 끄기 · `git pull --ff-only`(cockpit · prodev) · `npm ci` · (봇 설정이 바뀌었을 때만) `setup.js` 다시 — `settings.local.json` 이 덮인다(ADR-038) · serve 다시(resume) · 보통 새로고침(etag). README 한 줄.
+- prodev **PR #21** (`cockpit-v2c`, origin/main 8f0870b 기준) 76ed833 — `intake/SKILL.md:93` 의 `design/v2/ARCHITECTURE.md` 5.1 경로를 지우고 카드 규격(머리말 칸 열여섯 · 절 여섯의 차례)을 본문 한 줄로. 시험 한 건: `.claude/skills/**` 에 `design/v[0-9]/` 0 · intake 에 차례 두 줄(옛 SKILL.md 로 되돌리면 실패하는 것을 봤다). prodev `npm test` 147 · `test:server` 18 · 실패 0 (직접 실행). **머지는 meta 검수 뒤 사람.** 스킬 전체에서 `design/v숫자/` 는 그 한 곳뿐이었다.
+- cockpit `npm test` 는 이 마무리에서 코드가 안 바뀌어 다시 돌리지 않았다(M6 끝 215 · 0 · 0).
+
+**세션 끝 상태 (2026-09-15, after-M6 — 멈춤)**
+- cockpit 작업 트리: 이 절 커밋 뒤 깨끗. prodev worktree `../prodev-wt-cockpit-v2` 는 가지 `cockpit-v2c`(PR #21 열림, 머지 전).
+- **다음 지시는 사람의 회사 PC 실증(W1) 결과가 온 뒤다.** 그때 읽을 파일: meta 의 다음 지시 → 이 절 → M6 절 → `docs/INSTALL-WINDOWS.md`(12걸음 · 판 올리기).
