@@ -30,9 +30,11 @@
    - 확인: `claude --version` 이 판 한 줄(예 `2.1.270 (Claude Code)`)을 낸다.
    - 확인: `(Get-Command claude).Source` 가 `claude.exe` **절대 경로**를 낸다 (예 `C:\Users\<이름>\.local\bin\claude.exe`). **이 줄을 적어 둔다 — 6번의 `claudePath` 다.** 윈도우에서는 SDK 가 npm 셸 래퍼를 못 따라가서 이 값이 반드시 있어야 한다.
 
-4. **데이터 자리 둘을 만든다.** `dataDir`(대화 DB 둘) · `uploadsDir`(사람 첨부).
+4. **폴더 자리 셋을 만든다.** `dataDir`(대화 DB 둘) · `uploadsDir`(사람 첨부) · `projectsDir`(과제 폴더들) · `botsDir`(봇 폴더들, `<prodevDir>/bots`). 셋 다 없으면 6번 `check` 가 `✗ … 없다` 로 멈춘다. **`prodev\bots` 는 새로 받은 prodev 에 없다** — 저장소는 `bots/*/` 만 무시하고 git 은 빈 폴더를 담지 못한다.
    - 친다: `New-Item -ItemType Directory -Force -Path C:\cockpit-data\uploads | Out-Null`
-   - 확인: `Test-Path C:\cockpit-data\uploads` → `True`
+   - 친다: `New-Item -ItemType Directory -Force -Path C:\work\crew-workspace\projects | Out-Null`
+   - 친다: `New-Item -ItemType Directory -Force -Path C:\work\crew-workspace\prodev\bots | Out-Null`
+   - 확인: `Test-Path C:\cockpit-data\uploads` · `Test-Path C:\work\crew-workspace\projects` · `Test-Path C:\work\crew-workspace\prodev\bots` 가 모두 `True`
 
 5. **cockpit 의존성을 깔고 시험을 돌린다.**
    - 친다: `cd C:\work\crew-workspace\cockpit`
@@ -72,7 +74,7 @@
 10. **브라우저에서 방(과제)을 만든다.** 과제 이름은 예로 `수율개선`.
     - 연다: `http://127.0.0.1:3000` → 김피엘로 들어간다.
     - 누른다: 사이드바 머리의 `+` → 이름 칸에 `수율개선` → 확인.
-    - 확인: 사이드바에 방 `prodev-수율개선` 이 생기고 연다. 실패하면 오류 글자(예 `setup 실패: …`)를 그대로 적는다 — 이때 만든 것은 되돌려진다.
+    - 확인: 사이드바에 방 `prodev-수율개선` 이 생긴다(저절로 열리지는 않는다 — 사이드바에서 그 방을 눌러 연다). 기다리는 동안 따로 표시는 없고, setup 이 끝나야 생긴다. 실패하면 오류 글자(예 `setup 실패: …`)를 그대로 적는다 — 이때 만든 것은 되돌려진다.
     - 확인 (새 PowerShell 창): `Test-Path C:\work\crew-workspace\prodev\bots\prodev-수율개선-bot\.claude\settings.local.json` → `True`
     - 확인: `(Get-Content C:\work\crew-workspace\prodev\bots\prodev-수율개선-bot\.claude\settings.local.json -Raw | ConvertFrom-Json).permissions.allow.Count` → 0 보다 큰 수.
     - **허용 · 거부 목록의 자리는 `settings.local.json` 이다.** SDK 세션은 `settings.json` 의 `permissions.allow` 를 읽지 않는다. 손으로 규칙을 더했으면 setup 이 다시 돌 때 사라진다 (prodev ADR-038).

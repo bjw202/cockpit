@@ -55,7 +55,7 @@ cockpit 은 **prodev 봇 세션을 붙들고, 사람이 브라우저로 들어�
 | 4 | **prodev 와 cockpit 이 같은 부모 폴더 안에 나란히** | 걸음 3 에서 확인합니다 | — |
 | 5 | **공백 없는 경로** | 걸음 1 에서 확인합니다 | — |
 
-- **Node 가 없거나 낮으면:** 공식 사이트 **nodejs.org** 에서 LTS 를 받아 깝니다. `npm`(부품을 받아 까는 도구)도 같이 깔립니다. 무엇이든 새로 깔았으면 **창을 새로 열어야** 방금 깐 명령을 찾습니다.
+- **Node 가 없거나 낮으면:** 공식 사이트 **nodejs.org** 에서 LTS 를 받아 깝니다. LTS 는 "오래 지원하는 안정판"이라는 뜻이고, 사이트 첫 화면에 "LTS" 라고 적힌 단추가 그것입니다. `npm`(부품을 받아 까는 도구)도 같이 깔립니다. 무엇이든 새로 깔았으면 **창을 새로 열어야** 방금 깐 명령을 찾습니다.
 - **Git 이 없으면:** 공식 사이트 **git-scm.com** 에서 받아 깝니다. 윈도우의 Git 에는 봇이 쓰는 명령 창 Git Bash 가 같이 들어 있습니다.
 - **Claude Code 가 없으면:** 맥은 `curl -fsSL https://claude.ai/install.sh | bash`, 윈도우는 `irm https://claude.ai/install.ps1 | iex` 를 칩니다 (cockpit · prodev 를 담는 상위 저장소 crew-workspace 의 `README.md` "무엇이 필요한가" · `docs/INSTALL-WINDOWS.md` 3번). **설치가 끝나면 창을 닫고 새로 연 뒤** `claude --version` 을 봅니다. 그다음 `claude` 를 한 번 켜서 화면 안내대로 로그인하고 `/exit` 로 나옵니다. cockpit 은 로그인을 미리 검사하지 않고, 로그인이 없으면 걸음 17 의 켜기가 `오류` 가 됩니다.
 - 윈도우 회사 PC 의 더 자세한 준비(Git Bash 자리 · 프록시 등)는 `docs/INSTALL-WINDOWS.md` 에 있습니다.
@@ -69,7 +69,7 @@ cockpit 은 **prodev 봇 세션을 붙들고, 사람이 브라우저로 들어�
 
 ```mermaid
 flowchart TB
-    W1["걸음 1~4 · 받기와 폴더<br/>생김: prodev/ · cockpit/ · projects/ · cockpit-data/uploads/"]
+    W1["걸음 1~4 · 받기와 폴더<br/>생김: prodev/ · cockpit/ · projects/ · prodev/bots/ · cockpit-data/uploads/"]
     W2["걸음 5~8 · 설치와 설정<br/>생김: node_modules/ · cockpit.json"]
     W3["걸음 9~10 · 계정<br/>생김: 계정 둘 · DB 두 곳에 한 줄씩"]
     W4["걸음 11~13 · 서버와 로그인<br/>생김: 서버 창 · 로그인 쿠키 md_session"]
@@ -130,18 +130,19 @@ git clone C:/Users/<이름>/…/crew-workspace/cockpit cockpit
 ```
 이렇게 보이면 됨: `Cloning into 'cockpit'...`. 이어서 prodev 가 나란히 있는지 봅니다: 맥 `ls ../prodev/scripts/setup.js` 가 그 경로 한 줄, 윈도우 `Test-Path ..\prodev\scripts\setup.js` 가 `True`.
 
-### 걸음 4 — DB · 첨부 폴더와 과제 폴더를 만듭니다
-이 폴더들은 미리 있어야 합니다.
+### 걸음 4 — DB · 첨부 폴더, 과제 폴더, 봇 폴더 자리를 만듭니다
+이 폴더들은 미리 있어야 합니다. 없으면 걸음 8 의 검사가 `✗ … 없다` 로 멈춥니다. 특히 `prodev/bots` 는 걸음 2 에서 받은 prodev 에 **들어 있지 않습니다**(git 은 빈 폴더를 담지 못합니다). 그래서 여기서 만듭니다.
 **맥 (터미널)**
 ```
-mkdir -p ~/cockpit-data/uploads ~/work/crew-workspace/projects
+mkdir -p ~/cockpit-data/uploads ~/work/crew-workspace/projects ~/work/crew-workspace/prodev/bots
 ```
 **윈도우 (PowerShell)**
 ```
 New-Item -ItemType Directory -Force -Path C:\cockpit-data\uploads | Out-Null
 New-Item -ItemType Directory -Force -Path C:\work\crew-workspace\projects | Out-Null
+New-Item -ItemType Directory -Force -Path C:\work\crew-workspace\prodev\bots | Out-Null
 ```
-이렇게 보이면 됨: 맥 `ls ~/cockpit-data` 가 `uploads`, 윈도우 `Test-Path C:\cockpit-data\uploads` 가 `True`.
+이렇게 보이면 됨: 맥 `ls ~/cockpit-data` 가 `uploads` 이고 `ls ~/work/crew-workspace/prodev/bots` 가 오류 없이 끝납니다(아무것도 안 나와도 됩니다). 윈도우 `Test-Path C:\cockpit-data\uploads` 와 `Test-Path C:\work\crew-workspace\prodev\bots` 가 둘 다 `True`.
 
 ### 걸음 5 — 부품을 깝니다
 cockpit 폴더에서 칩니다. 창을 새로 열었다면 먼저 `cd ~/work/crew-workspace/cockpit`(윈도우 `cd C:\work\crew-workspace\cockpit`).
@@ -285,6 +286,7 @@ Enter 로 보냅니다 (Shift+Enter 는 줄바꿈).
 봇이 꺼져 있을 때 보낸 글도 사라지지 않습니다. 기다렸다가 켜지면 배달됩니다.
 
 ### 걸음 19 — 첫 답을 받습니다
+**먼저 볼 것:** 상태가 `승인 대기` 가 되고 방에 `🔒 Bash 요청 · …` 줄이 뜨면, 봇이 도구를 써도 되는지 허락을 묻는 것입니다. 조종석 판의 카드에서 `허용` 을 누릅니다(시나리오 4). 10분 안에 누르지 않으면 거부됩니다. 첫 글에서도 봇이 `cd "…" && ls …` 같은 명령으로 카드를 띄울 수 있습니다.
 이렇게 보이면 됨: 방에 `prodev-수율개선-bot` 이름과 `BOT` 표시가 붙은 글이 뜹니다. 조종석 판의 "이번 턴 도구 호출" 에 `reply` 줄이 생기고, 상태는 다시 `대기` 입니다.
 몇 분이 지나도 `일하는 중` 에서 안 바뀌면 7.2절 표의 `일하는 중` 줄을 봅니다. 판의 "값" 칸(`$0.01 추정치` 꼴)은 SDK 가 계산한 추정치이고 청구서가 아닙니다.
 
@@ -428,6 +430,7 @@ B 로트가 좀 낮네요. 봇한테는 이따 물어볼게요
 | 봇이 파일을 못 쓰고, 봇 첫 줄에 폴더를 신뢰하지 않았다는 영어 경고가 뜸 | 그 방의 봇 폴더를 믿지 않아 허용 목록이 무시됐습니다. 새로 만든 방마다 생길 수 있습니다 (cockpit · prodev 를 담는 상위 저장소 crew-workspace 의 `README.md`) | 그 방의 봇 폴더에서 걸음 15 를 합니다 |
 | `동시 세션 상한 3 에 닿았다 — 다른 과제의 세션을 끄고 켜라` | 켜진 봇이 `maxSessions` 에 닿았습니다 | 다른 과제의 `끄기` 를 누르거나 설정을 올립니다 |
 | 글을 보냈는데 턴이 안 생김 | ① 봉투가 없음 ② 봇이 꺼져 있음(글은 큐 `bot_inbox` 에 쌓임) ③ 압축 중 | ① 봉투를 붙입니다 ② `켜기` ③ 끝날 때까지 기다립니다 |
+| 상태가 `승인 대기` 에서 멈춤 · 방에 `🔒 … 요청` 줄 | 봇이 도구를 쓰려고 허락을 기다립니다 | 조종석 판의 카드에서 `허용` 이나 `거부` 를 누릅니다(시나리오 4). 10분이 지나면 저절로 거부됩니다 |
 | 방 만들기 `setup 실패: setup.js 가 없다: …` | `prodevDir` 폴더는 있지만 그 안에 `scripts/setup.js` 가 없습니다. prodev 가 아닌 폴더를 가리키거나, `prodevDir` 를 빼서 `botsDir` 의 부모로 짐작한 자리에 setup.js 가 없는 경우입니다 | 걸음 8 의 검사를 돌려 `prodevDir` 줄을 보고, 걸음 2 에서 받은 `prodev` 폴더를 가리키게 고칩니다 |
 | 방 만들기 `setup 실패: settings.local.json 이 안 생겼다: …` | setup.js 는 끝났는데 봇 폴더에 `settings.local.json` 이 없습니다. prodev 버전이 cockpit 버전과 맞지 않을 수 있습니다 | prodev 를 최신으로 당기고(10절 3번) 방을 다시 만듭니다. 그래도 같으면 빨간 알림 글자를 복사해 PL 에게 줍니다 |
 | 방 만들기 `setup 실패: 시간 초과 60000ms` | setup 이 60초를 넘겼습니다 | 빨간 알림 글자를 복사해 PL 에게 줍니다 |
