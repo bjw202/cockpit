@@ -294,3 +294,26 @@ W2 관문에 필요하다고 한 넷: `serve --config` 로 서버가 뜬다 · `
 **세션 끝 상태 (2026-09-15, after-M6 — 멈춤)**
 - cockpit 작업 트리: 이 절 커밋 뒤 깨끗. prodev worktree `../prodev-wt-cockpit-v2` 는 가지 `cockpit-v2c`(PR #21 열림, 머지 전).
 - **다음 지시는 사람의 회사 PC 실증(W1) 결과가 온 뒤다.** 그때 읽을 파일: meta 의 다음 지시 → 이 절 → M6 절 → `docs/INSTALL-WINDOWS.md`(12걸음 · 판 올리기).
+
+## 2026-09-15 — D3 문서 회차 · README 제로베이스 · ARCHITECTURE_EXPLANATION (코드 손대지 않음)
+
+지시 `instructions/DOCS-readme.md`(3.1 그림 절은 03:05 에 더해짐). 코드 · 시험 · prodev · minidiscord 는 읽기만 했다. 사실은 코드 · ADR · as-built 에서만. 결과: `README.md` 591줄 · 그림 3 · `docs/ARCHITECTURE_EXPLANATION.md` 594줄 · 그림 7. 두 문서의 그림 전부를 scratchpad 의 mermaid-cli 11.17.0(Chrome)으로 그려 오류 0 을 봤다.
+
+**누가 무엇을 했나 (서브에이전트, 모두 opus).**
+- 코드 조사자 — `src/` · `bin/` · `web/` · `smoke/` · docs 넷을 읽고 개념 → 파일:줄 표(개념 57 · 라우트 28 · SSE 9종 · 명령 10 · 설정 키 13 · 막혔을 때 49)를 scratchpad 에 만들었다. 확인 못 함 여섯을 따로 적었다.
+- 비유 추출 — `~/orca/projects/agent-sdk-study/index.html`(읽기만)에서 비유 낱말 112개를 SDK 개념과 짝지었다(cwd · usage 토큰은 원문에 비유 없음).
+- README 작성자 — `README.md` 를 다시 썼다(걸음 20 · 시나리오 6 · 막혔을 때 다섯 · 그림 3). 걸음 3 clone 주소는 meta 답대로 예 주소 + "PL 이 알려 준다" + 로컬 경로 복제.
+- EXPLANATION 작성자 — `docs/ARCHITECTURE_EXPLANATION.md` 를 새로 썼다(대응표 20 · 통신 경로 넷 · FAQ 12 · 코드 자리 24 · 그림 7). 마디는 "실제 이름 (공방 낱말)", 화살표는 "쉬운 말 · 코드 이름" 꼴. 원문에 없는 비유는 넷(손님 · 셰프 사물함 · 홀 매니저 · 받는 사람 딱지)으로 모아 밝혔다.
+- 사실 검토자 — 두 문서를 코드와 세 바퀴 대조했다. README 14 → 3 → 2건(고침 18 · 근거 있어 남김 1 — 맥 설치 명령, 상위 `crew-workspace/README.md:149`). EXPLANATION 17 → 8 → 3건(모두 고침 — 마지막 `snapshot: true` 한 낱말은 리드가 직접). 맥 예 설정(`claudePath: null`)은 scratchpad 사본으로 `check` exit 0 을 봤다. "승인 대기 중 새 글" 이 모순처럼 읽히던 한 쌍을 코드로 갈랐다(서버는 곧바로 넣고 `manager.js:22, 324`, 붙잡기는 수동 `/compact` 뒤 그 턴뿐 `298-306, 364`). 세 바퀴째에 앞 결과 파일의 줄 번호 오기 16곳(여러 파일을 이어 출력해 옮긴 탓, 가리킨 내용은 같음)을 스스로 바로잡았다 — 두 문서에는 남지 않았다.
+- 중학생 독자 — 그림만 먼저 보고 흐름을 말한 뒤 본문을 따라 읽었다(두 바퀴). README: 첫 바퀴 87건 → 두 바퀴째 풀림 76 · 덜 풀림 11 · 새 10 → 덜 풀림 6 · 새 10 고침, 근거 없어 안 씀 5(윈도우 방화벽 창 · 신뢰 질문 실제 문구 · 값이 청구와 어떻게 이어지나 · host 를 누가 정하나 · 남은 봇 폴더 지우기). 그림 1 이 "반쯤" → "말할 수 있었다", 윈도우 판단이 "혼자 어렵다" → "첫 답까지 갈 수 있다". EXPLANATION: 첫 바퀴 86건(좋았던 곳 4) → 두 바퀴째 풀림 78 · 덜 풀림 3 · 그대로 1 · 새 12 → 새 12 · 덜 풀림 2 고침, CSP 풀이 1 은 지시문 3절이 요구해 남김, 대응표 코드 자리 칸은 지시문이 열 넷을 정해 남김. 그림 일곱 "말할 수 있었다" 가 첫 바퀴 둘 → 일곱, "글 하나를 보내면" 5문장을 짐작 없이 씀.
+
+**함께 넣은 페이지.** `docs/eli5-cockpit-sdk.html`(675줄) — meta 가 둔 2026-09-14 저녁 ELI5 페이지(그림 넷 + "코드로 보기" 여섯 장면, mermaid 는 CDN). 사람 요청("eli5 로 만든 페이지는 모두 docs 에 저장")이라 내용은 고치지 않고 넣었다. **그 페이지의 파일:줄 인용은 d41b0da(M5 끝) 시점이다** — 뒤 커밋에서 줄이 밀렸을 수 있다. EXPLANATION 1절 끝과 README 문서 목록에서 한 줄씩 가리킨다.
+
+**코드와 옛 문서가 어긋나 코드 쪽을 따른 자리.** `+` 로 만든 방은 저절로 열리지 않는다(`web/app.js:236`) · setup 이 먼저 돌고 성공해야 방 · 봇 행이 생긴다(`src/rooms/create.js:82-106`) · 비밀번호 바꾸기는 admin API 뿐 · 꺼진 세션에 보낸 글은 큐에 쌓였다 켜지면 배달 · 깃발을 과제 이름 앞에 두면 이름을 잃는다(`bin/cockpit.js:34-46`) · `projectsDir` 도 미리 있어야 한다 · 맥은 예제의 윈도우 `claudePath` 로는 `check` 가 실패해 `null` 로 둔다 · 글마다 붙는 지시 줄은 `to` 글의 한 줄뿐이고 cc 규칙은 켤 때 한 번 `systemPrompt.append` 로 들어간다(`wrap.js:13-14, 22, 52` · `options.js:25`).
+
+**알아낸 것.** 도우미 여섯은 봇 폴더가 아니라 두 층 위 `prodev/.claude/agents` 에서 실린다 — `~/cockpit-try-v2` cockpit.db 의 init 사건 agents 목록으로 확인(읽기 전용 사본). CLAUDE.md 가 실렸다는 기록은 없다(settingSources `project` 근거만). 스킬은 init 에 수만 있어 가를 수 없다.
+
+**새 질문 (meta 에).**
+- **Q8 cockpit 원격 주소.** README 걸음 3 은 예 주소(`github.com/bjw202/cockpit.git`)다. 정해지면 한 줄만 바꾼다.
+- **Q9 사람이 볼 화면 문구 둘.** 새 방마다 Claude Code 가 봇 폴더 신뢰를 다시 묻는지 · 그 질문의 실제 문구, 윈도우에서 serve 첫 기동 때 방화벽 창이 뜨는지. 코드로 알 수 없어 README 에 쓰지 않았다 — 회사 PC 실증(W1) 때 봐 주면 넣는다.
+- **Q10 코드 · 다른 문서 어긋남 (이번 회차는 고치지 않음).** `open-project --no-setup <과제>` 처럼 깃발을 앞에 두면 과제 이름을 잃는다(`bin/cockpit.js:34-46`) · `docs/INSTALL-WINDOWS.md` 10번은 `+` 로 만든 방을 "연다" 고 적었다 · prodev `setup.js` 끝 안내는 옛 `open-project --bot-dir` 걸음이다. 고칠지 정해 달라.

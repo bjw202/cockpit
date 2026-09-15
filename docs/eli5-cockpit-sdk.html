@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>조종석과 Claude Code 한 몸</title>
+<!--
+  출처: meta 지휘 세션이 2026-09-14 저녁에 opus 서브에이전트로 쓴 ELI5 페이지 (claude.ai 아티팩트 ceeb88a9…, 뒤에 "코드로 보기" 여섯 장면이 더해진 판).
+  docs 에 두는 까닭: 사람이 "eli5 로 만든 페이지는 모두 docs 에 저장" 이라 했다 (2026-09-15).
+  사실 기준: cockpit d41b0da~a0e5640 의 src/ (줄 번호는 그 시점). "떠 있는 것" 절은 2026-09-14 저녁 이 맥의 시험 배치 스냅샷이다.
+  그림은 mermaid 를 CDN(jsdelivr) 에서 불러 그린다 — 오프라인이면 그림 자리에 원문이 보인다.
+-->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@500;800&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@400;600&display=swap">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #edf1f4;
+    --surface: #ffffff;
+    --surface-2: #e3e9ee;
+    --ink: #13202b;
+    --muted: #5a6e7c;
+    --line: #c9d5dd;
+    --line-soft: #dde5ea;
+    --signal: #1b5e9c;
+    --indicator: #a8690a;
+    --panel: #eaeef1;
+    --panel-line: #c2ced6;
+    --focus: #1b5e9c;
+    --code-bg: #17222c;
+    --code-ink: #dfe7ed;
+    --code-dim: #7f95a5;
+    --code-key: #8cc4f2;
+    --code-str: #e8b86a;
+    --code-mark: rgba(232, 184, 106, 0.16);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f161c;
+      --surface: #18212a;
+      --surface-2: #1e2932;
+      --ink: #e2eaf0;
+      --muted: #93a5b2;
+      --line: #2c3945;
+      --line-soft: #232f3a;
+      --signal: #72b2ea;
+      --indicator: #dfa542;
+      --panel: #e7ebee;
+      --panel-line: #bcc8d0;
+      --focus: #72b2ea;
+      --code-bg: #0a1015;
+      --code-ink: #dfe7ed;
+      --code-dim: #75899a;
+      --code-key: #8cc4f2;
+      --code-str: #e8b86a;
+      --code-mark: rgba(232, 184, 106, 0.14);
+    }
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.75;
+    -webkit-text-size-adjust: 100%;
+  }
+  img { max-width: 100%; }
+
+  .wrap { max-width: 44rem; margin: 0 auto; padding-inline: 20px; padding-block: 56px 72px; }
+
+  h1, h2, h3 {
+    font-family: "Gothic A1", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    font-weight: 800; line-height: 1.28; text-wrap: balance; margin: 0;
+  }
+  h1 { font-size: clamp(1.85rem, 6vw, 2.6rem); letter-spacing: -0.01em; }
+  h2 { font-size: clamp(1.25rem, 4vw, 1.5rem); }
+  h3 { font-size: 1.02rem; font-weight: 500; }
+  p { margin: 0; }
+
+  code, .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86em; }
+  code { background: var(--surface-2); border-radius: 2px; padding: 0.1em 0.34em; word-break: break-word; }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.72rem; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--muted); display: block;
+  }
+
+  header.top { display: flex; flex-direction: column; gap: 18px; border-bottom: 2px solid var(--ink); padding-bottom: 28px; }
+  .lede { font-size: clamp(1.05rem, 3.2vw, 1.22rem); line-height: 1.65; color: var(--ink); }
+  .lede strong { font-weight: 600; box-shadow: inset 0 -0.38em 0 color-mix(in srgb, var(--indicator) 24%, transparent); }
+
+  main { display: flex; flex-direction: column; gap: 52px; padding-top: 44px; }
+  section { display: flex; flex-direction: column; gap: 18px; }
+
+  .cast { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .cast > div { background: var(--surface); padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; }
+  .cast .role { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.7rem; letter-spacing: 0.1em; color: var(--signal); text-transform: uppercase; }
+  .cast .who { font-family: "Gothic A1", system-ui, sans-serif; font-weight: 800; font-size: 1.02rem; }
+  .cast .what { font-size: 0.88rem; color: var(--muted); line-height: 1.55; }
+
+  figure { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+  .diagram { overflow-x: auto; background: var(--panel); border: 1px solid var(--panel-line); padding: 18px 14px; }
+  .diagram pre.mermaid { margin: 0; min-width: 320px; }
+  figcaption { font-size: 0.82rem; color: var(--muted); font-family: "IBM Plex Mono", ui-monospace, monospace; letter-spacing: 0.02em; }
+
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); }
+  table { border-collapse: collapse; width: 100%; min-width: 460px; background: var(--surface); font-size: 0.9rem; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line-soft); vertical-align: top; line-height: 1.6; }
+  thead th { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); background: var(--surface-2); border-bottom: 1px solid var(--line); white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.k { font-weight: 600; white-space: nowrap; }
+
+  .note { border-left: 3px solid var(--indicator); padding: 4px 0 4px 16px; color: var(--muted); font-size: 0.92rem; }
+
+  .facts { background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--signal); padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+  .facts dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; font-size: 0.9rem; }
+  .facts dt { color: var(--muted); font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.76rem; letter-spacing: 0.06em; text-transform: uppercase; padding-top: 3px; }
+  .facts dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+  .compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 22px; }
+  .compare h3 { font-weight: 800; font-size: 0.95rem; padding-bottom: 6px; border-bottom: 2px solid var(--line); margin-bottom: 10px; }
+  .compare ul { margin: 0; padding-left: 1.1em; font-size: 0.92rem; display: flex; flex-direction: column; gap: 6px; }
+  .same h3 { border-bottom-color: var(--signal); }
+  .diff h3 { border-bottom-color: var(--indicator); }
+
+  .codebook { display: flex; flex-direction: column; gap: 40px; }
+  .step { display: grid; grid-template-columns: 2.4rem 1fr; gap: 0 14px; }
+  .step .no { font-family: "Gothic A1", system-ui, sans-serif; font-weight: 800; font-size: 1.5rem; line-height: 1.2; color: var(--signal); font-variant-numeric: tabular-nums; }
+  .step .body { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .step h3 { font-weight: 800; font-size: 1.08rem; }
+  .picture { font-size: 0.95rem; color: var(--ink); }
+  .picture b { font-weight: 600; box-shadow: inset 0 -0.38em 0 color-mix(in srgb, var(--indicator) 22%, transparent); }
+
+  .src { display: flex; flex-direction: column; background: var(--code-bg); border-radius: 3px; overflow: hidden; }
+  .src .file { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.72rem; letter-spacing: 0.04em; color: var(--code-dim); padding: 8px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.07); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .src pre { margin: 0; padding: 14px; overflow-x: auto; font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; line-height: 1.65; color: var(--code-ink); tab-size: 2; }
+  .src pre code { background: none; padding: 0; font-size: inherit; word-break: normal; white-space: pre; }
+  .c { color: var(--code-dim); }
+  .kw { color: var(--code-key); }
+  .s { color: var(--code-str); }
+  .hl { background: var(--code-mark); display: inline-block; min-width: 100%; }
+
+  .takeaway { font-size: 0.9rem; color: var(--muted); }
+  .takeaway strong { color: var(--ink); font-weight: 600; }
+
+  .outro { border-top: 2px solid var(--ink); padding-top: 26px; font-family: "Gothic A1", system-ui, sans-serif; font-weight: 800; font-size: clamp(1.1rem, 3.6vw, 1.35rem); line-height: 1.5; text-wrap: balance; }
+
+  a { color: var(--signal); }
+  a:focus-visible, :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  @media (max-width: 430px) {
+    .facts dl { grid-template-columns: 1fr; gap: 2px; }
+    .facts dt { padding-top: 10px; }
+    .step { grid-template-columns: 1fr; gap: 4px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="top">
+    <span class="eyebrow">cockpit · Claude Agent SDK · Claude Code CLI · 2026-09-14 저녁 판</span>
+    <h1>조종석과 Claude Code 한 몸</h1>
+    <p class="lede">cockpit 은 Claude Code 를 흉내 낸 물건이 아닙니다. <strong>터미널에서 쓰던 그 Claude Code 를 브라우저 창에 끼워 넣은 것</strong>입니다. 같은 프로그램, 같은 설정 파일, 같은 대화 기록. 바뀐 것은 글자가 오가는 창구뿐입니다.</p>
+  </header>
+
+  <main>
+
+    <section>
+      <span class="eyebrow">등장인물 넷</span>
+      <h2>누가 무엇을 맡나</h2>
+      <div class="cast">
+        <div>
+          <span class="role">사람</span>
+          <span class="who">김피엘</span>
+          <span class="what">브라우저에서 방에 글을 씁니다. 승인 카드에 답하는 것도 이 사람뿐입니다.</span>
+        </div>
+        <div>
+          <span class="role">서버</span>
+          <span class="who">cockpit</span>
+          <span class="what">웹 화면을 띄우고, 글을 받아 봇에게 건네고, 봇이 한 일을 기록합니다.</span>
+        </div>
+        <div>
+          <span class="role">일꾼</span>
+          <span class="who">Claude Code CLI</span>
+          <span class="what">실제로 생각하고 도구를 쓰는 쪽. 터미널에서 <code>claude</code> 라고 칠 때 뜨는 그 프로그램입니다.</span>
+        </div>
+        <div>
+          <span class="role">현장</span>
+          <span class="who">봇 폴더</span>
+          <span class="what">지침·훅·스킬이 놓인 작업 자리. CLI 는 여기에 서서 일을 시작합니다.</span>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <span class="eyebrow">그림 1 · 큰 그림</span>
+      <h2>글 하나가 지나가는 길</h2>
+      <p>브라우저에서 시작해 봇 폴더까지 한 줄로 이어집니다. 가운데에 있는 <code>query()</code> 가 Claude Code 를 자식 프로세스로 띄우는 자리입니다.</p>
+      <figure>
+        <div class="diagram">
+<pre class="mermaid">
+flowchart TD
+  B["브라우저 · 채팅 판"] --> S["cockpit 서버 · node:http"]
+  S --> Q["입력 큐 · InputStream"]
+  Q --> SDK["Claude Agent SDK 의 query 호출"]
+  SDK --> CLI["자식 프로세스 · Claude Code CLI"]
+  CLI --> H
+  subgraph H["봇 폴더 · prodev-수율개선-bot"]
+    H1["CLAUDE.md"]
+    H2[".claude/settings.json · 훅 · env"]
+    H3[".claude/settings.local.json · 허용 22"]
+    H4[".claude/skills 15 · .claude/agents 6"]
+  end
+  H --> P["과제 폴더 · projects/수율개선"]
+  CLI -. "JSON 메시지 되돌림" .-> S
+  S -. "SSE 로 화면 갱신" .-> B
+</pre>
+        </div>
+        <figcaption>화살표 실선은 지시가 가는 길, 점선은 결과가 돌아오는 길.</figcaption>
+      </figure>
+    </section>
+
+    <section>
+      <span class="eyebrow">의존성 둘</span>
+      <h2>프레임워크는 없습니다</h2>
+      <p>cockpit 은 순수 Node 앱입니다. 웹 프레임워크를 쓰지 않고 <code>node:http</code> 하나에 길을 나눴습니다. 화면도 빌드 도구와 CDN 없이 정적 파일 그대로입니다. 설계 결정 ADR-010 에 그렇게 적혀 있습니다.</p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>의존성</th><th>하는 일</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="k"><code>@anthropic-ai/claude-agent-sdk</code> 0.3.270</td><td>Claude Code CLI 를 자식 프로세스로 띄우고 JSON 메시지로 주고받습니다.</td></tr>
+            <tr><td class="k"><code>zod</code></td><td>도구 입력값의 모양을 검사합니다.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">옛 방식(minidiscord)에서는 채팅 서버가 channels 플러그인으로, 사람이 터미널에서 켜 둔 Claude Code 세션을 두드렸습니다. 회사가 channels 를 막으면서 그 길이 끊겼습니다. cockpit 은 웹 서버 자신이 봇 세션을 띄우고 붙들기로 방향을 바꾼 결과입니다.</p>
+    </section>
+
+    <section>
+      <span class="eyebrow">그림 2 · 왕복 한 번</span>
+      <h2>글을 올리면 벌어지는 일</h2>
+      <p>서버는 방에 올라온 글을 봉투에 쌉니다. 봉투 안에는 <code>chat_id</code>, <code>message_id</code>, 보낸 이, 방 이름, 첨부 경로가 들어갑니다. 봇이 답할 때 어디로 보내야 할지 알 수 있게 하는 표식입니다.</p>
+      <figure>
+        <div class="diagram">
+<pre class="mermaid">
+sequenceDiagram
+  autonumber
+  participant P as 사람
+  participant S as cockpit 서버
+  participant Q as 입력 큐
+  participant C as Claude Code CLI
+  participant D as chat.db
+  P->>S: 방에 글 올림 · @TO 표식
+  S->>D: 사람 글 저장
+  S->>Q: 봉투로 싸서 push
+  Q->>C: 다음 턴 시작
+  alt 허용 목록 밖 도구를 부르면
+    C->>S: canUseTool 콜백
+    S->>P: 브라우저에 승인 카드
+    P->>S: admin 이 허용 또는 거부
+    S->>C: 콜백 풀림 · 계속 진행
+  end
+  C->>S: reply 도구 호출
+  S->>S: PreToolUse 훅 · 900자와 표식 검사
+  S->>D: 봇 글 저장
+  S->>P: SSE 로 즉시 표시
+  C->>S: result · 값과 idle 상태
+</pre>
+        </div>
+        <figcaption>승인 카드는 10분 안에 답이 없으면 자동으로 거부됩니다.</figcaption>
+      </figure>
+    </section>
+
+    <section>
+      <span class="eyebrow">비밀 하나</span>
+      <h2>세션 창은 서버가 아니라 프로세스가 들고 있습니다</h2>
+      <p><code>query()</code> 의 <code>prompt</code> 자리에 문자열 대신 <strong>끝나지 않는 입력 큐</strong>를 넘깁니다. 큐가 끝나지 않는 한 SDK 는 CLI 프로세스를 죽이지 않습니다. 사람이 글을 올리면 서버는 큐에 한 줄 밀어 넣을 뿐이고, 같은 프로세스에서 다음 턴이 돕니다.</p>
+      <p>그래서 대화 문맥은 cockpit 의 데이터베이스가 아니라, 살아 있는 CLI 프로세스 안에 있습니다. 터미널 창을 켜 둔 채 계속 말을 거는 것과 똑같습니다.</p>
+      <figure>
+        <div class="diagram">
+<pre class="mermaid">
+stateDiagram-v2
+  [*] --> 켜기
+  켜기 --> 대기: init 사건에서 session_id 받아 cockpit.db 에 적음
+  대기 --> 턴: 큐에 글 push
+  턴 --> 대기: result 로 마무리
+  턴 --> 압축: compact 버튼도 같은 큐로
+  압축 --> 대기: 일하는 중이면 턴이 끝난 뒤
+  대기 --> 꺼짐: 프로세스 종료
+  꺼짐 --> 켜기: resume 에 같은 session_id
+</pre>
+        </div>
+        <figcaption>2026-09-14 실측 — 봇이 일하는 중에 넣은 압축은 3분 36초 뒤에 들어갔습니다.</figcaption>
+      </figure>
+      <p>밀린 글이 여럿이면 id 순서로 묶어 메시지 하나로 만듭니다. 한 번에 스무 개까지입니다.</p>
+    </section>
+
+    <section>
+      <span class="eyebrow">껐다 켜도 이어짐</span>
+      <h2>대화는 파일에 남아 있습니다</h2>
+      <p>CLI 는 대화 기록을 <code>~/.claude/projects/&lt;봇 폴더 경로&gt;/&lt;session_id&gt;.jsonl</code> 에 남깁니다. cockpit 은 첫 init 사건에서 받은 세션 번호를 <code>cockpit.db</code> 에 적어 둡니다. 끄기는 프로세스를 닫는 것이고, 다시 켜기는 <code>resume</code> 에 그 번호를 넣어 부르는 것입니다.</p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>상황</th><th>결과</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="k">2026-09-14 스모크 시험</td><td>서버를 강제로 죽였다 켰더니 같은 세션 번호 <span class="mono">cce6a248-0457-43ce-9783-4ad7e890dbe9</span> 로 되살아났고, 꺼진 사이 들어온 글 둘에 답했습니다.</td></tr>
+            <tr><td class="k">기록이 없을 때</td><td><code>resume</code> 이 실패하면 새 세션으로 켜고 그 사실을 사건으로 남깁니다.</td></tr>
+            <tr><td class="k">값과 문맥 사용률</td><td>프로세스 단위라 재기동 뒤 0 부터 다시 셉니다. cockpit 이 정지 시점 값을 바닥으로 두고 더합니다.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <span class="eyebrow">하네스</span>
+      <h2>지침과 훅은 CLI 가 스스로 읽습니다</h2>
+      <p>cockpit 은 지침을 읽어서 넘겨 주지 않습니다. <code>cwd</code> 로 봇 폴더를 가리키기만 하면, CLI 가 터미널에서 하던 대로 그 폴더의 파일을 스스로 찾아 읽습니다. 아래는 2026-09-14 이 맥의 시험 배치에서 확인한 목록입니다.</p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>무엇</th><th>어디</th><th>확인</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="k">비서 지침</td><td><code>CLAUDE.md</code></td><td>2.3 KB · prodev 사본</td></tr>
+            <tr><td class="k">훅 셋</td><td><code>.claude/settings.json</code> hooks</td><td>켤 때 과제 상태 싣기 · 압축 전 인수인계서 · 답 보내기 전 검사</td></tr>
+            <tr><td class="k">환경 변수</td><td><code>.claude/settings.json</code> env</td><td>여섯</td></tr>
+            <tr><td class="k">허용과 거부</td><td><code>.claude/settings.local.json</code></td><td>허용 22 · <code>cockpit.db</code> 읽기 등은 거부</td></tr>
+            <tr><td class="k">스킬</td><td><code>.claude/skills</code> 링크</td><td>15</td></tr>
+            <tr><td class="k">도우미</td><td><code>.claude/agents</code> 링크</td><td>6</td></tr>
+            <tr><td class="k">공통 코드</td><td><code>../../scripts</code> · <code>../../common</code></td><td>스킬이 상대 경로로 부름</td></tr>
+            <tr><td class="k">기억</td><td>과제 폴더 <code>projects/수율개선/</code></td><td>카드 · 받은 것 · 위키 · 일지</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">허용 규칙을 <code>settings.local.json</code> 에 떼어 둔 이유가 있습니다. SDK 로 띄운 세션은 <code>settings.json</code> 의 permissions 를 읽지 않습니다. 2026-09-14 직접 확인한 사실입니다.</p>
+
+      <h3 style="margin-top:12px"><span class="eyebrow">cockpit 이 건네는 옵션 전부</span></h3>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>옵션</th><th>뜻</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="k"><code>cwd</code></td><td>봇 폴더. 터미널에서 그 폴더로 들어간 것과 같습니다.</td></tr>
+            <tr><td class="k"><code>settingSources</code></td><td><code>project</code> 와 <code>local</code> 만. <code>user</code> 가 없어 개인 설정 <code>~/.claude</code> 는 읽지 않습니다.</td></tr>
+            <tr><td class="k"><code>systemPrompt</code></td><td>Claude Code 기본 프롬프트 그대로에, 방과 답장 규칙 열한 줄을 덧붙입니다.</td></tr>
+            <tr><td class="k"><code>mcpServers</code></td><td>프로세스 안 서버 하나. 도구는 답장과 기록 조회 둘뿐이고 나머지는 원래 권한 규칙을 탑니다.</td></tr>
+            <tr><td class="k"><code>permissionMode</code> · <code>canUseTool</code></td><td>터미널의 "허용할까요" 자리를 브라우저 승인 카드가 대신합니다.</td></tr>
+            <tr><td class="k"><code>persistSession</code> · <code>resume</code></td><td>대화 기록을 남기고, 다시 켤 때 그 기록을 이어받습니다.</td></tr>
+            <tr><td class="k"><code>env</code></td><td>화이트리스트. 비밀이 봇에 새지 않게 몇 개만 넘깁니다.</td></tr>
+            <tr><td class="k"><code>includePartialMessages</code></td><td>글자 조각을 실시간으로 흘려 화면에 타자처럼 보여 줍니다.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <span class="eyebrow">그림 3 · 나란히 비교</span>
+      <h2>터미널에서 켠 것과 무엇이 다른가</h2>
+      <p>두 길은 출발지만 다르고 도착지가 같습니다. 읽는 파일이 같기 때문입니다.</p>
+      <figure>
+        <div class="diagram">
+<pre class="mermaid">
+flowchart TB
+  subgraph T["터미널 · 봇 폴더로 이동한 뒤 claude"]
+    T1["사람이 직접 타이핑"] --> T2["Claude Code CLI"]
+  end
+  subgraph K["cockpit · query 에 cwd 를 봇 폴더로"]
+    K1["서버가 방 글을 봉투에 싸서 큐에 push"] --> K2["Claude Code CLI"]
+  end
+  T2 --> F["같은 파일을 읽는다"]
+  K2 --> F
+  F --> F1["CLAUDE.md"]
+  F --> F2[".claude/settings.json · 훅"]
+  F --> F3[".claude/skills · .claude/agents"]
+  F --> F4["대화 기록 jsonl"]
+</pre>
+        </div>
+        <figcaption>같은 바이너리, 같은 시스템 프롬프트, 같은 기록 파일.</figcaption>
+      </figure>
+      <div class="compare">
+        <div class="same">
+          <h3>같은 것</h3>
+          <ul>
+            <li>실행되는 프로그램 자체</li>
+            <li>기본 시스템 프롬프트</li>
+            <li>지침 · 설정 · 훅 · 스킬 · 도우미</li>
+            <li>압축과 이어받기</li>
+            <li>대화 기록 파일</li>
+          </ul>
+        </div>
+        <div class="diff">
+          <h3>다른 것 셋</h3>
+          <ul>
+            <li>화면이 터미널에서 브라우저 판으로 바뀝니다</li>
+            <li>입력을 사람이 직접 치지 않고 서버가 봉투에 싸서 넣습니다. 슬래시 명령은 압축 버튼 하나뿐입니다</li>
+            <li>개인 설정 <code>~/.claude</code> 를 읽지 않습니다</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="code">
+      <span class="eyebrow">코드로 보기 · cockpit/src</span>
+      <h2>SDK 는 실제로 이렇게 불립니다</h2>
+      <p>위의 그림을 코드로 옮기면 여섯 장면입니다. 비유 하나로 먼저 잡고 들어가겠습니다. <strong>SDK 는 전화기, Claude Code 는 전화 건너편의 일꾼</strong>입니다. cockpit 은 전화를 한 번 걸어 끊지 않고 붙들고 있다가, 사람이 글을 쓰면 수화기에 대고 말을 전하고, 일꾼이 하는 말을 받아 적습니다.</p>
+      <p class="note">아래 코드는 실제 파일에서 가져오되, 흐름과 상관없는 줄은 <code>…</code> 로 줄였습니다. 파일 이름 옆 숫자는 줄 번호(cockpit d41b0da 시점)입니다. 장면 순서는 세션 하나가 켜져서 답을 보내기까지의 실제 순서입니다.</p>
+
+      <div class="codebook">
+
+        <div class="step">
+          <span class="no">1</span>
+          <div class="body">
+            <h3>전화기는 한 대만 둡니다</h3>
+            <p class="picture">SDK 를 <b>불러오는 파일이 딱 하나</b>입니다. 나머지 코드는 이 파일이 내준 함수 두 개만 받아 씁니다. 그래서 시험할 때는 진짜 전화기 대신 장난감 전화기를 끼울 수 있습니다.</p>
+            <div class="src">
+              <div class="file"><span>src/session/sdk-query.js</span><span>4 · 20–22</span></div>
+<pre><code><span class="c">// SDK 를 import 하는 유일한 파일. test/no-sdk-import.test.js 가 이 규칙을 본다.</span>
+<span class="hl"><span class="kw">import</span> { query, createSdkMcpServer, tool } <span class="kw">from</span> <span class="s">'@anthropic-ai/claude-agent-sdk'</span>;</span>
+<span class="kw">import</span> { z } <span class="kw">from</span> <span class="s">'zod'</span>;
+
+<span class="kw">export const</span> queryFn = ({ prompt, options }) =&gt; query({ prompt, options });
+<span class="kw">export const</span> sdkBinding = Object.freeze({ queryFn, makeMcpServer });</code></pre>
+            </div>
+            <p class="takeaway"><strong>쓰는 SDK 기능은 셋입니다.</strong> 세션을 띄우는 <code>query</code>, 봇에게 줄 도구 상자를 만드는 <code>createSdkMcpServer</code>, 도구 하나를 정의하는 <code>tool</code>. 시험은 <code>test/fakes/fake-query.js</code> 의 모의 <code>queryFn</code> 을 대신 넣습니다.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <span class="no">2</span>
+          <div class="body">
+            <h3>전화 걸기 전에 쪽지를 챙깁니다</h3>
+            <p class="picture">"어느 폴더에서 일할지, 무슨 설정을 읽을지, 누구에게 허락을 받을지" 를 <b>옵션 한 묶음</b>에 적습니다. 이 묶음을 만드는 곳도 한 자리뿐입니다.</p>
+            <div class="src">
+              <div class="file"><span>src/session/options.js</span><span>11–31</span></div>
+<pre><code><span class="kw">export function</span> buildQueryOptions({ botDir, mcpServer, canUseTool, env, resume, … }) {
+  <span class="kw">const</span> options = {
+<span class="hl">    cwd: botDir,                              <span class="c">// 봇 폴더에 서서 시작 → CLAUDE.md · 훅 · 스킬을 CLI 가 스스로 읽는다</span></span>
+    settingSources: [<span class="s">'project'</span>, <span class="s">'local'</span>],   <span class="c">// 'user' 가 없다 → ~/.claude 는 안 읽는다</span>
+    strictMcpConfig: <span class="kw">true</span>,
+    mcpServers: { cockpit: mcpServer },        <span class="c">// 장면 6 의 도구 상자</span>
+    permissionMode: <span class="s">'default'</span>,
+    allowedTools: [<span class="s">'mcp__cockpit__reply'</span>, <span class="s">'mcp__cockpit__fetch_history'</span>],
+    canUseTool,                                <span class="c">// 장면 5 의 승인 카드</span>
+    persistSession: <span class="kw">true</span>,
+    env,                                       <span class="c">// 화이트리스트만. 서버 비밀이 봇에 안 샌다</span>
+    includePartialMessages: <span class="kw">true</span>,
+    enableFileCheckpointing: <span class="kw">true</span>,
+    systemPrompt: { type: <span class="s">'preset'</span>, preset: <span class="s">'claude_code'</span>, append: INSTRUCTIONS, snapshot: <span class="kw">true</span> },
+  };
+  <span class="kw">if</span> (resume) options.resume = resume;       <span class="c">// 껐다 켤 때 같은 session_id</span>
+  <span class="kw">return</span> options;
+}</code></pre>
+            </div>
+            <p class="takeaway"><strong><code>allowedTools</code> 에는 cockpit 도구 둘만 넣습니다.</strong> 코드 주석에 따르면 이 목록에 든 도구는 승인 절차를 건너뛰기 때문에, 목록이 넓어지면 승인 카드가 조용히 사라집니다. 파일 읽기나 명령 실행 같은 나머지 도구는 봇 폴더의 <code>settings.local.json</code> 규칙과 승인 카드를 거칩니다.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <span class="no">3</span>
+          <div class="body">
+            <h3>전화를 걸고, 끊지 않습니다</h3>
+            <p class="picture"><code>prompt</code> 자리에 글 한 줄이 아니라 <b>비어 있는 우편함</b>을 넘깁니다. SDK 는 우편함에 편지가 올 때까지 기다리고, 우편함이 닫히기 전에는 전화를 끊지 않습니다.</p>
+            <div class="src">
+              <div class="file"><span>src/session/manager.js</span><span>205–234 줄임</span></div>
+<pre><code>#launch(s, resumeId) {
+  s.input = <span class="kw">new</span> InputStream();              <span class="c">// 끝나지 않는 우편함</span>
+  s.options = buildQueryOptions({
+    botDir: s.botDir,
+    mcpServer: <span class="kw">this</span>.makeMcpServer(tools),
+    canUseTool: (toolName, input, opts) =&gt; <span class="kw">this</span>.#canUseTool(s, toolName, input, opts),
+    env: buildBotEnv(<span class="kw">this</span>.processEnv, { botDir: s.botDir, … }),
+    resume: resumeId || <span class="kw">undefined</span>,
+  });
+<span class="hl">  s.q = <span class="kw">this</span>.queryFn({ prompt: s.input, options: s.options });</span>
+  <span class="kw">this</span>.#pump(s, s.q, resumeId);                <span class="c">// 장면 4 — 돌아오는 말 받아 적기</span>
+}</code></pre>
+            </div>
+            <p class="picture">우편함은 스무 줄 남짓한 작은 클래스입니다. 편지가 오면 기다리던 쪽에 곧바로 건네고, 아무도 안 기다리면 쌓아 둡니다.</p>
+            <div class="src">
+              <div class="file"><span>src/session/input-stream.js</span><span>3–31 줄임</span></div>
+<pre><code><span class="kw">export class</span> InputStream {
+  push(message) { … }                        <span class="c">// 사람 글이 올 때 세션 관리자만 부른다</span>
+  end() { … }                                <span class="c">// 이걸 불러야 SDK 가 CLI 를 닫는다</span>
+  [Symbol.asyncIterator]() { … }             <span class="c">// SDK 가 for await 로 한 통씩 꺼내 간다</span>
+}</code></pre>
+            </div>
+            <p class="picture">사람이 방에 글을 쓰면, 서버는 글을 <b>봉투에 싸서</b> 우편함에 넣습니다. SDK 가 받는 모양은 평범한 사용자 메시지 한 통입니다.</p>
+            <div class="src">
+              <div class="file"><span>src/session/manager.js · src/envelope/wrap.js</span><span>315–323 · 76–84</span></div>
+<pre><code><span class="c">// 밀린 글을 id 순서로(최대 20) 봉투에 싸서, 한 통으로 묶어 넣는다</span>
+blocks.push(wrapChannel({ chatId, messageId, delivery, sender, roomName, body, files }));
+<span class="hl">s.input.push(userMessage(blocks.join(<span class="s">'\n\n'</span>)));</span>
+
+<span class="c">// userMessage() 가 만드는 한 통 — SDK 스트리밍 입력의 한 원소</span>
+{
+  type: <span class="s">'user'</span>,
+  session_id: <span class="s">''</span>,
+  message: { role: <span class="s">'user'</span>, content: [{ type: <span class="s">'text'</span>, text }] },
+  parent_tool_use_id: <span class="kw">null</span>,
+  origin: { kind: <span class="s">'channel'</span>, server: <span class="s">'cockpit'</span> },
+}
+
+<span class="c">// text 안의 봉투 한 장 (번호와 본문은 설명용 예시)</span>
+<span class="s">&lt;channel source="cockpit" chat_id="3" message_id="42" delivery="to" sender="김피엘" …&gt;
+[김피엘] 지난주 불량률 정리해 줘
+→ delivery="to"로 받은 메시지에는 반드시 reply 도구로 답변하세요.
+&lt;/channel&gt;</span></code></pre>
+            </div>
+            <p class="takeaway"><strong>압축 버튼도 같은 우편함을 씁니다.</strong> 봇이 쉬고 있을 때 <code>userMessage('/compact')</code> 한 통을 넣습니다. 터미널에서 <code>/compact</code> 를 치는 것과 같습니다.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <span class="no">4</span>
+          <div class="body">
+            <h3>건너편 말을 한 줄씩 받아 적습니다</h3>
+            <p class="picture"><code>query()</code> 가 돌려준 <code>q</code> 는 <b>끝없이 흘러나오는 말줄기</b>입니다. <code>for await</code> 로 한 줄씩 받아, 종류를 보고 화면에 띄울지 기록할지 정합니다.</p>
+            <div class="src">
+              <div class="file"><span>src/session/manager.js</span><span>237–372 줄임</span></div>
+<pre><code><span class="kw">async</span> #pump(s, q, resumeId) {
+  <span class="kw">const</span> init = <span class="kw">await</span> q.initializationResult();   <span class="c">// 계정 · 명령 · 도우미 목록</span>
+  <span class="kw">this</span>.#setState(s, <span class="s">'idle'</span>);
+<span class="hl">  <span class="kw">for await</span> (<span class="kw">const</span> m <span class="kw">of</span> q) <span class="kw">this</span>.#onMessage(s, m);</span>
+}
+
+#onMessage(s, m) {
+  <span class="kw">if</span> (m.session_id) <span class="kw">this</span>.cockpitDb.setSessionId(s.project, m.session_id);  <span class="c">// 다시 켤 때 쓸 번호</span>
+  <span class="kw">switch</span> (m.type) {
+    <span class="kw">case</span> <span class="s">'stream_event'</span>: <span class="c">// 글자 조각 → 화면에만 흘린다. 저장 안 함</span>
+    <span class="kw">case</span> <span class="s">'assistant'</span>:    <span class="c">// 봇이 tool_use 를 냈다 → "도구 씀" 사건</span>
+    <span class="kw">case</span> <span class="s">'user'</span>:         <span class="c">// tool_result 가 왔다 → 걸린 시간과 함께 사건</span>
+    <span class="kw">case</span> <span class="s">'result'</span>:       <span class="c">// 턴 끝 → total_cost_usd 적고, idle 로, 밀린 글 있으면 다시 넣기</span>
+    <span class="kw">case</span> <span class="s">'system'</span>:       <span class="c">// init · 압축 · 훅 · 백그라운드 도우미 진행</span>
+  }
+}</code></pre>
+            </div>
+            <p class="picture">말줄기 <code>q</code> 는 <b>리모컨</b>이기도 합니다. 조종석의 단추가 이 메서드들로 이어집니다.</p>
+            <div class="tablewrap">
+              <table>
+                <thead>
+                  <tr><th>조종석 단추</th><th>부르는 것</th><th>위치</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td class="k">멈춤</td><td><code>q.interrupt()</code></td><td class="mono">manager.js:160</td></tr>
+                  <tr><td class="k">도우미 멈춤</td><td><code>q.stopTask(taskId)</code></td><td class="mono">manager.js:182</td></tr>
+                  <tr><td class="k">끄기 · 다시 켜기</td><td><code>s.input.end()</code> 뒤 <code>q.close()</code></td><td class="mono">manager.js:139–140</td></tr>
+                  <tr><td class="k">머리의 문맥 사용률</td><td><code>q.getContextUsage({ detail: 'summary' })</code></td><td class="mono">manager.js:422</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <span class="no">5</span>
+          <div class="body">
+            <h3>"이거 해도 돼요?" 를 사람에게 돌립니다</h3>
+            <p class="picture">일꾼이 허용 목록 밖 도구를 쓰려 하면 SDK 가 <code>canUseTool</code> 을 부르고 <b>답이 올 때까지 멈춰 섭니다</b>. cockpit 은 곧바로 답하지 않고, 브라우저에 카드를 띄운 뒤 약속(Promise)만 돌려줍니다. admin 이 단추를 누르는 순간 약속이 풀리고 일꾼이 다시 움직입니다.</p>
+            <div class="src">
+              <div class="file"><span>src/permissions/relay.js</span><span>63–82 · 127–135 줄임</span></div>
+<pre><code><span class="kw">async</span> handler({ project, toolName, input, options }) {
+  <span class="kw">const</span> toolUseId = options.toolUseID;
+  <span class="kw">this</span>.cockpitDb.insertPermission({ toolUseId, tool: toolName, input, … });
+  <span class="kw">this</span>.emit(<span class="s">'permission_request'</span>, …);          <span class="c">// 브라우저에 승인 카드</span>
+
+<span class="hl">  <span class="kw">return new</span> Promise(resolve =&gt; {               <span class="c">// SDK 는 여기서 기다린다</span></span>
+    <span class="kw">this</span>.pending.set(toolUseId, { resolve, input, … });
+    setTimer(() =&gt; <span class="kw">this</span>.#settle(toolUseId, { behavior: <span class="s">'timeout'</span> }), 10 * 60_000);
+    options.signal?.addEventListener(<span class="s">'abort'</span>, …);   <span class="c">// 멈춤을 누르면 거둬 감</span>
+  });
+}
+
+<span class="c">// admin 이 누른 단추 → SDK 에 돌려주는 답</span>
+<span class="kw">case</span> <span class="s">'allow'</span>:         <span class="kw">return</span> { behavior: <span class="s">'allow'</span>, updatedInput: input };
+<span class="kw">case</span> <span class="s">'allow_session'</span>: <span class="kw">return</span> { behavior: <span class="s">'allow'</span>, updatedInput: input,
+                         updatedPermissions: suggestions.map(s =&gt; ({ ...s, destination: <span class="s">'session'</span> })) };
+<span class="kw">case</span> <span class="s">'deny'</span>:          <span class="kw">return</span> { behavior: <span class="s">'deny'</span>, message: <span class="s">`${by} 거부`</span> };
+<span class="kw">case</span> <span class="s">'timeout'</span>:       <span class="kw">return</span> { behavior: <span class="s">'deny'</span>, message: <span class="s">'승인 시간 초과 (10분)'</span> };</code></pre>
+            </div>
+            <p class="takeaway"><strong>"이번 세션 허용" 은 이름 그대로입니다.</strong> SDK 가 규칙을 파일에 영구 저장하자고 제안해도 <code>destination</code> 을 <code>'session'</code> 으로 바꿔 넣습니다. 그래서 봇 폴더에 허용 규칙이 몰래 쌓이지 않습니다.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <span class="no">6</span>
+          <div class="body">
+            <h3>일꾼 손에 도구 둘을 쥐여 줍니다</h3>
+            <p class="picture">봇이 방에 답을 쓰는 방법은 하나, <code>reply</code> 도구를 부르는 것입니다. 이 도구는 <b>외부 서버가 아니라 cockpit 프로세스 안에서 도는 함수</b>라서, 부르면 곧장 채팅 DB 에 글이 들어갑니다.</p>
+            <div class="src">
+              <div class="file"><span>src/session/sdk-query.js · src/mcp/tools.js</span><span>9–18 · 93–100</span></div>
+<pre><code><span class="kw">export function</span> makeMcpServer(handlers) {
+<span class="hl">  <span class="kw">return</span> createSdkMcpServer({</span>
+    name: <span class="s">'cockpit'</span>,
+    version: <span class="s">'0.1.0'</span>,
+    tools: [
+      tool(<span class="s">'reply'</span>,         설명, zod모양, args =&gt; handlers.reply(args)),
+      tool(<span class="s">'fetch_history'</span>, 설명, zod모양, args =&gt; handlers.fetchHistory(args)),
+    ],
+  });
+}
+
+<span class="c">// 봇이 mcp__cockpit__reply 를 부르면 도는 함수</span>
+<span class="kw">async function</span> reply(args) {
+  <span class="kw">const</span> roomId = roomOf(args.chat_id);         <span class="c">// 봉투에 적혀 있던 방 번호</span>
+  <span class="kw">const</span> message = chatDb.insertBotMessage({ roomId, botId: bot.id, body: args.text, files: copyIn(args.files) });
+  onBotMessage(message);                       <span class="c">// SSE 로 브라우저에 즉시</span>
+  <span class="kw">return</span> ok(<span class="s">'sent'</span>);
+}</code></pre>
+            </div>
+            <p class="takeaway"><strong>봇 쪽에서 보이는 이름은 <code>mcp__cockpit__reply</code> 입니다.</strong> 이 이름과 매개변수 <code>chat_id</code> · <code>text</code> 가 prodev 의 "답 보내기 전 검사" 훅과 묶여 있어서, 바꾸면 훅이 헛돕니다.</p>
+          </div>
+        </div>
+
+      </div>
+
+      <figure>
+        <div class="diagram">
+<pre class="mermaid">
+flowchart LR
+  A["1 · sdk-query.js<br/>query · createSdkMcpServer · tool"] --> B["2 · options.js<br/>buildQueryOptions"]
+  B --> C["3 · manager.js #launch<br/>queryFn 에 InputStream"]
+  C --> D["4 · manager.js #pump<br/>for await 로 메시지"]
+  C -. "허용 밖 도구" .-> E["5 · relay.js<br/>canUseTool → Promise"]
+  C -. "봇이 답할 때" .-> F["6 · tools.js<br/>reply → chat.db"]
+</pre>
+        </div>
+        <figcaption>여섯 장면이 이어지는 모양. 실선은 켤 때 한 번, 점선은 일하는 동안 몇 번이고.</figcaption>
+      </figure>
+    </section>
+
+    <section>
+      <span class="eyebrow">조종석 판</span>
+      <h2>무엇이 보이나</h2>
+      <p>CLI 가 보내는 메시지를 사건으로 접어 저장합니다. 이번 턴에 쓴 도구, 뒤에서 도는 도우미의 진행, 값 추정치, 문맥 사용률, 훅 결과, 승인 카드가 화면에 뜹니다. 글자 조각은 저장하지 않고 화면에만 흘립니다.</p>
+    </section>
+
+    <section>
+      <span class="eyebrow">2026-09-14 저녁 · 이 맥의 시험 배치 스냅샷</span>
+      <h2>떠 있던 것</h2>
+      <div class="facts">
+        <dl>
+          <dt>배치</dt><dd><code>~/cockpit-try/</code> (v1 판. 이튿날 v2 판은 <code>~/cockpit-try-v2/</code>)</dd>
+          <dt>과제</dt><dd>수율개선</dd>
+          <dt>계정</dt><dd>김피엘 admin · 김과제 member</dd>
+          <dt>포트</dt><dd>3000</dd>
+          <dt>세션</dt><dd>idle · 글을 기다리는 중</dd>
+          <dt>모델</dt><dd><code>claude-opus-5[1m]</code> · 계정 기본값</dd>
+        </dl>
+      </div>
+    </section>
+
+    <p class="outro">터미널 창을 브라우저로 옮겼을 뿐입니다. 안에서 일하는 것은 처음부터 끝까지 Claude Code 세션입니다.</p>
+
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  // 파일로 열었을 때 그림을 그린다. 아티팩트에서는 플랫폼이 그렸다.
+  if (window.mermaid) {
+    var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: true, securityLevel: 'strict', theme: dark ? 'dark' : 'neutral' });
+  }
+</script>
+</body>
+</html>
