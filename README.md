@@ -60,6 +60,7 @@ cockpit 은 **prodev 봇 세션을 붙들고, 사람이 브라우저로 들어�
 - **Claude Code 가 없으면:** 맥은 `curl -fsSL https://claude.ai/install.sh | bash`, 윈도우는 `irm https://claude.ai/install.ps1 | iex` 를 칩니다 (cockpit · prodev 를 담는 상위 저장소 crew-workspace 의 `README.md` "무엇이 필요한가" · `docs/INSTALL-WINDOWS.md` 3번). **설치가 끝나면 창을 닫고 새로 연 뒤** `claude --version` 을 봅니다. 그다음 `claude` 를 한 번 켜서 화면 안내대로 로그인하고 `/exit` 로 나옵니다. cockpit 은 로그인을 미리 검사하지 않고, 로그인이 없으면 걸음 17 의 켜기가 `오류` 가 됩니다.
 - 윈도우 회사 PC 의 더 자세한 준비(Git Bash 자리 · 프록시 등)는 `docs/INSTALL-WINDOWS.md` 에 있습니다.
 - (참고) 봇이 xlsx · 그림 · 분석 일을 하려면 `python3` 도 있어야 합니다. 없어도 첫 답까지는 갑니다.
+- **cockpit · 작업판은 홈 폴더 밖에 세웁니다** (윈도우 `C:\work` 는 이미 밖입니다). 홈 폴더 아래에 세우면 봇이 켜질 때 위 폴더로 올라가며 지침을 찾다가 홈에 닿아, 이 PC 사람의 개인 지침 `~/.claude/CLAUDE.md` 까지 봇에 섞입니다 (실측, `docs/log.md` "N18 실증"). 아래 걸음의 맥 예 `~/work/…` 도 홈 아래라 이 일이 생깁니다.
 **윈도우만 한 가지 더:** 새 PowerShell 창에서 `(Get-Command claude).Source` 를 칩니다. `C:\Users\나\.local\bin\claude.exe` 같은 긴 줄이 나옵니다. **이 줄을 메모장에 복사해 두세요.** 걸음 7 에서 씁니다. 윈도우에서는 이 값이 반드시 있어야 합니다. 맥은 필요 없습니다.
 
 ## 3. 설치 걸음

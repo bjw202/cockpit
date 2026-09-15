@@ -88,7 +88,7 @@ flowchart LR
 | 입력 스트림 | "계속 들어오는 주문은 문을 열어 둔 채 받는다." | 넣는 곳은 서버 한 곳뿐이라, 여러 사람이 동시에 넣는 경쟁이 없다. 밀린 글은 최대 20개까지 한 메시지로 묶여 들어간다 | `src/session/input-stream.js:3-32` |
 | `resume` | "세션은 주문 전표철이다." · "resume은 전표를 다시 꺼내고, fork는 전표를 복사해 다른 버전을 만든다." | 서버를 다시 켜거나 켜기 단추를 누르면, 적어 둔 대화 번호로 이어 붙인다 | `manager.js:111, 117-125` |
 | `settingSources` | "벽 게시판 스위치는 어느 벽의 수칙을 읽힐지 정한다." | 스위치에서 `project` · `local` 두 벽을 켠다. 봇 폴더의 `settings.json` · `settings.local.json` 이 읽힌다 (사장(규칙)) | `src/session/options.js:14` |
-| `CLAUDE.md` | "벽에 붙은 주방 수칙" | 수칙 종이는 봇 폴더가 아니라 두 층 위 prodev 뿌리에 붙어 있다. SDK 형 정의상 `project` 를 켜면 싣고 cockpit 은 켠다. **실제로 실렸다는 기록은 없다** (10절) | prodev `CLAUDE.md` · SDK `sdk.d.ts:2094` |
+| `CLAUDE.md` | "벽에 붙은 주방 수칙" | 수칙 종이는 봇 폴더가 아니라 두 층 위 prodev 뿌리에 붙어 있다. SDK 형 정의상 `project` 를 켜면 싣고 cockpit 은 켠다. **실린 것을 세션 기록으로 확인했다.** 홈 아래 설치면 사람의 `~/.claude/CLAUDE.md` 도 실린다 (10절) | prodev `CLAUDE.md` · SDK `sdk.d.ts:2094` |
 | 시스템 프롬프트 | "셰프 근무 지침서" | 세션을 켤 때 **한 번**, Claude Code 기본 지침서 끝에 cockpit 지시문 묶음을 덧붙인다: `systemPrompt: { type: 'preset', preset: 'claude_code', append: INSTRUCTIONS, snapshot: true }`. `to` 에는 reply 로 답하고 `cc` 에는 답하지 말라는 규칙이 여기 있다 (사장(규칙)) | `options.js:25` · `src/envelope/wrap.js:18-31` |
 | 훅 | "검수대" · "검수대는 칼을 들기 직전과 직후에 반드시 지나가는 자리다." | 검수대는 `pre-reply.js` 이고, prodev 가 봇 폴더 `settings.json` 에 세운다. 다른 훅 둘(시작 · 압축 직전)은 막지 않고 자료를 싣거나 메모를 쓰므로 이 문서는 검수대라 부르지 않는다. cockpit 은 훅을 등록하지 않고 지켜보며 적기만 한다 | `manager.js:393-396` · prodev `common/settings.template.json:14-27` |
 | MCP `reply` · `fetch_history` | "사장이 만든 전용 도구" | 서버 프로세스 안에 붙인 도구 둘. 봇이 방에 말하는 **유일한** 길이 `mcp__cockpit__reply` 다 (사장(규칙)) | `src/mcp/tools.js:112-147` |
@@ -445,7 +445,9 @@ flowchart TB
   HK -->|"압축 직전 쓰기 · 직후 읽기"| HO
   HK -->|"헌장 · 실 · house.md 싣기"| PD
   C -->|"init 사건 agents 에 여섯 이름 (사람이 써 본 기록)"| AG
-  C -.->|"실릴 조건은 맞음 · 실린 기록 없음"| MD
+  C -->|"세션 기록에 실림 (두 층 위로 올라가며 찾음)"| MD
+  HM["~/.claude/CLAUDE.md (사람의 개인 지침)<br/>설치가 홈 폴더 아래일 때만"]
+  C -->|"위로 올라가는 탐색이 홈에 닿으면 실림"| HM
   C -.->|"명령 수만 기록 · 스킬 이름은 못 가름"| SK
 ```
 
@@ -456,7 +458,8 @@ flowchart TB
 - **덧붙인 지시문**은 파일이 아니라 서버 코드 안의 글 묶음(`wrap.js:18-31`, "이 세션은 cockpit 채팅방에 봇으로 참여 중입니다. …")이다. SDK 옵션 `systemPrompt` 의 `append` 로 세션을 켤 때 한 번, Claude Code 기본 시스템 프롬프트(셰프 근무 지침서) 끝에 붙는다 (`options.js:25`). 겉봉투 형식 · `to` 와 `cc` 를 대하는 법 · `fetch_history` 로 따라잡는 법이 여기 있다.
 - 봇 폴더에 prodev `setup.js` 가 쓰는 파일은 **설정 두 장뿐**이다. 봇 폴더에 `CLAUDE.md` 는 없다 (prodev `scripts/setup.js:329-331`). `ARCHITECTURE.md:26` 은 "CLAUDE.md · 스킬 15 · 훅 3 · 도우미 6" 이라 적었다.
 - **도우미는 기록으로 확인했다.** 사람이 눌러 본 자리(`~/cockpit-try-v2`)의 `cockpit.db` 에서, 켤 때 적힌 `init` 사건의 `agents` 에 `data-reader` · `paper-writer` · `patent-analyst` · `report-writer` · `researcher` · `reviewer` 여섯이 모두 있었다. 그 봇 폴더의 `.claude` 에는 설정 두 장뿐이므로, 여섯은 상위 `prodev/.claude/agents` 에서 실린 것이다.
-- **CLAUDE.md** 는 SDK 형 정의가 "`settingSources` 에 `'project'` 가 있어야 CLAUDE.md 를 싣는다" 고 적었고(SDK `sdk.d.ts:2094`) cockpit 은 `'project'` 를 준다(`options.js:14`). 실릴 조건은 맞지만, 실제로 실렸다는 기록은 없다.
+- **CLAUDE.md** 는 SDK 형 정의가 "`settingSources` 에 `'project'` 가 있어야 CLAUDE.md 를 싣는다" 고 적었고(SDK `sdk.d.ts:2094`) cockpit 은 `'project'` · `'local'` 만 준다(`options.js:14`, `'user'` 는 없다). **실린 것을 세션 기록으로 확인했다.** CLI 는 켜지는 자리에서 위 폴더로 올라가며 CLAUDE.md 를 찾는다. 사람이 눌러 본 자리의 기록(`~/.claude/projects/-Users-byunjungwon-cockpit-try-v2-prodev-bots-prodev------bot/43b089b6-….jsonl`)에는 `Contents of …/cockpit-try-v2/prodev/CLAUDE.md` 와 `Contents of /Users/byunjungwon/.claude/CLAUDE.md` 가 둘 다 "(project instructions, checked into the codebase)" 표시로 실렸다.
+- **`'user'` 가 없어도 사람의 개인 지침이 실릴 수 있다.** 조건은 설치 자리다. 같은 스모크(`m1-hello`, haiku)를 두 자리에서 돌렸다. 홈 밖(`/private/tmp/…/n18/out`)의 기록에는 봇 폴더 · prodev 뿌리의 CLAUDE.md 둘만 있었다. 홈 아래(`~/cockpit-n18-home-tmp`)의 기록에는 `~/.claude/CLAUDE.md` 가 셋째로 같은 "project instructions" 표시로 붙었다. 올라가는 탐색이 홈 폴더에 닿아 그 `.claude/CLAUDE.md` 를 과제 지침처럼 읽은 것이다. 그래서 cockpit · 작업판은 홈 밖에 세운다 (README 2.2). `init` 사건에는 어느 CLAUDE.md 가 실렸는지 적히지 않는다 (`manager.js:243`).
 - **스킬** 은 `init` 사건에 명령(`commands`) **수**만 있고 이름이 없어(`manager.js:243`), 스킬 15개가 들었는지 기록으로 가를 수 없다.
 - 과제 헌장(`charter.md`) · 실(`threads/` — prodev 가 쓰는 이름. 이야기 줄기마다 하던 말이 어디서 끊겼는지 적어 두는 파일들, `session-start.js`) · 이 과제의 일하는 규칙(`house.md`)은 과제 폴더에 있고, 시작 훅이 켜질 때마다 싣는다 (prodev `common/hooks/places.js:6` · `session-start.js:1-24`).
 - 허용 규칙은 `settings.local.json` 에만 넣는다. `settings.json` 에 넣으면 이 세션은 무시한다 (prodev 실측 기록, `scripts/setup.js:256-259`).
@@ -585,10 +588,10 @@ v2(두 번째 판)에서 이 프로젝트의 결정권자가 뺐다. 방이 둘�
 
 코드로 확인하지 못했거나, 기록만 있고 실행하지 않은 것이다. 무엇을 믿어도 되는지 먼저 적는다.
 
-1. **CLAUDE.md 와 스킬이 봇 세션에 실리는지.** 믿어도 되는 것: 도우미 여섯이 실린 것은 사람이 써 본 자리(2절)의 `init` 사건으로 확인했다. CLAUDE.md 는 SDK 형 정의상 실릴 조건(`'project'`)을 cockpit 이 준다. 모르는 것: 실제로 실렸는지와 스킬이 실렸는지는 기록이 없다 (4 · 10절).
+1. **스킬이 봇 세션에 실리는지.** 믿어도 되는 것: 도우미 여섯은 사람이 써 본 자리(2절)의 `init` 사건으로, CLAUDE.md 는 세션 기록 `.jsonl` 로 실린 것을 확인했다. 설치가 홈 아래면 사람의 `~/.claude/CLAUDE.md` 도 실린다는 것은 맥에서 홈 밖 · 홈 아래 두 번 돌려 봤다. 모르는 것: 스킬이 실렸는지는 기록이 없다. 윈도우에서 홈(`C:\Users\<이름>`) 아래에 세우면 같은 일이 생기는지도 재지 않았다 (4 · 10절).
 2. **허용 목록 안 도구가 카드 없이 도는지.** 믿어도 되는 것: 실험 기록(ADR-006)에서는 그랬다. 모르는 것: 이것을 강제하는 줄은 cockpit 코드에 없고 SDK 동작이다 (7절).
 3. **재기동 뒤 판의 값 표시.** `web/panel.js:250` 을 읽고 적었고 화면으로 보지 않았다 (Q2).
 4. **압축 때 훅과 system 메시지의 정확한 순서.** CLI 몫이다. 11절 그림은 훅 이름(압축 직전 · 다시 시작)이 뜻하는 순서로 그렸다.
-5. **대화 기록 파일의 정확한 이름.** 자리는 SDK 형 정의대로면 `~/.claude/projects/`(또는 `CLAUDE_CONFIG_DIR`) 아래다 (SDK `sdk.d.ts:1685-1686`). 그 안의 파일 이름은 확인하지 않았다 (9절).
+5. **대화 기록 파일의 정확한 이름.** 자리는 SDK 형 정의대로면 `~/.claude/projects/`(또는 `CLAUDE_CONFIG_DIR`) 아래다 (SDK `sdk.d.ts:1685-1686`). 맥에서는 `~/.claude/projects/<봇 폴더 경로의 / 를 - 로 바꾼 이름>/<session_id>.jsonl` 이었다 (N18 실증의 두 기록). 윈도우 이름은 확인하지 않았다 (9절).
 6. **승인 대기 중 넣은 새 글을 봇이 언제 읽는지.** 서버가 곧바로 넣는 것까지는 코드로 확인했다. 그 뒤는 Claude Code 가 정한다 (Q3).
 7. **로그인이 없을 때 CLI 가 내는 실제 오류 문구.** 서버는 예외의 첫 줄을 `error` 사건에 적을 뿐이다 (`manager.js:273`).

@@ -318,3 +318,26 @@ W2 관문에 필요하다고 한 넷: `serve --config` 로 서버가 뜬다 · `
 - **Q9 사람이 볼 화면 문구 둘.** 새 방마다 Claude Code 가 봇 폴더 신뢰를 다시 묻는지 · 그 질문의 실제 문구, 윈도우에서 serve 첫 기동 때 방화벽 창이 뜨는지. 코드로 알 수 없어 README 에 쓰지 않았다 — 회사 PC 실증(W1) 때 봐 주면 넣는다.
 - **D3 반려 뒤 고침 (meta `instructions/D3-fix.md`, 새 클론 따라 밟기가 걸음 8 에서 막힘).** 새 클론 prodev 에는 `bots/` 가 없다(저장소는 `bots/*/` 만 무시하고 git 은 빈 폴더를 못 담는다) → `check` 가 `✗ botsDir 없다`. README 걸음 4 · 걸음 지도 · INSTALL-WINDOWS 4번에 `prodev/bots` 만들기를 넣었다. 걸음 19 첫머리와 7.2 표에 `승인 대기` · `🔒 Bash 요청` 줄이 뜨면 카드에 답한다는 줄(meta 실측: 첫 글이 `cd "…" && ls` 카드로 멈춤, 글자는 `web/cockpit.js:11` · `src/permissions/relay.js:32`). 2.2절 LTS 풀이. INSTALL-WINDOWS 10번 "연다" 도 코드대로 맞췄다(`web/app.js:236`). INSTALL-WINDOWS 4번에는 `projectsDir` 만들기도 빠져 있어 함께 넣었다. 실측(scratchpad): `../prodev` 를 새로 복제하면 `bots/` 가 없고, 옛 걸음 4(uploads · projects)만 한 뒤 `check` 는 `✗ botsDir 없다` · exit 1, 새 걸음 4 로 `prodev/bots` 를 더하면 `✗` 없이 exit 0. 이 반려는 사실 검토 · 중학생 독자 모두 코드 · 문서만 읽고 **새 클론을 실제로 밟지 않아** 놓쳤다 — 다음 설치 문서 회차에는 빈 자리에서 걸음을 한 번 실제로 밟는 검토자를 둔다.
 - **Q10 코드 · 다른 문서 어긋남 (이번 회차는 고치지 않음).** `open-project --no-setup <과제>` 처럼 깃발을 앞에 두면 과제 이름을 잃는다(`bin/cockpit.js:34-46`) · `docs/INSTALL-WINDOWS.md` 10번은 `+` 로 만든 방을 "연다" 고 적었다 · prodev `setup.js` 끝 안내는 옛 `open-project --bot-dir` 걸음이다. 고칠지 정해 달라.
+
+## 2026-09-15 — after-D3 · N18 실증 (문서만 고침)
+
+지시 `instructions/after-D3.md` 2절. 사람이 눌러 본 `~/cockpit-try-v2` 봇 세션 기록에 사람의 개인 지침 `~/.claude/CLAUDE.md` 가 실렸다(`settingSources` 는 `['project', 'local']` 뿐, `src/session/options.js:14`). 원인이 "CLI 가 settingSources 와 무관하게 싣는다"(가)인지 "홈 아래 설치라 위로 올라가는 탐색이 홈에 닿는다"(나)인지 갈랐다. 코드 · 시험 · prodev 는 손대지 않았다.
+
+**먼저 본 기록 (읽기만).** `~/.claude/projects/-Users-byunjungwon-cockpit-try-v2-prodev-bots-prodev------bot/43b089b6-af5f-4f6a-a0dd-e44b0b365f25.jsonl` — `Contents of /Users/byunjungwon/cockpit-try-v2/prodev/CLAUDE.md` 1 · `Contents of /Users/byunjungwon/.claude/CLAUDE.md` 1. 둘 다 "(project instructions, checked into the codebase)" 표시다("user's private global instructions" 표시가 아니다). `# 전역 지침` 1.
+
+**돌린 것.** `smoke/m1-hello.mjs`(haiku `claude-haiku-4-5-20251001`, 글 하나) 두 번. prodev 는 `git clone -q ../prodev <scratchpad>/n18/prodev-src` 로 로컬 복제해 `COCKPIT_PRODEV_DIR` 로 줬다.
+- 홈 밖: 스크래치 `/private/tmp/claude-501/-Users-byunjungwon-Dev-my-project-04-crew-workspace-cockpit/12d481e3-fe42-40ed-99dc-a9c23536b993/scratchpad/n18/out` (`case "$PWD" in "$HOME"*` 로 밖임을 확인). `BOT_REPLY` 옴 · `COST_USD 0.0361`. 기록 `~/.claude/projects/-private-tmp-claude-501--Users-byunjungwon-Dev-my-project-04-crew-workspace-cockpit-12d481e3-fe42-40ed-99dc-a9c23536b993-scratchpad-n18-out-prodev-bots-prodev-smoke-bot/c34f68af-d814-429b-9e33-29dc41fd393a.jsonl` — `Contents of …/n18/out/prodev/bots/prodev-smoke-bot/CLAUDE.md` 1 · `Contents of …/n18/out/prodev/CLAUDE.md` 1 · `~/.claude/CLAUDE.md` 0 · `# 전역 지침` 0.
+- 대조군 홈 아래: `~/cockpit-n18-home-tmp`. `BOT_REPLY` 옴 · `COST_USD 0.0323`. 기록 `~/.claude/projects/-Users-byunjungwon-cockpit-n18-home-tmp-prodev-bots-prodev-smoke-bot/fa173e73-08ef-44a7-931f-0554503cf092.jsonl` — 위 둘에 더해 `Contents of /Users/byunjungwon/.claude/CLAUDE.md (project instructions, checked into the codebase)` 1 · `# 전역 지침` 1. 대조군 폴더는 끝나고 지웠다(기록 파일은 근거라 남김).
+- 두 자리 모두 `cockpit.db` `session_events` 의 `init` 은 account · commands 수 · agents · resumed, 그리고 model · permissionMode · mcp_servers 뿐이다 — 어느 CLAUDE.md 가 실렸는지는 init 에 없다(`manager.js:238-244`).
+- 비용 합 0.0684 달러.
+
+**판정: (나).** 홈 밖에서는 안 실리고 홈 아래에서는 실렸다. 표시가 "project instructions" 인 것도 위로 올라가는 탐색이 홈 폴더의 `.claude/CLAUDE.md` 를 과제 지침처럼 읽었다는 쪽과 맞는다. 맥에서만 쟀다.
+
+**고친 문서.**
+- `README.md` 2.2 — "cockpit · 작업판은 홈 폴더 밖에 세웁니다(윈도우 `C:\work` 는 이미 밖). 홈 아래면 개인 지침 `~/.claude/CLAUDE.md` 까지 봇에 섞입니다. 맥 예 `~/work/…` 도 홈 아래라 이 일이 생깁니다." 한 줄.
+- `docs/INSTALL-WINDOWS.md` 4번 — 작업판은 홈(`C:\Users\<이름>`) 밖, `C:\work` 는 이미 밖 한 줄(윈도우는 재지 않았다고 밝힘).
+- `docs/ARCHITECTURE_EXPLANATION.md` — 4절 대응표 `CLAUDE.md` 칸 · 10절 그림 6(점선 → 실선, `~/.claude/CLAUDE.md` 마디 더함) · 10절 사실 목록(CLAUDE.md 실린 기록 · 홈 밖 / 홈 아래 비교) · 14절 1번(CLAUDE.md 는 확인됨, 스킬 · 윈도우 홈 아래만 모름) · 14절 5번(맥 기록 파일 이름). "실린 기록 없음" 문장을 사실대로 바꿨다. 이 문서에는 "개인 설정은 끈다" 는 문장 자체는 없었다.
+
+**새 질문 (meta 에).**
+- **Q11 README 맥 예 자리.** 걸음 1 · 4 의 맥 예 `~/work/crew-workspace` 는 홈 아래라 개인 지침이 섞인다. 이번에는 2.2 에 경고 한 줄만 두고 예 경로는 바꾸지 않았다. 홈 밖(예 `/opt/work`, 쓰기 권한 필요)으로 전면 교체할지 정해 달라.
+- **Q12 봇 전용 설정 자리.** 홈 밖에 세우면 `~/.claude/CLAUDE.md` 는 안 실리지만, 세션 기록 · 로그인은 여전히 사람의 `~/.claude` 를 쓴다. cockpit 이 `CLAUDE_CONFIG_DIR` 을 따로 넘길지는 사람이 정한다.

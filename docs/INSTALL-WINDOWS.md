@@ -35,6 +35,7 @@
    - 친다: `New-Item -ItemType Directory -Force -Path C:\work\crew-workspace\projects | Out-Null`
    - 친다: `New-Item -ItemType Directory -Force -Path C:\work\crew-workspace\prodev\bots | Out-Null`
    - 확인: `Test-Path C:\cockpit-data\uploads` · `Test-Path C:\work\crew-workspace\projects` · `Test-Path C:\work\crew-workspace\prodev\bots` 가 모두 `True`
+   - 작업판은 **홈 폴더(`C:\Users\<이름>`) 밖**에 둔다 — `C:\work` 는 이미 밖이다. 홈 아래에 두면 봇 세션이 위로 올라가며 지침을 찾다 홈에 닿아 PL 의 개인 지침 `~/.claude/CLAUDE.md` 가 봇에 섞인다 (맥 실측, `docs/log.md` "N18 실증". 윈도우는 재지 않았다).
 
 5. **cockpit 의존성을 깔고 시험을 돌린다.**
    - 친다: `cd C:\work\crew-workspace\cockpit`
