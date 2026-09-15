@@ -131,6 +131,12 @@ test('web/ 어느 파일에도 /api/bots 가 없다', () => {
   assert.deepEqual(webFiles().filter(f => f.text.includes('/api/bots')).map(f => f.name), []);
 });
 
+test('@ 자동완성 항목은 TO 하나 — CC 항목을 내지 않는다 (ADR-016 덧붙임)', () => {
+  const body = topFunctions(read('app.js')).get('onComposerInput');
+  assert.match(body, /for \(const kind of \['TO'\]\)/);
+  assert.doesNotMatch(body, /'CC'/);
+});
+
 // 최상위 함수 — 줄 머리의 [export] [async] function 이름( 부터 다음 '}' 한 줄까지 (scratchpad port-web.mjs 가 원본 지문을 같은 자르기로 적었다)
 function topFunctions(src) {
   const lines = src.split('\n');

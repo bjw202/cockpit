@@ -389,7 +389,7 @@ canUseTool(toolName, input, { toolUseID, agentID, title, displayName, descriptio
 | `app.js` `openStream()` | `new EventSource('/api/rooms/:id/events')` · `message` 는 글 그대로 · `bot_status {bot_id, state}` | `openAppStream()` 로 이름을 바꾸고 로그인 뒤 **한 번** 연다: `new EventSource('/api/stream')`. `message {project, message}` 는 `glue.messageForRoom(data, state.currentRoomId)` 가 글을 돌려줄 때만 `renderMessage` · `bot_status {project, status}` 는 `glue.botMark(status)` 로 `working`/`idle` 로 바꿔 `markBotStatus(<그 과제 봇 id>, …)` · `room_created` · `room_archived` · `session_state` 는 `loadRooms()` · `loadProjects()` · `permission_*` · `session_event` · `partial` 은 판으로 넘김 · `open`(재연결) 백필은 그대로(`?after=state.lastEventId`) | cockpit 사건 모양 (8.2) |
 | `app.js` `markBotStatus(botId, botState)` | 그대로 | 그대로 (부르는 쪽이 바꿔 넘긴다) | — |
 | `app.js` `sendMessage()` | 성공하면 입력칸이 빈다 | 성공 뒤 **작성기 미리 채움**(7.4) | ADR-018 |
-| `app.js` `onComposerInput()` | 그대로 | 첫 줄에 `glue.composerHint(box.value, botName)` 로 placeholder 만 바꾸는 한 줄 | ADR-018 안내 글자 |
+| `app.js` `onComposerInput()` | 그대로 · 봇마다 `TO` · `CC` 두 항목 | 첫 줄에 `glue.composerHint(box.value, botName)` 로 placeholder 만 바꾸는 한 줄 · 자동완성 항목은 `TO` 하나(`CC` 항목 뺌) | ADR-018 안내 글자 · 방마다 봇 하나라 `CC` 를 고를 일이 없다 (ADR-016 결과). 손으로 친 `@CC(…)` · `@CC` 칩 · 서버 봉투는 그대로. `style.css` 의 `.ac-kind.cc` 는 원본 구간 sha256 핀이라 남긴다(안 쓰임) |
 | `app.js` 리치 표면 블록 (`import … from './rich.js'` · `inviteNodes` · `showInviteError` · `hideInviteError` · `pickParticipant` · `showRegistration` · `initInvite`) | 있음 | import 를 `createRichContext, isImageFilename` 둘로 줄이고 나머지 여섯 함수를 지운다. `registerMessageDecorator(createRichContext)` 는 그대로 | R13 — 첨부 장식은 살린다 |
 | `style.css` 끝 | — | `/* ── cockpit 더함 (v2) ── */` 한 덩이(7.4) | ADR-019 |
 

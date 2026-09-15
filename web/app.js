@@ -706,7 +706,8 @@ function onComposerInput() {
       box.appendChild(item)
       continue
     }
-    for (const kind of ['TO', 'CC']) {
+    // (cockpit) TO 만 — 방마다 봇 하나라 CC 로 고를 일이 없다. 손으로 친 @CC(…) 는 서버가 그대로 받는다 (ADR-016)
+    for (const kind of ['TO']) {
       const item = document.createElement('div')
       item.className = 'ac-item'
       item.setAttribute('role', 'option')
