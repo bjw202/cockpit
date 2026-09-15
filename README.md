@@ -6,6 +6,42 @@ cockpit 은 **prodev 봇 세션을 붙들고, 사람이 브라우저로 들어�
 이 문서는 `git clone` 부터 봇의 첫 답을 받을 때까지를 순서대로 적습니다. **3절의 걸음 1 부터 걸음 20 까지 위에서부터 따라 하세요.**
 걸음은 "걸음 7" 처럼, 문서의 절은 "7절" 처럼 부릅니다. 괄호 속 `ADR-015` 같은 번호는 "왜 이렇게 정했는지" 적은 기록의 번호라서, 몰라도 따라 하는 데 지장이 없습니다.
 
+**이 문서가 다루는 것과 다루지 않는 것.** 이 문서는 cockpit 의 설치 · 사용 · 조종석 구조만 적습니다. 나머지는 두 문서에 있습니다.
+- 봇의 속(스킬 · 훅 · 과제 폴더 · 카드 · 기억)은 **prodev README** — <https://github.com/bjw202/prodev/blob/main/README.md>
+- cockpit · prodev · 과제 폴더가 한 작업판에서 어떻게 맞물리는지의 전체 그림은 **crew-workspace README** — <https://github.com/bjw202/crew-workspace/blob/main/README.md>
+
+## 0. 한눈에 보는 구조
+이 그림은 cockpit 을 이루는 조각과, 조각끼리 무엇을 주고받는지 보여 줍니다.
+
+```mermaid
+flowchart LR
+    BR["브라우저<br/>web/app.js · web/cockpit.js"]
+    SV["cockpit 서버<br/>node bin/cockpit.js serve"]
+    CDB[("chat.db<br/>방 · 글 · 첨부")]
+    KDB[("cockpit.db<br/>계정 · 큐 bot_inbox · 세션 · 승인")]
+    MG["세션 관리자<br/>src/session/manager.js"]
+    SDK["Agent SDK query()<br/>src/session/sdk-query.js"]
+    CLI["Claude Code CLI = 봇<br/>cwd prodev/bots/prodev-과제-bot"]
+    MCP["MCP 도구 cockpit<br/>src/mcp/tools.js"]
+    SET["prodev/scripts/setup.js"]
+    PJ["projects/과제/"]
+    BR <-->|"HTTP /api/* · SSE /api/stream"| SV
+    SV --- CDB
+    SV --- KDB
+    SV -->|"+ 단추 POST /api/rooms"| SET
+    SET -->|"만듦"| PJ
+    SV --> MG
+    MG -->|"켜기 · 글 넣기"| SDK
+    SDK -->|"프로세스 하나 띄움"| CLI
+    CLI -->|"reply · fetch_history"| MCP
+    MCP --- CDB
+    CLI -->|"Read · Write · git"| PJ
+```
+
+읽는 법:
+- 가운데 `cockpit 서버` 가 모든 길의 한가운데입니다. 사람은 왼쪽 `브라우저` 로만 들어오고, 봇은 오른쪽 `Claude Code CLI` 로만 일합니다. 둘은 서로를 직접 부르지 않고 언제나 서버와 DB 를 거칩니다.
+- `MCP 도구 cockpit` 은 서버 프로세스 **안에** 있습니다. 그래서 봇이 `reply` 를 부르면 서버가 곧바로 `chat.db` 에 답 글을 적습니다. 원통 모양 둘은 파일 하나짜리 DB 이고 `dataDir` 에 생깁니다.
+
 ## 1. 먼저 알아 둘 말
 
 ### 1.1 용어 아홉
@@ -24,7 +60,9 @@ cockpit 은 **prodev 봇 세션을 붙들고, 사람이 브라우저로 들어�
 ### 1.2 그 밖에 나오는 말
 | 말 | 한 줄 풀이 |
 |---|---|
-| prodev | cockpit 과 짝인 저장소입니다. 봇의 지침 · 스킬 · 훅과, 과제마다 봇 폴더를 만드는 `scripts/setup.js` 가 들어 있습니다 |
+| prodev | cockpit 과 짝인 저장소입니다. 봇의 지침 · 스킬 · 훅과, 과제마다 봇 폴더를 만드는 `scripts/setup.js` 가 들어 있습니다. 속의 설명은 [prodev README](https://github.com/bjw202/prodev/blob/main/README.md) 에 있습니다 |
+| 스킬 | 봇이 특정 일(자료 들이기 · 분석 등)을 할 때 따르는 절차서 파일입니다. prodev 에 들어 있습니다 |
+| 카드 | 봇이 과제 폴더에 남기는 자료 요약 한 장입니다. 모양은 prodev README 에 있습니다 |
 | 도구 | 봇이 할 수 있는 일 하나입니다. 예: 파일 읽기(`Read`), 명령 치기(`Bash`), 방에 답 쓰기(`reply`) |
 | 턴 | 봇이 글을 받고 한 번 일하는 차례입니다 |
 | 문맥 | 봇이 지금 기억하고 있는 대화의 양입니다. 조종석 판에 퍼센트로 보입니다 |
@@ -57,7 +95,7 @@ cockpit 은 **prodev 봇 세션을 붙들고, 사람이 브라우저로 들어�
 
 - **Node 가 없거나 낮으면:** 공식 사이트 **nodejs.org** 에서 LTS 를 받아 깝니다. LTS 는 "오래 지원하는 안정판"이라는 뜻이고, 사이트 첫 화면에 "LTS" 라고 적힌 단추가 그것입니다. `npm`(부품을 받아 까는 도구)도 같이 깔립니다. 무엇이든 새로 깔았으면 **창을 새로 열어야** 방금 깐 명령을 찾습니다.
 - **Git 이 없으면:** 공식 사이트 **git-scm.com** 에서 받아 깝니다. 윈도우의 Git 에는 봇이 쓰는 명령 창 Git Bash 가 같이 들어 있습니다.
-- **Claude Code 가 없으면:** 맥은 `curl -fsSL https://claude.ai/install.sh | bash`, 윈도우는 `irm https://claude.ai/install.ps1 | iex` 를 칩니다 (cockpit · prodev 를 담는 상위 저장소 crew-workspace 의 `README.md` "무엇이 필요한가" · `docs/INSTALL-WINDOWS.md` 3번). **설치가 끝나면 창을 닫고 새로 연 뒤** `claude --version` 을 봅니다. 그다음 `claude` 를 한 번 켜서 화면 안내대로 로그인하고 `/exit` 로 나옵니다. cockpit 은 로그인을 미리 검사하지 않고, 로그인이 없으면 걸음 17 의 켜기가 `오류` 가 됩니다.
+- **Claude Code 가 없으면:** 맥은 `curl -fsSL https://claude.ai/install.sh | bash`, 윈도우는 `irm https://claude.ai/install.ps1 | iex` 를 칩니다 (윈도우의 자세한 차례는 `docs/INSTALL-WINDOWS.md` 3번). **설치가 끝나면 창을 닫고 새로 연 뒤** `claude --version` 을 봅니다. 그다음 `claude` 를 한 번 켜서 화면 안내대로 로그인하고 `/exit` 로 나옵니다. cockpit 은 로그인을 미리 검사하지 않고, 로그인이 없으면 걸음 17 의 켜기가 `오류` 가 됩니다.
 - 윈도우 회사 PC 의 더 자세한 준비(Git Bash 자리 · 프록시 등)는 `docs/INSTALL-WINDOWS.md` 에 있습니다.
 - (참고) 봇이 xlsx · 그림 · 분석 일을 하려면 `python3` 도 있어야 합니다. 없어도 첫 답까지는 갑니다.
 - **cockpit · 작업판은 홈 폴더 밖에 세웁니다** (윈도우 `C:\work` 는 이미 밖입니다). 홈 폴더 아래에 세우면 봇이 켜질 때 위 폴더로 올라가며 지침을 찾다가 홈에 닿아, 이 PC 사람의 개인 지침 `~/.claude/CLAUDE.md` 까지 봇에 섞입니다 (실측, `docs/log.md` "N18 실증"). 아래 걸음의 맥 예 `~/work/…` 도 홈 아래라 이 일이 생깁니다.
@@ -111,25 +149,15 @@ cd C:\work\crew-workspace
 ```
 git clone https://github.com/bjw202/prodev.git
 ```
-이렇게 보이면 됨: `Cloning into 'prodev'...` 와 받는 중 숫자 몇 줄 뒤에 프롬프트가 돌아옵니다. 아이디 · 비밀번호를 물으면 저장소를 볼 권한이 없는 것입니다.
+이렇게 보이면 됨: `Cloning into 'prodev'...` 와 받는 중 숫자 몇 줄 뒤에 프롬프트가 돌아옵니다. 아이디 · 비밀번호를 물으면 주소를 잘못 친 것입니다(공개 저장소라 묻지 않습니다). 주소를 글자 그대로 다시 칩니다.
 
 ### 걸음 3 — cockpit 을 받습니다
-**아래 `https://…` 주소는 모양만 보여 주는 예입니다. 그대로 치지 말고, PL(과제 담당자)이 알려 준 주소로 바꿔 칩니다.** 원격 저장소(인터넷에 올려 둔 저장소)가 아직 없으면 아래 "이미 받은 폴더가 있을 때" 를 따릅니다.
-**맥 · 윈도우 같음** (주소를 바꿔서)
+**맥 · 윈도우 같음** (걸음 2 와 같은 창, 같은 폴더에서. 주소는 그대로 칩니다)
 ```
-git clone https://github.com/bjw202/cockpit.git cockpit
+git clone https://github.com/bjw202/cockpit.git
 cd cockpit
 ```
-**이미 받은 cockpit 폴더가 다른 자리에 있을 때** (로컬 경로 복제) — 첫 줄만 아래로 바꾸고 `cd cockpit` 은 같습니다. 예: 받은 폴더가 `/Users/hong/Downloads/crew-workspace/cockpit` 이면 `<이름>` 은 `hong`, `…` 은 `Downloads` 입니다.
-**맥 (터미널)**
-```
-git clone /Users/<이름>/…/crew-workspace/cockpit cockpit
-```
-**윈도우 (PowerShell)** — 탐색기로 그 폴더를 `C:\work\crew-workspace` 안에 `cockpit` 이름으로 복사해도 됩니다.
-```
-git clone C:/Users/<이름>/…/crew-workspace/cockpit cockpit
-```
-이렇게 보이면 됨: `Cloning into 'cockpit'...`. 이어서 prodev 가 나란히 있는지 봅니다: 맥 `ls ../prodev/scripts/setup.js` 가 그 경로 한 줄, 윈도우 `Test-Path ..\prodev\scripts\setup.js` 가 `True`.
+이렇게 보이면 됨: `Cloning into 'cockpit'...` 와 받는 중 숫자 몇 줄 뒤에 프롬프트가 돌아옵니다. cockpit 과 prodev 는 공개 저장소라 아이디 · 비밀번호를 묻지 않습니다. 이어서 prodev 가 나란히 있는지 봅니다: 맥 `ls ../prodev/scripts/setup.js` 가 그 경로 한 줄, 윈도우 `Test-Path ..\prodev\scripts\setup.js` 가 `True`.
 
 ### 걸음 4 — DB · 첨부 폴더, 과제 폴더, 봇 폴더 자리를 만듭니다
 이 폴더들은 미리 있어야 합니다. 없으면 걸음 8 의 검사가 `✗ … 없다` 로 멈춥니다. 특히 `prodev/bots` 는 걸음 2 에서 받은 prodev 에 **들어 있지 않습니다**(git 은 빈 폴더를 담지 못합니다). 그래서 여기서 만듭니다.
@@ -318,30 +346,50 @@ flowchart LR
 읽는 법:
 - 왼쪽의 `admin` 과 `봇` 에서 시작해 오른쪽의 할 일로 갑니다. `admin` 은 `member` 로도 이어져, member 의 일도 모두 합니다.
 - 눈여겨볼 네모는 `승인 카드에 답하기` 입니다. 봇의 `목록 밖 도구를 쓰려 함` 과 admin 의 답이 여기서 만납니다. 봇 혼자서는 허용 목록 밖의 도구를 못 씁니다 (ADR-006 · `src/permissions/relay.js:63-95`).
+- 봇 줄 맨 아래의 허용 목록(`settings.local.json`)은 cockpit 이 아니라 prodev `setup.js` 가 봇 폴더에 씁니다. 그 목록에 무엇이 왜 들었는지, 봇이 스킬 · 훅으로 무슨 일을 하는지는 [prodev README](https://github.com/bjw202/prodev/blob/main/README.md) 에 있습니다. cockpit 이 봇에게 직접 다는 도구는 MCP 도구 둘(`reply` · `fetch_history`)뿐입니다 (`src/session/options.js`).
 
 ## 5. 글 하나가 가는 길
 
-이 그림은 사람이 쓴 글이 방을 거쳐 봇에게 가고 답이 돌아오는 길을, 봉투가 있을 때와 없을 때로 나눠 보여 줍니다.
+이 그림은 사람이 `@TO` 봉투를 붙여 보낸 글 하나가 봇에게 가고, 봇의 답이 방에 뜰 때까지를 시간 순서로 보여 줍니다.
 
 ```mermaid
-flowchart TB
-    H["사람"] -->|"입력칸 · Enter"| BR["브라우저"]
-    BR -->|"글 보내기 POST /api/rooms/:id/messages"| S["cockpit 서버"]
-    S -->|"글 적기 messages · message_targets"| CDB["chat.db 대화 기록"]
-    S --> Q{"@TO · @CC 봉투가 있나"}
-    Q -->|"없음"| NO["사람끼리 글<br/>방에만 남고 봇에게 안 감"]
-    Q -->|"있음 · bot_inbox 에 한 줄"| IN["cockpit.db 큐"]
-    IN -->|"보낸 사람 · 방 번호 · to/cc 표시를 붙여 넘김 · to 글에는 답하라는 줄 하나 더"| CLI["Claude Code CLI = 봇"]
-    CLI -->|"지난 글 읽기 fetch_history"| CDB
-    CLI -->|"답 보내기 reply"| S
-    S -->|"새 글 알림 SSE message"| BR
+sequenceDiagram
+    participant BR as 브라우저 web/app.js
+    participant RT as POST /api/rooms/:id/messages
+    participant CDB as chat.db
+    participant Q as cockpit.db bot_inbox
+    participant MG as src/session/manager.js
+    participant BOT as Claude Code CLI = 봇
+    participant MCP as MCP 도구 cockpit
+    BR->>RT: 글 보내기 (입력칸 · Enter)
+    RT->>CDB: messages · message_targets 에 한 줄씩
+    alt 봉투 없음
+        RT-->>BR: SSE message · 방에만 뜨고 끝
+    else @TO 또는 @CC 있음
+        RT->>Q: enqueue 한 줄
+        RT-->>BR: SSE message · 내 글이 뜸
+        MG->>Q: pendingInbox 로 꺼냄
+        MG->>BOT: channel 봉투로 싼 글을 query() 입력에 넣음
+        BOT->>MCP: fetch_history (놓친 글 따라잡기)
+        MCP->>CDB: 지난 글 읽기
+        BOT->>MCP: reply (답 글)
+        MCP->>CDB: 봇 글 한 줄
+        MCP-->>BR: SSE message · 봇 답이 뜸
+    end
 ```
 
 읽는 법:
-- 맨 위 `사람` 에서 시작해 `cockpit 서버` 다음의 마름모 `봉투가 있나` 에서 둘로 나뉩니다.
-- 봉투가 **없으면** `사람끼리 글` 에서 끝나고 봇의 턴이 생기지 않습니다.
-- 봉투가 **있으면** 큐를 거쳐 봇에게 갑니다. 이때 서버가 to 글에는 "reply 로 답하라" 는 줄을 붙여 넘깁니다. cc 글에 답하지 말라는 규칙은 세션을 켤 때 한 번 넣는 기본 지시문에 있습니다. 봇이 `reply` 로 답하면 서버가 `SSE message` 로 모든 브라우저에 새 글을 보여 줍니다.
-- `chat.db` 의 `messages` 는 사람 글과 봇 답을, `message_targets` 는 그 글을 받을 봇 표시를 적는 표입니다.
+- 왼쪽 `브라우저` 에서 시작해 위에서 아래로 읽습니다. 가운데 `alt` 칸이 둘로 나뉩니다: 봉투가 **없으면** 방에만 남고 봇의 턴이 생기지 않고, **있으면** 큐(`bot_inbox`, 봇에게 갈 글을 줄 세워 두는 표)에 한 줄이 생긴 뒤 봇에게 갑니다.
+- 세션 관리자는 봇이 `대기` 일 때뿐 아니라 `일하는 중` · `승인 대기` 일 때도 글을 곧바로 넣습니다. 봇이 꺼져 있으면 글은 큐에 남았다가 켜질 때 들어갑니다. 예외는 압축 하나로, 압축이 끝날 때까지 기다립니다 (`src/session/manager.js` `#kick`).
+
+봇에게 넣는 글은 이런 꼴입니다 (`src/envelope/wrap.js` `wrapChannel`). 보낸 사람 · 방 번호 · `to`/`cc` 표시가 머리에 붙고, `to` 글에는 "reply 로 답하라" 는 줄이 하나 더 붙습니다. `cc` 글에 답하지 말라는 규칙은 세션을 켤 때 한 번 넣는 기본 지시문(`INSTRUCTIONS`)에 있습니다.
+```
+<channel source="cockpit" chat_id="1" message_id="7" delivery="to" sender="김피엘" author_type="user" room_name="prodev-수율개선">
+[김피엘] @TO(prodev-수율개선-bot) 안녕하세요
+→ delivery="to"로 받은 메시지에는 반드시 reply 도구로 답변하세요.
+</channel>
+```
+`chat.db` 의 `messages` 는 사람 글과 봇 답을, `message_targets` 는 그 글을 받을 봇 표시를 적는 표입니다. 봇이 이 글을 받은 뒤 스킬 · 훅으로 무엇을 하는지는 [prodev README](https://github.com/bjw202/prodev/blob/main/README.md) 의 "워크플로우 ①" 에 있습니다.
 
 ### 5.1 봉투 규칙
 | 쓴 글 | 결과 |
@@ -428,7 +476,7 @@ B 로트가 좀 낮네요. 봇한테는 이따 물어볼게요
 | 조종석 판에 `오류: …` | Claude Code 가 못 떴습니다. 로그인이 없거나 실행 파일을 못 찾았을 수 있습니다. 문구는 세션을 멈춘 오류 메시지의 첫 줄입니다 | 2.2절의 `claude --version` 과 로그인을 다시 봅니다. 윈도우는 `claudePath` 를 봅니다 |
 | `켜는 중` 이 1분 넘게 안 바뀜 | Claude Code 가 로그인 · 네트워크를 기다리고 있을 수 있습니다 | `끄기` → `켜기` 를 한 번 하고, 그래도 같으면 조종석 판에 보이는 상태 · 경고 글자와 누른 시각을 적어 PL 에게 줍니다 |
 | `일하는 중` 이 몇 분 넘게 안 바뀜 | 봇이 긴 일을 하는 중이거나, 로그인 · 네트워크를 기다리고 있을 수 있습니다 | 조종석 판의 "이번 턴 도구 호출" 에 도는 줄이 있는지 봅니다. 아무 줄도 없으면 `끄기` → `켜기` 를 한 번 하고, 그래도 같으면 조종석 판에 보이는 상태 · 경고 글자와 누른 시각을 적어 PL 에게 줍니다 |
-| 봇이 파일을 못 쓰고, 봇 첫 줄에 폴더를 신뢰하지 않았다는 영어 경고가 뜸 | 그 방의 봇 폴더를 믿지 않아 허용 목록이 무시됐습니다. 새로 만든 방마다 생길 수 있습니다 (cockpit · prodev 를 담는 상위 저장소 crew-workspace 의 `README.md`) | 그 방의 봇 폴더에서 걸음 15 를 합니다 |
+| 봇이 파일을 못 쓰고, 봇 첫 줄에 폴더를 신뢰하지 않았다는 영어 경고가 뜸 | 그 방의 봇 폴더를 믿지 않아 허용 목록이 무시됐습니다. 새로 만든 방마다 생길 수 있습니다 ([crew-workspace README](https://github.com/bjw202/crew-workspace/blob/main/README.md)) | 그 방의 봇 폴더에서 걸음 15 를 합니다 |
 | `동시 세션 상한 3 에 닿았다 — 다른 과제의 세션을 끄고 켜라` | 켜진 봇이 `maxSessions` 에 닿았습니다 | 다른 과제의 `끄기` 를 누르거나 설정을 올립니다 |
 | 글을 보냈는데 턴이 안 생김 | ① 봉투가 없음 ② 봇이 꺼져 있음(글은 큐 `bot_inbox` 에 쌓임) ③ 압축 중 | ① 봉투를 붙입니다 ② `켜기` ③ 끝날 때까지 기다립니다 |
 | 상태가 `승인 대기` 에서 멈춤 · 방에 `🔒 … 요청` 줄 | 봇이 도구를 쓰려고 허락을 기다립니다 | 조종석 판의 카드에서 `허용` 이나 `거부` 를 누릅니다(시나리오 4). 10분이 지나면 저절로 거부됩니다 |
