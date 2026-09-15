@@ -30,18 +30,9 @@ export function botMark(status) {
   return ['thinking', 'tool', 'approval', 'starting'].includes(status) ? 'working' : 'idle';
 }
 
-// 작성기 기본값 — 그 방 봇의 실제 이름으로 @TO 를 채운다. 지우면 사람끼리의 글 (ADR-018)
-export const composerDefault = bot => (bot?.name ? `@TO(${bot.name}) ` : '');
-
-// 작성기 안내 글자(placeholder) — 봉투가 없으면 봇에게 가지 않는다고 알린다
+// 작성기 안내 글자(placeholder) — 봉투가 없으면 봇에게 가지 않는다고 알린다. 입력칸은 미리 채우지 않는다 (ADR-018 되돌림)
 export function composerHint(value) {
   return MENTION.test(String(value ?? '')) ? HINT_DEFAULT : HINT_NO_BOT;
-}
-
-// 방을 열 때 · 보낸 뒤 입력칸에 넣을 값. 사람이 친 글이 있거나 · 보관 방이거나 · 봇이 없으면 null(건드리지 않는다)
-export function prefillValue({ value, bot, archived = false } = {}) {
-  if (archived || String(value ?? '') !== '') return null;
-  return composerDefault(bot) || null;
 }
 
 // 접이식 판의 기본 — 기억한 값('open' · 'closed')이 이긴다. 없으면 admin 펼침 · member 접힘 (ADR-019)

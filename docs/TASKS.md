@@ -292,9 +292,9 @@ meta 의 관문과의 짝: **M1 · M2 = W2(서버 뼈대)**, **M3 = W3(조종석
   - `online 은 idle · working · waiting_approval · starting 이면 참`
   - `messageForRoom: 다른 방 글은 null`
   - `botMark: thinking · tool · approval → working, idle · stopped · error → idle`
-  - `composerDefault 는 @TO(<봇 이름>) `
+  - ~~`composerDefault 는 @TO(<봇 이름>) `~~ — 지움 (2026-09-15 미리 채움 되돌림, ADR-018 상태)
   - `composerHint: 봉투가 없으면 "봇에게 가지 않습니다 — 부르려면 @"`
-  - `보관 방은 미리 채우지 않는다`
+  - ~~`보관 방은 미리 채우지 않는다`~~ — 지움, 대신 web-static `입력칸을 @TO(봇) 으로 미리 채우지 않는다 — 방을 열 때도 보낸 뒤에도 (ADR-018 되돌림)`
   - `rich.js 는 cockpit 🔒 요청 줄에 승인 단추를 그리지 않는다` (`permissionRequestId(<cockpit 🔒 줄>) === null`)
 - 끝 조건: `test/web-static.test.js` — `app.js 에서 원본과 본문이 달라진 최상위 함수는 ARCHITECTURE 7.3 표의 것뿐` (최상위 `function` 머리로 잘라 원본과 맞대는 정적 비교. 지운 함수 · 새 함수 이름도 표와 맞댄다)
 

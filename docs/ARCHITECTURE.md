@@ -139,7 +139,7 @@ mcp__cockpit__fetch_history(chat_id?: string, since_id?: number, since?: string,
 | `@CC(prodev-<과제>-bot)` | `cc` 한 줄 |
 | 같은 봇을 `@TO` · `@CC` 둘 다 | 두 줄 (minidiscord 와 같다) |
 | 이 방의 봇이 아닌 이름 | 요청 전체 400 `<이름> 봇은 이 방에 초대되지 않았습니다` |
-| **(v2) 봉투 없음 (어느 방이든)** | **행 없음 — 봇에게 안 간다. 사람끼리의 글이다** (ADR-018 · minidiscord `targets.ts:16-27` 과 같다). 화면이 `@TO(<봇>)` 을 미리 채우고, 지우면 사람끼리 |
+| **(v2) 봉투 없음 (어느 방이든)** | **행 없음 — 봇에게 안 간다. 사람끼리의 글이다** (ADR-018 · minidiscord `targets.ts:16-27` 과 같다). ~~화면이 `@TO(<봇>)` 을 미리 채우고, 지우면 사람끼리~~ — 미리 채움은 되돌림(2026-09-15, ADR-018 상태). 입력칸은 비어 있고 봇은 `@` 로 부른다 |
 | ~~본방, 봉투 없음~~ | ~~`to` 한 줄 (사람 결정 — 화면이 `@TO(<봇>)` 을 기본으로 채워 주지만, 지워도 간다)~~ — **대체됨 → ADR-018** |
 | ~~파일방, 봉투 없음~~ | ~~행 없음 — 봇에게 안 간다 (minidiscord 와 같다)~~ — **대체됨 → ADR-015** (파일방이 없다. 규칙은 위 줄로 모든 방에 넓어졌다) |
 
@@ -385,17 +385,17 @@ canUseTool(toolName, input, { toolUseID, agentID, title, displayName, descriptio
 | `app.js` `renderRooms()` | 활성 방마다 보관 아이콘 | admin 에게만 보관 아이콘 | 보관은 admin (F22) |
 | `app.js` `loadBots` · `renderBots` · `createBot` · `deleteBot` | 있음 | 지운다 → `loadProjects()`(`GET /api/projects`, 새 함수) | R13 |
 | `app.js` `refreshRoomBots()` | `GET /api/rooms/:id/bots` → `[{bot_id, bot_name, online}]` | 네트워크 없이 `state.roomBots = glue.roomBotsOf(state.projects, state.currentRoomId)` — 같은 모양 `[{bot_id, bot_name, online}]`, `online` 은 세션 상태가 `idle · working · waiting_approval · starting` 이면 참 | 칩 · 자동완성(`onComposerInput` 은 `state.roomBots` 만 읽는다)을 한 줄도 안 고치고 살린다 |
-| `app.js` `openRoom(id)` | 1단계 방 흐름 닫기 · 9단계 방 흐름 열기 | 1단계 · 9단계는 흐름을 건드리지 않는다(앱 흐름 하나가 이미 열려 있다) · 9단계 뒤에 **작성기 미리 채움**(7.4) · 판이 그 방의 과제를 따른다(`panel.follow(project)`) | SSE 하나 (ADR-012) |
+| `app.js` `openRoom(id)` | 1단계 방 흐름 닫기 · 9단계 방 흐름 열기 | 1단계 · 9단계는 흐름을 건드리지 않는다(앱 흐름 하나가 이미 열려 있다) · ~~9단계 뒤에 작성기 미리 채움~~(되돌림 2026-09-15 · 7.4) · 판이 그 방의 과제를 따른다(`panel.follow(project)`) | SSE 하나 (ADR-012) |
 | `app.js` `openStream()` | `new EventSource('/api/rooms/:id/events')` · `message` 는 글 그대로 · `bot_status {bot_id, state}` | `openAppStream()` 로 이름을 바꾸고 로그인 뒤 **한 번** 연다: `new EventSource('/api/stream')`. `message {project, message}` 는 `glue.messageForRoom(data, state.currentRoomId)` 가 글을 돌려줄 때만 `renderMessage` · `bot_status {project, status}` 는 `glue.botMark(status)` 로 `working`/`idle` 로 바꿔 `markBotStatus(<그 과제 봇 id>, …)` · `room_created` · `room_archived` · `session_state` 는 `loadRooms()` · `loadProjects()` · `permission_*` · `session_event` · `partial` 은 판으로 넘김 · `open`(재연결) 백필은 그대로(`?after=state.lastEventId`) | cockpit 사건 모양 (8.2) |
 | `app.js` `markBotStatus(botId, botState)` | 그대로 | 그대로 (부르는 쪽이 바꿔 넘긴다) | — |
-| `app.js` `sendMessage()` | 성공하면 입력칸이 빈다 | 성공 뒤 **작성기 미리 채움**(7.4) | ADR-018 |
+| `app.js` `sendMessage()` | 성공하면 입력칸이 빈다 | ~~성공 뒤 작성기 미리 채움~~ — 되돌림(2026-09-15): **원본 그대로**(성공하면 입력칸이 빈다). 고친 함수 목록에서 빠졌다 | ADR-018 상태 |
 | `app.js` `onComposerInput()` | 그대로 · 봇마다 `TO` · `CC` 두 항목 | 첫 줄에 `glue.composerHint(box.value, botName)` 로 placeholder 만 바꾸는 한 줄 · 자동완성 항목은 `TO` 하나(`CC` 항목 뺌) | ADR-018 안내 글자 · 방마다 봇 하나라 `CC` 를 고를 일이 없다 (ADR-016 결과). 손으로 친 `@CC(…)` · `@CC` 칩 · 서버 봉투는 그대로. `style.css` 의 `.ac-kind.cc` 는 원본 구간 sha256 핀이라 남긴다(안 쓰임) |
 | `app.js` 리치 표면 블록 (`import … from './rich.js'` · `inviteNodes` · `showInviteError` · `hideInviteError` · `pickParticipant` · `showRegistration` · `initInvite`) | 있음 | import 를 `createRichContext, isImageFilename` 둘로 줄이고 나머지 여섯 함수를 지운다. `registerMessageDecorator(createRichContext)` 는 그대로 | R13 — 첨부 장식은 살린다 |
 | `style.css` 끝 | — | `/* ── cockpit 더함 (v2) ── */` 한 덩이(7.4) | ADR-019 |
 
-새 파일: `web/boot.js`(두 줄) · `web/glue.js`(아래 순수 함수, DOM 없음) · `web/panel.js`(접이식 판 몸통, DOM). `web/glue.js` 가 내는 함수: `roomBotsOf(projects, roomId)` · `projectOfRoom(projects, roomId)` · `messageForRoom(sseData, roomId)` · `botMark(status)`(`thinking`·`tool`·`approval` → `working`, `idle`·`stopped`·`error` → `idle`) · `composerDefault(bot)`(→ `@TO(<이름>) `) · `composerHint(value, botName)` · `panelOpenByDefault(role, saved)` · `pendingBadge(count)`.
+새 파일: `web/boot.js`(두 줄) · `web/glue.js`(아래 순수 함수, DOM 없음) · `web/panel.js`(접이식 판 몸통, DOM). `web/glue.js` 가 내는 함수: `roomBotsOf(projects, roomId)` · `projectOfRoom(projects, roomId)` · `messageForRoom(sseData, roomId)` · `botMark(status)`(`thinking`·`tool`·`approval` → `working`, `idle`·`stopped`·`error` → `idle`) · ~~`composerDefault(bot)`~~(2026-09-15 지움) · `composerHint(value, botName)` · `panelOpenByDefault(role, saved)` · `pendingBadge(count)`.
 
-### 7.4 더하는 것 둘 — 접이식 판 · 작성기 미리 채움
+### 7.4 더하는 것 — 접이식 판 · 작성기 안내 글자 (미리 채움은 2026-09-15 되돌림)
 
 **접이식 판 `#cockpit-panel` (ADR-019).**
 
@@ -415,7 +415,7 @@ canUseTool(toolName, input, { toolUseID, agentID, title, displayName, descriptio
 - CSS 는 `style.css` 끝 덩이에 `#cockpit-panel` · `.panel-section` · `#panel-toggle` 과 v1 `card.js` · `cockpit.js` · `files.js` 가 쓰는 클래스만. **색 · 글꼴 · 간격 · 모서리는 `var(--md-…)` 로만** — 빨강(훅 막힘 · `is_error`)은 `--md-status-error`, 켜짐은 `--md-status-online`.
 - 좁은 화면(`max-width: 900px`)에서는 판이 채팅 위에 겹쳐 뜬다 — 모바일 최적화는 범위 밖.
 
-**작성기 미리 채움 (ADR-018).** 방을 열 때(`openRoom` 9단계 뒤)와 보내기가 성공한 뒤, 입력칸이 비어 있으면 `glue.composerDefault(<그 방 봇>)` 을 넣고 커서를 끝에 둔다. 사람이 이미 친 글이 있으면 건드리지 않는다. 입력칸에 봉투(`@TO(`·`@CC(`)가 없으면 placeholder 가 "봇에게 가지 않습니다 — 부르려면 @" , 있으면 minidiscord 원래 글자 "메시지 보내기". 보관 방은 미리 채우지 않는다.
+**작성기 안내 글자 (ADR-018).** ~~방을 열 때(`openRoom` 9단계 뒤)와 보내기가 성공한 뒤, 입력칸이 비어 있으면 `glue.composerDefault(<그 방 봇>)` 을 넣고 커서를 끝에 둔다. 사람이 이미 친 글이 있으면 건드리지 않는다.~~ **미리 채움은 되돌림 (사람, 2026-09-15)** — 입력칸은 방을 열 때도 보낸 뒤에도 비어 있고, 봇은 `@` 자동완성(`TO` 한 줄 → `@TO(<봇>) `)으로 부른다. 입력칸에 봉투(`@TO(`·`@CC(`)가 없으면 placeholder 가 "봇에게 가지 않습니다 — 부르려면 @" , 있으면 minidiscord 원래 글자 "메시지 보내기". 보관 방은 미리 채우지 않는다.
 
 ### 7.5 v1 화면 파일의 운명
 

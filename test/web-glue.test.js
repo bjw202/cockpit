@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  botMark, composerDefault, composerHint, HINT_DEFAULT, HINT_NO_BOT, messageForRoom, prefillValue, projectOfRoom, roomBotsOf, toolLabel, toolSummary,
+  botMark, composerHint, HINT_DEFAULT, HINT_NO_BOT, messageForRoom, projectOfRoom, roomBotsOf, toolLabel, toolSummary,
 } from '../web/glue.js';
 import { currentTurnTools, toolRowView } from '../web/cockpit.js';
 
@@ -86,11 +86,6 @@ test('botMark: thinking · tool · approval → working, idle · stopped · erro
   for (const s of ['idle', 'stopped', 'error', 'off', undefined]) assert.equal(botMark(s), 'idle', String(s));
 });
 
-test('composerDefault 는 @TO(<봇 이름>) ', () => {
-  assert.equal(composerDefault({ id: 3, name: 'prodev-worktogether-비서' }), '@TO(prodev-worktogether-비서) ');
-  assert.equal(composerDefault(null), '');
-});
-
 test('composerHint: 봉투가 없으면 "봇에게 가지 않습니다 — 부르려면 @"', () => {
   assert.equal(HINT_NO_BOT, '봇에게 가지 않습니다 — 부르려면 @');
   assert.equal(composerHint(''), HINT_NO_BOT);
@@ -98,14 +93,6 @@ test('composerHint: 봉투가 없으면 "봇에게 가지 않습니다 — 부�
   assert.equal(composerHint('@TO(prodev-수율-bot) 봐 주세요'), HINT_DEFAULT);
   assert.equal(composerHint('참고 @CC(prodev-수율-bot)'), HINT_DEFAULT);
   assert.equal(composerHint('@TO(이름 공백)'), HINT_NO_BOT, '서버 봉투 정규식에 안 맞는 이름은 봉투가 아니다');
-});
-
-test('보관 방은 미리 채우지 않는다', () => {
-  const bot = projects[0].bot;
-  assert.equal(prefillValue({ value: '', bot, archived: true }), null);
-  assert.equal(prefillValue({ value: '', bot }), '@TO(prodev-수율-bot) ');
-  assert.equal(prefillValue({ value: '치던 글', bot }), null, '사람이 친 글은 건드리지 않는다');
-  assert.equal(prefillValue({ value: '', bot: null }), null);
 });
 
 test('rich.js 는 cockpit 🔒 요청 줄에 승인 단추를 그리지 않는다', () => {

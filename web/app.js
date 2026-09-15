@@ -306,11 +306,9 @@ export async function openRoom(id) {
   scrollMessages()
   // 8단계 — 초대 목록을 받아 캐시하고 봇 칩을 그린다
   await refreshRoomBots()
-  // 9단계 — (cockpit) 작성기에 @TO(봇) 을 미리 채운다 — 지우면 사람끼리의 글 (ADR-018) · 판이 이 방의 과제를 따른다 (ADR-019)
+  // 9단계 — (cockpit) 입력칸은 미리 채우지 않는다 — 봇은 @ 로 부른다 (ADR-018 되돌림) · 판이 이 방의 과제를 따른다 (ADR-019)
   if (generation !== state.roomGeneration) return
   const project = projectOfRoom(state.projects, id)
-  const fill = prefillValue({ value: $('msg-input').value, bot: project?.bot, archived: room?.status === 'archived' })
-  if (fill !== null) { $('msg-input').value = fill; refreshSendState() }
   $('msg-input').placeholder = composerHint($('msg-input').value)
   panelFollow(project?.name ?? null)
 }
@@ -830,9 +828,6 @@ export async function sendMessage() {
   try {
     await api(`/api/rooms/${state.currentRoomId}/messages`, { method: 'POST', body: form })
     clearPickedFiles()  // 성공했을 때만 비운다 — 실패하면 선택이 남아 다시 보내기로 그대로 나간다
-    // (cockpit) 보낸 뒤 입력칸이 비었으면 @TO(봇) 을 다시 채운다 (ADR-018)
-    const fill = prefillValue({ value: box.value, bot: projectOfRoom(state.projects, state.currentRoomId)?.bot, archived: false })
-    if (fill !== null) { box.value = fill; refreshSendState() }
   } catch (err) {
     notifyError(err)
     // 그 사이 사용자가 다음 메시지를 치고 있을 수 있다 — 빈 칸일 때만 되살린다 (plan.md §D 9번)
@@ -1120,7 +1115,7 @@ function notifyError(err) {
 // isImageFilename 은 SPEC-WEBRICH-001 이 이미 export 한다 — 작성기의 미리보기 판정과
 // 보낸 뒤의 표시 판정이 같은 자를 쓰도록, 새 판정 함수를 만들지 않고 이름 하나를 더 가져온다.
 import { createRichContext, isImageFilename } from './rich.js'   // (cockpit) 봇 참여 · 등록 명령 다이얼로그는 옮기지 않는다 (R13)
-import { botMark, composerHint, messageForRoom, prefillValue, projectOfRoom, roomBotsOf } from './glue.js'   // (cockpit) 잇는 순수 함수 (ARCHITECTURE 7.3)
+import { botMark, composerHint, messageForRoom, projectOfRoom, roomBotsOf } from './glue.js'   // (cockpit) 잇는 순수 함수 (ARCHITECTURE 7.3)
 import { initPanel, panelEvent, panelFollow } from './panel.js'   // (cockpit) 접이식 조종석 판 (ADR-019)
 import { renderMarkdown } from './markdown.js'
 

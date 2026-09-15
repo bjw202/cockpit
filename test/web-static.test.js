@@ -137,6 +137,12 @@ test('@ 자동완성 항목은 TO 하나 — CC 항목을 내지 않는다 (ADR-
   assert.doesNotMatch(body, /'CC'/);
 });
 
+test('입력칸을 @TO(봇) 으로 미리 채우지 않는다 — 방을 열 때도 보낸 뒤에도 (ADR-018 되돌림)', () => {
+  const fns = topFunctions(read('app.js'));
+  for (const name of ['openRoom', 'sendMessage']) assert.doesNotMatch(fns.get(name), /prefillValue|composerDefault|@TO\(/, name);
+  assert.doesNotMatch(read('glue.js'), /export (?:const|function) (?:composerDefault|prefillValue)\b/);
+});
+
 // 최상위 함수 — 줄 머리의 [export] [async] function 이름( 부터 다음 '}' 한 줄까지 (scratchpad port-web.mjs 가 원본 지문을 같은 자르기로 적었다)
 function topFunctions(src) {
   const lines = src.split('\n');
@@ -154,7 +160,8 @@ function topFunctions(src) {
 
 // ARCHITECTURE 7.3 표 — 이 밖의 함수를 고치면 여기서 빨갛다
 const TABLE_7_3 = {
-  changed: ['initApp', 'login', 'logout', 'onComposerInput', 'openRoom', 'refreshRoomBots', 'renderRooms', 'sendMessage'],
+  // sendMessage 는 미리 채움을 되돌려(2026-09-15, ADR-018 상태) 원본 그대로가 됐다
+  changed: ['initApp', 'login', 'logout', 'onComposerInput', 'openRoom', 'refreshRoomBots', 'renderRooms'],
   removed: ['createBot', 'deleteBot', 'hideInviteError', 'initInvite', 'inviteNodes', 'loadBots', 'openStream', 'pickParticipant', 'renderBots', 'showInviteError', 'showRegistration'],
   added: ['loadProjects', 'openAppStream'],
 };

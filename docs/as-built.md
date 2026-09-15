@@ -32,7 +32,7 @@ cockpit/
   src/permissions/relay.js
   web/index.html · app.js · rich.js · style.css · design-tokens.css   (v2) minidiscord 6633f7b 사본 — 머리에 출처 핀 (M5.5~M5.7)
   web/boot.js                  (v2) 켜기 두 줄 — 인라인 스크립트가 CSP 에 막혀서
-  web/glue.js                  (v2) 잇는 순수 함수 — 방 봇 칩 · 방 거르기 · 봇 상태 · 미리 채움 · 안내 글자 · 판 기본값 · 걸린 수
+  web/glue.js                  (v2) 잇는 순수 함수 — 방 봇 칩 · 방 거르기 · 봇 상태 · 안내 글자 · 판 기본값 · 걸린 수 (미리 채움은 2026-09-15 지움)
   web/panel.js                 (v2) 접이식 조종석 판 — 카드 · 조종석 · 파일 (DOM 몸통)
   web/card.js · cockpit.js · files.js   v1 에서 남는 순수 함수와 DOM 조각 (판이 쓴다)
   web/markdown.js              minidiscord 사본 (저장소 핀 dfa33c3 — 6633f7b 안에서도 같은 sha256)
@@ -198,7 +198,7 @@ M1~M4 판의 요지는 git 이력의 이 파일 M4 판에 있다 (`git show 59f3
 | `걸음 셋짜리 대본: exit 0 · 기록 JSONL 에 bot.message_id 가 셋` (contract/replay-js) | `걸음 셋짜리 대본(방 하나): exit 0 · 기록 JSONL 에 bot.message_id 가 셋` | 대본 걸음이 전부 본방 · `@TO` |
 | `첨부가 이름 그대로 올라간다` (contract/replay-js) | `첨부가 이름 그대로 올라간다(본방)` | 같음 |
 | `innerHTML 대입이 markdown.js 밖에 없다` (web-static) | `innerHTML 대입은 markdown.js 밖에서 빈 문자열뿐` (web-static) | minidiscord app.js 가 목록을 `innerHTML = ''` 로 비운다 |
-| `본방 입력칸 기본값은 @TO(<그 과제 봇의 실제 이름>) ` (web-chat, 지움) | `composerDefault 는 @TO(<봇 이름>) ` · `보관 방은 미리 채우지 않는다` (web-glue) | ADR-018 미리 채움은 glue.js |
+| `본방 입력칸 기본값은 @TO(<그 과제 봇의 실제 이름>) ` (web-chat, 지움) | ~~`composerDefault 는 @TO(<봇 이름>) ` · `보관 방은 미리 채우지 않는다` (web-glue)~~ → `입력칸을 @TO(봇) 으로 미리 채우지 않는다 — 방을 열 때도 보낸 뒤에도 (ADR-018 되돌림)` (web-static, 2026-09-15) | 미리 채움은 되돌렸다 (ADR-018 상태) |
 | `[카드] 첫 줄 강조` (web-chat, 지움) | 없음 | ADR-016 결과 — minidiscord 화면에 없는 v1 장식은 채팅에서 뺐다 |
 | `system 🔒 글 모양` (web-chat, 지움) | `rich.js 는 cockpit 🔒 요청 줄에 승인 단추를 그리지 않는다` (web-glue) | 🔒 줄은 minidiscord renderMessage 가 system 글로 그린다(원본 그대로) |
 | `상태 칩 넷(생각 중 · 도구 실행 중 · 승인 대기 · 꺼짐)` (web-chat, 지움) | `botMark: thinking · tool · approval → working, idle · stopped · error → idle` · `online 은 idle · working · waiting_approval · starting 이면 참` (web-glue) | minidiscord 봇 칩(🟢/⚪ · 입력 중…)으로 바뀌었다 |
@@ -221,7 +221,7 @@ minidiscord 화면은 jsdom 시험(형제 SPEC 의 수용 기준)으로 덮여 �
 | `initApp` 새 방 단추 admin 만 · `renderRooms` 보관 아이콘 admin 만 | AC-WEBUI-001 방 행 세 조각과 이름 분해 · AC-WEBUI-002 꼬리는 줄지 않는다 · AC-WEBUI-003 행 높이 · AC-WEBUI-004 보관 컨트롤은 키보드로 닿는다 — 방 행 조립(`roomNameSpans` · `splitRoomName`)은 원본 그대로, 보관 아이콘은 member 화면에 안 붙는다(5절) | 함수 비교(`renderRooms` 는 조건 한 줄 · `roomNameSpans` · `splitRoomName` 원본 그대로) · rooms-create `member 는 403` · rooms-archive `member 403` |
 | `refreshRoomBots` — 칩 · 자동완성 재료를 과제 목록에서 | AC-WEBACNAV-001~008 (배지 · 선택 · 감김 · Escape · IME · 멘션 불가 행 · 마우스 · CSS 토큰) — 소비하는 `onComposerKeyDown` · `acItems` · `applySelection` · `commitSelected` · `moveSelection` · `commitMention` · `renderRoomBots` 는 원본 그대로 | `roomBotsOf: 방의 봇 하나를 [{bot_id, bot_name, online}] 로` · `online 은 idle · working · waiting_approval · starting 이면 참` · 함수 비교 |
 | `openRoom` 1 · 9단계 · `openStream` → `openAppStream` | (기준 목록 밖 — SPEC-WEBCHAT 의 스트림) · AC-WEBUI-006 메시지 세 직계 자식 · AC-WEBUI-007 아바타 색 · AC-WEBUI-008 봇 배지 · AC-WEBUI-009 이어짐 행 — `renderMessage` · `sameTurn` · `avatarColorClass` · `displayTime` 원본 그대로 | `messageForRoom: 다른 방 글은 null` · `botMark: …` · sse `사건마다 id` 등 넷 · 함수 비교 |
-| `sendMessage` · `onComposerInput` — 미리 채움 · 안내 글자 | AC-WEBUI-010 작성기는 한 덩어리 · AC-WEBUI-011 보낼 것이 없을 때의 보내기 버튼(미리 채운 뒤 `refreshSendState` 를 부른다) | `composerDefault 는 @TO(<봇 이름>) ` · `composerHint: 봉투가 없으면 …` · `보관 방은 미리 채우지 않는다` · 함수 비교(`refreshSendState` 원본 그대로) |
+| `onComposerInput` — 안내 글자 · 자동완성 `TO` 하나 (~~`sendMessage` 미리 채움~~ — 2026-09-15 되돌림, `sendMessage` 는 원본 그대로) | AC-WEBUI-010 작성기는 한 덩어리 · AC-WEBUI-011 보낼 것이 없을 때의 보내기 버튼 · AC-WEBCHAT-010 자동완성 삽입 형태(`CC` 항목은 뺐다, ADR-016 덧붙임) | `composerHint: 봉투가 없으면 …` · `@ 자동완성 항목은 TO 하나 — CC 항목을 내지 않는다 (ADR-016 덧붙임)` · `입력칸을 @TO(봇) 으로 미리 채우지 않는다 — 방을 열 때도 보낸 뒤에도 (ADR-018 되돌림)` · 함수 비교(`sendMessage` · `refreshSendState` 원본 그대로) |
 | `#panel-toggle` · `#cockpit-panel` · `style.css` 끝 판 덩이 | AC-WEBACNAV-008 "CSS 는 토큰만 쓴다" 와 같은 규칙 · AC-WEBUI-015 금지 목록은 기준선으로 잰다 · AC-WEBUI-016 계약문이 코드에 되쓰였다 | `index.html 에 #cockpit-panel 하나 · #panel-toggle 하나` · `style.css 의 cockpit 덩이는 색을 var(--md-…) 로만 쓴다(# 색 · rgb( · hsl( 없음)` · `panelOpenByDefault: …` · `pendingBadge: …` |
 | **안 고친 파일** `design-tokens.css` · `rich.js` · `markdown.js` · `style.css` 원본 구간 · `app.js` 의 안 고친 함수 전부 | AC-WEBMD-001~016 (마크다운 렌더 · URL 스킴 · 폴백 · 입력 상한 · CSS 계약 · 모듈 표면 · 회귀) · AC-WEBMD2-001~008 (본문 `@TO`/`@CC` 배지) · AC-WEBATT-001~013 (붙여넣기 · 캡쳐 이름 · 끌어놓기 · 썸네일 · 객체 URL 수명 · 비회귀) · 토큰 34 | **sha256 동일성**: `design-tokens.css 는 머리 줄을 빼면 원본 sha256 과 같고 --md- 토큰이 34` · `rich.js 는 머리 줄을 빼면 원본 sha256 과 같다` · `style.css 의 원본 구간(머리 줄 뒤 965줄)은 원본 sha256 과 같다` · `markdown.js 사본은 머리의 출처 핀 · sha256 이 본문과 맞다` · **함수 지문**: `app.js 에서 원본과 본문이 달라진 최상위 함수는 ARCHITECTURE 7.3 표의 것뿐` — `onComposerPaste` · `onComposerDrop` · `renderPickedFiles` · `thumbUrl` · `revokeThumbUrl` · `installDocumentDropGuard` 등 WEBATT 가 재던 함수가 원본 지문 그대로임을 센다 |
 

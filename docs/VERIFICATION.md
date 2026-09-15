@@ -40,7 +40,7 @@ cockpit 의 절반은 **정해진 입력에 정해진 출력**이다(봉투 · �
 | `test/permissions.test.js` | M2 | 요청 키 · 도우미 둘 · 동시 답 · member 403 · 시간 초과 · allow_session · 두 깃발 · abort · 🔒 글 | B |
 | `test/web-static.test.js` | M2 · M5.5~M5.7 | 외부 URL 0 · type=module · innerHTML 자리 · markdown.js 핀 · (v2) 토큰 파일 sha256 · 토큰 34 · rich.js sha256 · style.css 원본 구간 · 머리 핀 · 인라인 script 0 · `/api/bots` 0 · 비밀번호 칸 · app.js 고친 함수 = 7.3 표 · 판 요소 · 판 CSS 토큰만 | A |
 | ~~`test/web-chat.test.js` · `test/web-tabs.test.js`~~ | M2 · M3 → **M5.8 에서 지움** | 대체 → `test/web-glue.test.js` | — |
-| `test/web-glue.test.js` | M5.6 · M5.7 | (v2) 방 봇 칩 재료 · 방 거르기 · 봇 상태 바꾸기 · 미리 채움 · 안내 글자 · 판 기본값 · 걸린 수 · rich.js 단추 안 그림 | A |
+| `test/web-glue.test.js` | M5.6 · M5.7 | (v2) 방 봇 칩 재료 · 방 거르기 · 봇 상태 바꾸기 · 안내 글자(미리 채움 시험은 2026-09-15 지움 → web-static) · 판 기본값 · 걸린 수 · rich.js 단추 안 그림 | A |
 | `test/web-card.test.js` | M2 | 화면 순수 함수 (v2 접이식 판이 그대로 쓴다) | A |
 | `test/http-projects.test.js` | M2 · M5.3 | 과제 열기 · (v2) 방 하나 | A |
 | `test/events.test.js` · `test/web-cockpit.test.js` | M3 | 사건 접기 · 조종석 판 (v2 접이식 판이 그대로 쓴다) | A · B |

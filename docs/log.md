@@ -354,3 +354,18 @@ W2 관문에 필요하다고 한 넷: `serve --config` 로 서버가 뜬다 · `
 **그대로 둔 것.** 서버 `@CC` 봉투 · 지시문 · 글 속 `@CC` 칩(손으로 치면 간다). `style.css` 의 `.ac-kind.cc` 는 원본 구간 965줄 sha256 핀 안이라 남겼다(안 쓰임).
 
 **확인.** `npm test` 216 통과. `~/cockpit-try/cockpit.json` 으로 `serve`(3000) 를 띄워 헤드리스 Chromium 으로 본방에서 `@` 를 치니 항목 `["TO prodev-수율개선-비서"]` 하나 · Enter 뒤 입력칸 `@TO(prodev-수율개선-비서) `. 그 자리에서 사람 요청으로 `김피엘` 비밀번호를 바꿨다(시험 데이터, 값은 여기 안 적음).
+
+## 2026-09-15 — 입력칸 `@TO(봇)` 미리 채움 되돌림 (ADR-018 일부)
+
+사람의 첫 요구는 두 가지였다: "대화창에 디폴트로 있는 @봇이름 은 지우고, @ 목록에서도 cc 는 지우는 작업이다. 사용성에 불필요해서이다. TO 만 남겼다" (meta-49 가 옮긴 원문 · 이 세션에서 사람이 "지금 다 수정된거 아니야?" 로 확인). 앞 절(94beb86)은 두 번째 말 "그래, 지우고, CC 항목은 빼자" 를 CC 만으로 좁게 읽어 미리 채움을 남겼다. 이 절이 나머지다.
+
+**바뀐 동작.** 방을 열 때도 · 글을 보낸 뒤에도 입력칸이 비어 있다. 안내 글자는 "봇에게 가지 않습니다 — 부르려면 @" 가 곧바로 보인다. 봇은 `@` → `TO <봇>` 한 줄 → Enter 로 `@TO(<봇>) ` 을 넣어 부른다. 봉투 없는 글은 지금처럼 사람끼리(봇에게 안 감). 서버 봉투 규칙 · `@CC` 는 그대로.
+
+**고친 것.**
+- `web/app.js` — `openRoom` 9단계의 미리 채움 두 줄 · `sendMessage` 성공 뒤 두 줄 · `prefillValue` import 를 지웠다. `sendMessage` 는 원본 minidiscord 와 글자가 같아졌다.
+- `web/glue.js` — `composerDefault` · `prefillValue` 지움.
+- 시험: web-glue `composerDefault 는 @TO(<봇 이름>) ` · `보관 방은 미리 채우지 않는다` 지움. web-static 에 `입력칸을 @TO(봇) 으로 미리 채우지 않는다 — 방을 열 때도 보낸 뒤에도 (ADR-018 되돌림)` 더함. `TABLE_7_3.changed` 에서 `sendMessage` 뺌.
+- 문서: ADR-018 제목 · 상태(미리 채움만 되돌림) · ADR-016 덧붙임 · PRD F15 · ARCHITECTURE 4.3 · 7.3(`openRoom` · `sendMessage` · glue 함수 목록) · 7.4 · TASKS M5.6 · as-built(35 · 4.3 · 4.4) · VERIFICATION. 옛 문장은 줄을 긋고 남겼다.
+- **README.md · ARCHITECTURE_EXPLANATION.md 는 손대지 않았다** — meta 가 맡는다(README 301 "입력칸에 `@TO(…)` 가 미리 채워져 있고" · 걸음 · 시나리오, EXPLANATION 520).
+
+**확인.** `npm test` 215 통과(미리 채움 시험 둘 지움 · 하나 더함). 떠 있던 `serve`(`~/cockpit-try`, 3000) 에 헤드리스 Chromium: 방을 연 뒤 입력칸 `""` · 안내 글자 `봇에게 가지 않습니다 — 부르려면 @` · 자동완성 `["TO prodev-수율개선-비서"]` · 봉투 없는 글 하나를 보낸 뒤 입력칸 `""`. 그 글("미리 채움 되돌림 확인 — 사람끼리 글(봇에게 안 감)")은 시험 데이터 본방에 남았다.
